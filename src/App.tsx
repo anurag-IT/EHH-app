@@ -16,7 +16,9 @@ import {
   Flag,
   X,
   Camera,
-  MoreHorizontal
+  MoreHorizontal,
+  MapPin,
+  Smile
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Admin from "./pages/Admin";
@@ -31,16 +33,25 @@ interface User {
   role: "USER" | "ADMIN";
 }
 
+interface Comment {
+  id: number;
+  text: string;
+  user: User;
+  createdAt: string;
+}
+
 interface Post {
   id: number;
   userId: number;
   user: User;
   imagePath: string;
   caption: string;
+  location?: string;
   sha256: string;
   phash: string;
   parentId: number | null;
   parent?: Post;
+  comments?: Comment[];
   createdAt: string;
 }
 
@@ -121,7 +132,7 @@ export default function App() {
               >
                 <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
               </motion.div>
-              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-800 mb-2 tracking-tight">Smart Social - EHH</h1>
+              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-800 mb-2 tracking-tight">EHH</h1>
               <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-[10px]">Earth for Human and Humanity</p>
             </div>
             
@@ -251,6 +262,9 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [liked, setLiked] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
 
   const handleReport = async () => {
     const user = JSON.parse(localStorage.getItem("social_user") || "{}");
@@ -261,6 +275,19 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
       setReportReason("");
     } catch {
       alert("Failed to submit report");
+    }
+  };
+
+  const handleComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    const user = JSON.parse(localStorage.getItem("social_user") || "{}");
+    try {
+      const res = await axios.post(`/api/posts/${post.id}/comment`, { text: commentText }, { headers: { 'x-user-id': user.id } });
+      setPostComments([...postComments, res.data]);
+      setCommentText("");
+    } catch {
+      alert("Comment failed");
     }
   };
 
@@ -326,8 +353,13 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
         <div className="flex items-center gap-3">
           <img src={post.user.avatar || ""} className="w-10 h-10 rounded-full object-cover border border-gray-100" />
           <div>
-            <div className="font-bold text-sm">{post.user.name}</div>
-            <div className="text-[10px] text-gray-400 font-mono tracking-tighter">{post.user.uniqueId}</div>
+            <div className="font-bold text-sm tracking-tight">{post.user.name}</div>
+            {post.location && (
+              <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium">
+                <MapPin size={10} className="text-green-600" />
+                {post.location}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -374,7 +406,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               )}
             </motion.button>
             
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={fetchChain} className="text-gray-800 hover:text-green-500 transition-colors">
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowComments(true)} className="text-gray-800 hover:text-green-500 transition-colors">
               <MessageCircle size={24} />
             </motion.button>
             
@@ -385,6 +417,18 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
             <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleRepost} className="text-gray-800 hover:text-blue-500 transition-colors">
               <Repeat2 size={24} />
             </motion.button>
+
+            {JSON.parse(localStorage.getItem("social_user") || "{}").role === "ADMIN" && (
+              <motion.button 
+                whileHover={{ scale: 1.1 }} 
+                whileTap={{ scale: 0.9 }} 
+                onClick={fetchChain} 
+                className="ml-auto text-blue-500 bg-blue-50 p-2 rounded-xl"
+                title="Admin: Tracking Chain"
+              >
+                <ShieldAlert size={20} />
+              </motion.button>
+            )}
           </div>
         </div>
 
@@ -402,12 +446,13 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
           </div>
         )}
 
-        <div className="text-[10px] text-gray-300 uppercase font-bold tracking-widest">
-          {new Date(post.createdAt).toLocaleDateString()}
+        <div className="text-[10px] text-gray-300 uppercase font-bold tracking-widest flex justify-between items-center">
+          <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+          {postComments.length > 0 && <button onClick={() => setShowComments(true)} className="text-green-600 font-bold hover:underline">View {postComments.length} comments</button>}
         </div>
       </div>
 
-      {/* Chain Modal */}
+      {/* Chain Modal (Admin Only) */}
       <AnimatePresence>
         {showChain && (
           <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
@@ -435,6 +480,57 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
                     </div>
                   </div>
                 ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Comments Modal */}
+      <AnimatePresence>
+        {showComments && (
+          <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden max-h-[85vh] flex flex-col"
+            >
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="font-bold text-lg">Comments</h3>
+                <button onClick={() => setShowComments(false)}><X size={24} /></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {postComments.length === 0 ? (
+                  <div className="text-center text-gray-400 py-10 italic">No comments yet. Be the first!</div>
+                ) : (
+                  postComments.map((c) => (
+                    <div key={c.id} className="flex gap-4">
+                      <img src={c.user.avatar} className="w-8 h-8 rounded-full border border-gray-100" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-sm">{c.user.name}</span>
+                          <span className="text-[10px] text-gray-400">{new Date(c.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{c.text}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="p-6 border-t border-gray-100 bg-gray-50">
+                <form onSubmit={handleComment} className="flex gap-4">
+                  <input 
+                    type="text" 
+                    placeholder="Add a comment..." 
+                    className="flex-1 px-5 py-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                  />
+                  <button type="submit" className="bg-green-600 text-white px-6 rounded-xl font-bold hover:bg-green-700 transition-colors text-sm">Post</button>
+                </form>
               </div>
             </motion.div>
           </div>
@@ -471,7 +567,11 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showEmojis, setShowEmojis] = useState(false);
+
+  const emojis = ["😊", "🔥", "❤️", "✨", "🙌", "📍", "📷", "🌟", "☘️", "🌈", "🦋", "🍃"];
 
   const handleUpload = async () => {
     if (!file) return;
@@ -480,9 +580,10 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
     formData.append("image", file);
     formData.append("userId", userId.toString());
     formData.append("caption", caption);
+    formData.append("location", location);
 
     try {
-      await axios.post("/api/posts", formData);
+      await axios.post("/api/posts", formData, { headers: { 'x-user-id': userId } });
       onComplete();
     } catch (err) {
       alert("Upload failed");
@@ -492,42 +593,88 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-      <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-        <h2 className="text-2xl font-bold mb-6">Create New Post</h2>
-        
-        <div 
-          className="aspect-square bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-all overflow-hidden relative"
-          onClick={() => document.getElementById("post-file")?.click()}
-        >
-          {preview ? (
-            <img src={preview} className="w-full h-full object-cover" />
-          ) : (
-            <>
-              <PlusSquare size={48} className="text-gray-300 mb-2" />
-              <p className="text-gray-400 font-medium">Select Image</p>
-            </>
-          )}
-          <input id="post-file" type="file" className="hidden" onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) { setFile(f); setPreview(URL.createObjectURL(f)); }
-          }} />
-        </div>
-
-        <div className="mt-6 space-y-4">
-          <textarea 
-            placeholder="Write a caption..." 
-            className="w-full p-4 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-black/5 outline-none resize-none h-32"
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-          />
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-2xl overflow-hidden">
+        <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+          <h2 className="text-2xl font-black tracking-tight text-gray-800">Create New Post</h2>
           <button 
             disabled={!file || loading}
             onClick={handleUpload}
-            className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50"
+            className="bg-green-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-green-700 transition-all disabled:opacity-30 disabled:grayscale shadow-lg shadow-green-500/20"
           >
-            {loading ? "Posting..." : "Share Post"}
+            {loading ? "Sharing..." : "Share"}
           </button>
+        </div>
+        
+        <div className="flex flex-col md:flex-row h-[600px]">
+          {/* Image Selection Area */}
+          <div 
+            className="flex-1 bg-gray-50 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-all overflow-hidden relative border-r border-gray-50"
+            onClick={() => document.getElementById("post-file")?.click()}
+          >
+            {preview ? (
+              <img src={preview} className="w-full h-full object-cover" />
+            ) : (
+              <div className="text-center p-12">
+                <div className="w-20 h-20 bg-white rounded-3xl shadow-sm flex items-center justify-center mx-auto mb-6 border border-gray-100">
+                   <PlusSquare size={40} className="text-green-600" />
+                </div>
+                <p className="text-gray-800 font-bold text-lg mb-1">Select from computer</p>
+                <p className="text-gray-400 text-sm">Upload high quality photos for better engagement</p>
+              </div>
+            )}
+            <input id="post-file" type="file" className="hidden" onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) { setFile(f); setPreview(URL.createObjectURL(f)); }
+            }} />
+          </div>
+
+          {/* Details Area */}
+          <div className="w-full md:w-[350px] p-8 space-y-8 bg-white flex flex-col">
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-black text-gray-400 tracking-widest pl-1">Caption</label>
+              <div className="relative">
+                <textarea 
+                  placeholder="What's on your mind?..." 
+                  className="w-full p-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-green-500/20 outline-none resize-none h-40 text-sm"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                />
+                <button 
+                  onClick={() => setShowEmojis(!showEmojis)}
+                  className="absolute bottom-4 right-4 p-2 text-gray-400 hover:text-green-600 transition-colors"
+                >
+                  <Smile size={20} />
+                </button>
+              </div>
+
+              {showEmojis && (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-100">
+                  {emojis.map(e => (
+                    <button key={e} onClick={() => { setCaption(caption + e); setShowEmojis(false); }} className="text-lg hover:scale-125 transition-transform">{e}</button>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-black text-gray-400 tracking-widest pl-1">Location</label>
+              <div className="relative group">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-green-600 transition-colors" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="Add location..." 
+                  className="w-full pl-12 pr-6 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-green-500/20 outline-none text-sm transition-all"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 flex items-end">
+              <p className="text-[10px] text-gray-400 leading-relaxed italic">Your post will be analyzed for safety and tracking identity using EHH Smart Tracking System.</p>
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>

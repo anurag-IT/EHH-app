@@ -136,6 +136,19 @@ app.post("/api/users/login", async (req, res) => {
 });
 
 // --- POSTS ---
+app.get("/api/posts", async (req, res) => {
+  try {
+    const posts = await prisma.post.findMany({
+      include: {
+        user: true,
+        parent: { include: { user: true } },
+        comments: {
+          include: { user: true },
+          orderBy: { createdAt: "asc" }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+    });
     res.json(posts);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -165,9 +178,31 @@ app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res) => {
   }
 });
 
+app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res) => {
+  try {
+    const { text } = req.body;
+    const postId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+
+    if (!text) return res.status(400).json({ error: "Comment text is required" });
+
+    const comment = await prisma.comment.create({
+      data: {
+        text,
+        postId,
+        userId
+      },
+      include: { user: true }
+    });
+    res.json(comment);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req: any, res) => {
   try {
-    const { userId, caption, parentId } = req.body;
+    const { userId, caption, location, parentId } = req.body;
     if (!req.file && !parentId) return res.status(400).json({ error: "Image required" });
 
     let imagePath = "";
@@ -194,13 +229,14 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
       data: {
         userId: parseInt(userId),
         caption,
+        location: req.body.location || null,
         imagePath,
         sha256,
         phash,
         hash,
         parentId: parentId ? parseInt(parentId) : null,
-      },
-      include: { user: true }
+      } as any,
+      include: { user: true, comments: true }
     });
     res.json(post);
   } catch (error: any) {

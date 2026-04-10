@@ -46,6 +46,7 @@ model Post {
   parent          Post?           @relation("Reposts", fields: [parentId], references: [id])
   reposts         Post[]          @relation("Reposts")
   createdAt       DateTime        @default(now())
+  location        String?
   flags           FlaggedContent[]
   likes           Like[]
   comments        Comment[]
