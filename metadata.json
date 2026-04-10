@@ -1,0 +1,5 @@
+{
+  "name": "Smart Social Image Tracking System",
+  "description": "A modern social media platform with image tracking, perceptual hashing, and repost chains.",
+  "requestFramePermissions": []
+}
