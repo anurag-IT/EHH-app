@@ -431,11 +431,10 @@ app.post("/admin/users/:id/unban", checkAdminMode, async (req: any, res) => {
   }
 });
 
-app.post("/api/posts/:id/like", async (req, res) => {
+app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res) => {
   try {
     const postId = parseInt(req.params.id);
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "Missing userId" });
+    const userId = req.currentUser.id;
     const existing = await prisma.like.findUnique({
       where: { userId_postId: { userId, postId } }
     });
@@ -452,26 +451,13 @@ app.post("/api/posts/:id/like", async (req, res) => {
   }
 });
 
-app.post("/api/posts/:id/comment", async (req, res) => {
-  try {
-    const postId = parseInt(req.params.id);
-    const { text, userId } = req.body;
-    if (!text || !userId) return res.status(400).json({ error: "Missing text or userId" });
-    const comment = await prisma.comment.create({
-      data: { text, userId, postId },
-      include: { user: true }
-    });
-    res.json(comment);
-  } catch (error: any) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
-app.post("/api/posts/:id/report", async (req, res) => {
+
+app.post("/api/posts/:id/report", checkUserRestriction, async (req: any, res) => {
   try {
     const postId = parseInt(req.params.id);
-    const { userId, reason } = req.body;
+    const userId = req.currentUser.id;
+    const { reason } = req.body;
     if (!reason) return res.status(400).json({ error: "Reason required" });
     
     // Auto-prioritize Harassment
@@ -479,7 +465,7 @@ app.post("/api/posts/:id/report", async (req, res) => {
                      reason === "Inappropriate Content" ? "MEDIUM" : "LOW";
                      
     const flag = await prisma.flaggedContent.create({
-      data: { postId, userId: userId || null, reason, priority, status: "PENDING" }
+      data: { postId, userId, reason, priority, status: "PENDING" }
     });
     res.json(flag);
   } catch (error: any) {

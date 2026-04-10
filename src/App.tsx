@@ -31,6 +31,9 @@ interface User {
   uniqueId: string;
   avatar: string;
   role: "USER" | "ADMIN";
+  status: "ACTIVE" | "BANNED" | "PERMANENT_BAN";
+  banReason?: string;
+  banUntil?: string;
 }
 
 interface Comment {
@@ -213,6 +216,24 @@ export default function App() {
 
       {/* Main Content */}
       <main className={view === "admin" ? "w-full" : "max-w-2xl mx-auto px-4 py-8"}>
+        {user && user.status !== "ACTIVE" && view !== "admin" && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-6 bg-red-50 border border-red-100 rounded-[2rem] flex items-center gap-5 shadow-sm"
+          >
+            <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center shrink-0">
+              <ShieldAlert className="text-red-600" size={28} />
+            </div>
+            <div>
+              <h3 className="text-red-900 font-black text-lg tracking-tight">Account Restricted</h3>
+              <p className="text-red-600 text-xs font-medium leading-relaxed opacity-80">
+                Your account is currently suspended for: <span className="font-bold underline decoration-red-300 underline-offset-2">{user.banReason || "Violation of community standards"}</span>. 
+                {user.banUntil ? ` Access to features will be restored on ${new Date(user.banUntil).toLocaleDateString()}.` : " This restriction is permanent."}
+              </p>
+            </div>
+          </motion.div>
+        )}
         <AnimatePresence mode="wait">
           {view === "feed" && (
             <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
@@ -346,6 +367,9 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
     }
   };
 
+  const isBanned = JSON.parse(localStorage.getItem("social_user") || "{}").status !== "ACTIVE";
+
+
   return (
     <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
       {/* Header */}
@@ -392,10 +416,11 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6 w-full justify-start">
             <motion.button 
-              whileHover={{ scale: 1.1 }} 
-              whileTap={{ scale: 0.9 }}
+              whileHover={!isBanned ? { scale: 1.1 } : {}} 
+              whileTap={!isBanned ? { scale: 0.9 } : {}}
               onClick={handleLike} 
-              className={`transition-colors ${liked ? "text-red-500" : "text-gray-800 hover:text-red-500"}`}
+              disabled={isBanned}
+              className={`transition-colors ${liked ? "text-red-500" : "text-gray-800 hover:text-red-500"} ${isBanned ? "opacity-30 cursor-not-allowed" : ""}`}
             >
               {liked ? (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}>
@@ -406,15 +431,33 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               )}
             </motion.button>
             
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowComments(true)} className="text-gray-800 hover:text-green-500 transition-colors">
+            <motion.button 
+              whileHover={!isBanned ? { scale: 1.1 } : {}} 
+              whileTap={!isBanned ? { scale: 0.9 } : {}} 
+              onClick={() => setShowComments(true)} 
+              className={`text-gray-800 hover:text-green-500 transition-colors ${isBanned ? "opacity-30 cursor-not-allowed" : ""}`}
+              disabled={isBanned}
+            >
               <MessageCircle size={24} />
             </motion.button>
             
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowReport(true)} className="text-gray-800 hover:text-red-500 transition-colors">
+            <motion.button 
+              whileHover={!isBanned ? { scale: 1.1 } : {}} 
+              whileTap={!isBanned ? { scale: 0.9 } : {}} 
+              onClick={() => setShowReport(true)} 
+              className={`text-gray-800 hover:text-red-500 transition-colors ${isBanned ? "opacity-30 cursor-not-allowed" : ""}`}
+              disabled={isBanned}
+            >
               <Flag size={24} />
             </motion.button>
 
-            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleRepost} className="text-gray-800 hover:text-blue-500 transition-colors">
+            <motion.button 
+              whileHover={!isBanned ? { scale: 1.1 } : {}} 
+              whileTap={!isBanned ? { scale: 0.9 } : {}} 
+              onClick={handleRepost} 
+              className={`text-gray-800 hover:text-blue-500 transition-colors ${isBanned ? "opacity-30 cursor-not-allowed" : ""}`}
+              disabled={isBanned}
+            >
               <Repeat2 size={24} />
             </motion.button>
 
@@ -524,12 +567,13 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
                 <form onSubmit={handleComment} className="flex gap-4">
                   <input 
                     type="text" 
-                    placeholder="Add a comment..." 
-                    className="flex-1 px-5 py-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm"
+                    disabled={isBanned}
+                    placeholder={isBanned ? "Commenting is restricted for your account" : "Add a comment..."}
+                    className={`flex-1 px-5 py-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-green-500/20 outline-none text-sm ${isBanned ? "opacity-30 cursor-not-allowed" : ""}`}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                   />
-                  <button type="submit" className="bg-green-600 text-white px-6 rounded-xl font-bold hover:bg-green-700 transition-colors text-sm">Post</button>
+                  <button type="submit" disabled={isBanned} className="bg-green-600 text-white px-6 rounded-xl font-bold hover:bg-green-700 transition-colors text-sm disabled:opacity-30">Post</button>
                 </form>
               </div>
             </motion.div>
@@ -572,9 +616,10 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
   const [showEmojis, setShowEmojis] = useState(false);
 
   const emojis = ["😊", "🔥", "❤️", "✨", "🙌", "📍", "📷", "🌟", "☘️", "🌈", "🦋", "🍃"];
+  const isBanned = JSON.parse(localStorage.getItem("social_user") || "{}").status !== "ACTIVE";
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || isBanned) return;
     setLoading(true);
     const formData = new FormData();
     formData.append("image", file);
@@ -598,7 +643,7 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
         <div className="p-8 border-b border-gray-50 flex items-center justify-between bg-white/50 backdrop-blur-sm sticky top-0 z-10">
           <h2 className="text-2xl font-black tracking-tight text-gray-800">Create New Post</h2>
           <button 
-            disabled={!file || loading}
+            disabled={!file || loading || isBanned}
             onClick={handleUpload}
             className="bg-green-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-green-700 transition-all disabled:opacity-30 disabled:grayscale shadow-lg shadow-green-500/20"
           >
@@ -810,12 +855,15 @@ function LostFoundPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const isBanned = JSON.parse(localStorage.getItem("social_user") || "{}").status !== "ACTIVE";
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isBanned) return;
     setLoading(true);
     try {
-      await axios.post("/api/messages/send", { uniqueId, messageText: message });
+      const user = JSON.parse(localStorage.getItem("social_user") || "{}");
+      await axios.post("/api/messages/send", { uniqueId, messageText: message }, { headers: { "x-user-id": user.id } });
       setSuccess(true);
       setMessage("");
       setUniqueId("");
@@ -828,43 +876,48 @@ function LostFoundPage() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto">
-      <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-        <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center mb-6">
-          <Bell size={24} />
+      <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden">
+        {isBanned && <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex items-center justify-center p-8 text-center">
+            <p className="text-red-500 font-bold bg-red-50 p-4 rounded-2xl border border-red-100">Messaging is restricted for banned accounts.</p>
+        </div>}
+        <div className={isBanned ? "opacity-20 select-none pointer-events-none" : ""}>
+          <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center mb-6">
+            <Bell size={24} />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Lost & Found</h2>
+          <p className="text-gray-400 text-sm mb-8">Send an anonymous message to any user using their unique EH-ID.</p>
+
+          <form onSubmit={handleSend} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Recipient ID</label>
+              <input 
+                type="text" 
+                required 
+                placeholder="EH-XXXXXX"
+                value={uniqueId}
+                onChange={(e) => setUniqueId(e.target.value.toUpperCase())}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none font-mono tracking-widest"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Message</label>
+              <textarea 
+                required 
+                placeholder="Your anonymous message..."
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none h-32 resize-none"
+              />
+            </div>
+            
+            {success && <p className="text-green-500 text-sm font-bold">Message sent successfully!</p>}
+
+            <button className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2">
+              <Send size={18} />
+              {loading ? "Sending..." : "Send Message"}
+            </button>
+          </form>
         </div>
-        <h2 className="text-2xl font-bold mb-2">Lost & Found</h2>
-        <p className="text-gray-400 text-sm mb-8">Send an anonymous message to any user using their unique EH-ID.</p>
-
-        <form onSubmit={handleSend} className="space-y-4">
-          <div>
-            <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Recipient ID</label>
-            <input 
-              type="text" 
-              required 
-              placeholder="EH-XXXXXX"
-              value={uniqueId}
-              onChange={(e) => setUniqueId(e.target.value.toUpperCase())}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none font-mono tracking-widest"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Message</label>
-            <textarea 
-              required 
-              placeholder="Your anonymous message..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none h-32 resize-none"
-            />
-          </div>
-          
-          {success && <p className="text-green-500 text-sm font-bold">Message sent successfully!</p>}
-
-          <button className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2">
-            <Send size={18} />
-            {loading ? "Sending..." : "Send Message"}
-          </button>
-        </form>
       </div>
     </motion.div>
   );

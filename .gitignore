@@ -1,8 +1,7 @@
 node_modules/
-build/
+.env
+uploads/
+prisma/dev.db
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
+build/
+mobile/node_modules/
