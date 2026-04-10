@@ -28,6 +28,7 @@ interface User {
   email: string;
   uniqueId: string;
   avatar: string;
+  role: "USER" | "ADMIN";
 }
 
 interface Post {
@@ -100,48 +101,71 @@ export default function App() {
 
   if (view === "auth") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-          <h1 className="text-3xl font-bold text-center mb-2 tracking-tight">Smart Social</h1>
-          <p className="text-gray-400 text-center mb-8 text-sm">Image Tracking & Identity System</p>
-          
-          <form onSubmit={handleAuth} className="space-y-4">
-            {authMode === "register" && (
-              <div>
-                <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Full Name</label>
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-gray-50">
+        {/* Background Decor */}
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-green-50 rounded-full blur-3xl opacity-50" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-50 rounded-full blur-3xl opacity-50" />
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full relative z-10"
+        >
+          <div className="bg-white/80 backdrop-blur-xl p-10 rounded-[2.5rem] shadow-2xl border border-white/20">
+            <div className="flex flex-col items-center mb-10">
+              <motion.div 
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+                className="mb-6 p-4 bg-white rounded-3xl shadow-lg border border-gray-100"
+              >
+                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
+              </motion.div>
+              <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-800 mb-2 tracking-tight">Smart Social - EHH</h1>
+              <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-[10px]">Earth for Human and Humanity</p>
+            </div>
+            
+            <form onSubmit={handleAuth} className="space-y-6">
+              {authMode === "register" && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-gray-400 ml-4 tracking-widest pl-1">Full Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl bg-gray-50 border border-transparent focus:border-green-500/30 focus:bg-white focus:ring-4 focus:ring-green-500/5 outline-none transition-all duration-300 placeholder:text-gray-300"
+                    placeholder="Enter your name"
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase text-gray-400 ml-4 tracking-widest pl-1">Email Address</label>
                 <input 
-                  type="text" 
+                  type="email" 
                   required 
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                  placeholder="John Doe"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-6 py-4 rounded-2xl bg-gray-50 border border-transparent focus:border-green-500/30 focus:bg-white focus:ring-4 focus:ring-green-500/5 outline-none transition-all duration-300 placeholder:text-gray-300"
+                  placeholder="name@example.com"
                 />
               </div>
-            )}
-            <div>
-              <label className="text-xs font-bold uppercase text-gray-400 mb-1 block">Email</label>
-              <input 
-                type="email" 
-                required 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black/5 outline-none transition-all"
-                placeholder="john@example.com"
-              />
+              
+              <button className="w-full bg-gradient-to-r from-green-600 to-emerald-700 text-white py-4 rounded-2xl font-extrabold shadow-lg shadow-green-500/20 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2">
+                {authMode === "login" ? "Sign In" : "Create Account"}
+              </button>
+            </form>
+            
+            <div className="mt-10 pt-8 border-t border-gray-100/50 flex flex-col items-center">
+              <button 
+                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+                className="text-sm text-gray-400 hover:text-green-600 font-medium transition-colors duration-300"
+              >
+                {authMode === "login" ? "Don't have an account? Join EHH" : "Already a member? Login"}
+              </button>
             </div>
-            <button className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all">
-              {authMode === "login" ? "Sign In" : "Create Account"}
-            </button>
-          </form>
-          
-          <button 
-            onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-            className="w-full mt-6 text-sm text-gray-500 hover:text-green-600 transition-colors"
-          >
-            {authMode === "login" ? "Don't have an account? Register" : "Already have an account? Login"}
-          </button>
-        </div>
+          </div>
+        </motion.div>
       </div>
     );
   }
@@ -162,7 +186,9 @@ export default function App() {
               <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={22} />} label="Create" />
               <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={22} />} label="Lost & Found" />
               <NavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={22} />} label="Profile" />
-              <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<ShieldAlert size={22} className="text-red-500" />} label="Dev Admin" />
+              {user?.role === "ADMIN" && (
+                <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<ShieldAlert size={22} className="text-red-500" />} label="Admin Dashboard" />
+              )}
             </div>
 
             <div className="flex items-center gap-4 shrink-0">
@@ -201,7 +227,9 @@ export default function App() {
         <button onClick={() => setView("upload")} className={view === "upload" ? "text-green-600" : "text-gray-300"}><PlusSquare size={24} /></button>
         <button onClick={() => setView("lostfound")} className={view === "lostfound" ? "text-green-600" : "text-gray-300"}><Bell size={24} /></button>
         <button onClick={() => setView("profile")} className={view === "profile" ? "text-green-600" : "text-gray-300"}><UserIcon size={24} /></button>
-        <button onClick={() => setView("admin")} className={view === "admin" ? "text-green-600" : "text-gray-300"}><ShieldAlert size={24} /></button>
+        {user?.role === "ADMIN" && (
+          <button onClick={() => setView("admin")} className={view === "admin" ? "text-green-600" : "text-gray-300"}><ShieldAlert size={24} /></button>
+        )}
       </nav>
       )}
     </div>
@@ -259,9 +287,22 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
   };
 
   const handleDeleteRelated = async () => {
+    const user = JSON.parse(localStorage.getItem("social_user") || "{}");
+    if (user.role !== "ADMIN") return;
     if (!confirm("Are you sure you want to delete this post and all its similar versions? (Moderation Action)")) return;
     try {
-      await axios.delete(`/api/posts/${post.id}/related`);
+      await axios.delete(`/api/posts/${post.id}/related`, { headers: { "x-user-id": user.id } });
+      onDelete();
+    } catch (err) {
+      alert("Globel delete failed");
+    }
+  };
+
+  const handleDeleteSingle = async () => {
+    const user = JSON.parse(localStorage.getItem("social_user") || "{}");
+    if (!confirm("Are you sure you want to delete this post?")) return;
+    try {
+      await axios.delete(`/api/posts/${post.id}`, { headers: { "x-user-id": user.id } });
       onDelete();
     } catch (err) {
       alert("Delete failed");
@@ -290,9 +331,16 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={handleDeleteRelated} className="text-gray-300 hover:text-red-500 transition-colors" title="Admin Force Delete">
-            <ShieldAlert size={18} />
-          </button>
+          {JSON.parse(localStorage.getItem("social_user") || "{}").role === "ADMIN" && (
+            <button onClick={handleDeleteRelated} className="text-gray-300 hover:text-red-500 transition-colors" title="Admin Global Delete">
+              <ShieldAlert size={18} />
+            </button>
+          )}
+          {(JSON.parse(localStorage.getItem("social_user") || "{}").id === post.userId || JSON.parse(localStorage.getItem("social_user") || "{}").role === "ADMIN") && (
+            <button onClick={handleDeleteSingle} className="text-gray-300 hover:text-red-500 transition-colors" title="Delete Post">
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
 

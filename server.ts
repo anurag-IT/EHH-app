@@ -136,16 +136,30 @@ app.post("/api/users/login", async (req, res) => {
 });
 
 // --- POSTS ---
-app.get("/api/posts", async (req, res) => {
-  try {
-    const posts = await prisma.post.findMany({
-      include: {
-        user: true,
-        parent: { include: { user: true } }
-      },
-      orderBy: { createdAt: "desc" },
-    });
     res.json(posts);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
+  
+  const userId = req.currentUser.id;
+  const userRole = req.currentUser.role;
+
+  try {
+    const post = await prisma.post.findUnique({ where: { id } });
+    if (!post) return res.status(404).json({ error: "Post not found" });
+
+    // Authorize: Owner or Admin
+    if (post.userId !== userId && userRole !== "ADMIN") {
+      return res.status(403).json({ error: "Unauthorized: You can only delete your own posts." });
+    }
+
+    await prisma.post.delete({ where: { id } });
+    res.json({ message: "Post deleted successfully" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
