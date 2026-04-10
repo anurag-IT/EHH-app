@@ -192,8 +192,24 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res) =
         postId,
         userId
       },
-      include: { user: true }
+      include: { user: true, post: { include: { user: true } } }
     });
+
+    // Create Notification
+    if (comment.post.userId !== userId) {
+      await prisma.notification.create({
+        data: {
+          userId: comment.post.userId,
+          senderId: userId,
+          senderName: comment.user.name,
+          senderAvatar: comment.user.avatar,
+          type: "COMMENT",
+          postId: postId,
+          content: "commented on your post"
+        }
+      });
+    }
+
     res.json(comment);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -455,11 +471,58 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res) => {
       await prisma.like.delete({ where: { id: existing.id } });
       res.json({ success: true, liked: false });
     } else {
-      await prisma.like.create({ data: { userId, postId } });
+      const like = await prisma.like.create({ 
+        data: { userId, postId },
+        include: { user: true, post: { include: { user: true } } }
+      });
+
+      // Create Notification
+      if (like.post.userId !== userId) {
+        await prisma.notification.create({
+          data: {
+            userId: like.post.userId,
+            senderId: userId,
+            senderName: like.user.name,
+            senderAvatar: like.user.avatar,
+            type: "LIKE",
+            postId: postId,
+            content: "liked your post"
+          }
+        });
+      }
+
       res.json({ success: true, liked: true });
     }
   } catch (error: any) {
     console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- NOTIFICATIONS ---
+app.get("/api/notifications/:userId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+    res.json(notifications);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/notifications/:id/read", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.notification.update({
+      where: { id },
+      data: { isRead: true }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });

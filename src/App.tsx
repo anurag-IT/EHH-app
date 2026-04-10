@@ -154,7 +154,7 @@ export default function App() {
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="mb-6 p-4 bg-slate-50 rounded-[2rem] border border-slate-100 shadow-sm"
               >
-                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto grayscale opacity-80 hover:opacity-100 transition-opacity" />
+                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto transition-opacity" />
               </motion.div>
               <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">Identity Access</h1>
               <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Protocol EHH-Mainframe</p>
@@ -220,8 +220,8 @@ export default function App() {
         <nav className="fixed top-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-100 z-[100] flex items-center shadow-sm">
           <div className="w-full max-w-[1920px] mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-4 cursor-pointer group" onClick={refreshHome}>
-              <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 group-hover:bg-slate-100 transition-all">
-                <img src="/logo.png" alt="Logo" className="h-8 w-auto grayscale opacity-70 group-hover:opacity-100" />
+              <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 transition-all">
+                <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
               </div>
             </div>
             
@@ -230,7 +230,8 @@ export default function App() {
               <NavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={20} />} label="Home" />
               <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={20} />} label="Search" />
               <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={20} />} label="Post" />
-              <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={20} />} label="Notifications" />
+              <NavButton active={view === "notifications"} onClick={() => setView("notifications")} icon={<Bell size={20} />} label="Notifications" />
+              <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Send size={20} />} label="Messages" />
               <NavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={20} />} label="Profile" />
             </div>
 
@@ -334,29 +335,55 @@ export default function App() {
               {/* Sidebar Right - Trends/Activity */}
               <div className="hidden lg:block lg:col-span-3 space-y-6">
                 <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                    <TrendingUp size={14} className="text-emerald-500" /> System Monitoring
-                  </h3>
-                  <div className="space-y-6">
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="flex justify-between items-baseline mb-2">
-                        <span className="text-2xl font-black text-slate-900">{posts.length}</span>
-                        <span className="text-[10px] font-bold text-emerald-600">+12%</span>
+                  {user?.role === "ADMIN" ? (
+                    <>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                        <TrendingUp size={14} className="text-emerald-500" /> System Monitoring
+                      </h3>
+                      <div className="space-y-6">
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="text-2xl font-black text-slate-900">{posts.length}</span>
+                            <span className="text-[10px] font-bold text-emerald-600">+12%</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Global Assets</div>
+                        </div>
+                        
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex justify-between items-baseline mb-2">
+                            <span className="text-2xl font-black text-slate-900">100%</span>
+                            <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Network Uptime</div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Global Assets</div>
-                    </div>
-                    
-                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="flex justify-between items-baseline mb-2">
-                        <span className="text-2xl font-black text-slate-900">100%</span>
-                        <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                        <Smile size={14} className="text-emerald-500" /> Network Insights
+                      </h3>
+                      <div className="space-y-6">
+                        <div className="p-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] text-white shadow-lg shadow-emerald-100">
+                          <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Verified Protocol</h4>
+                          <p className="text-[10px] opacity-80 mt-2 font-bold uppercase tracking-widest">Your connection is fully encrypted and secure.</p>
+                        </div>
+                        
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                           <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-slate-100">
+                                 <ImageIcon size={14} className="text-slate-900" />
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Community Hub</div>
+                           </div>
+                           <p className="text-xs font-bold text-slate-600 leading-relaxed uppercase">Join the global network and share identifiers with precision.</p>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Network Uptime</div>
-                    </div>
-                  </div>
+                    </>
+                  )}
                   
                   <div className="mt-8 pt-8 border-t border-slate-50">
-                    <p className="text-[10px] text-slate-300 leading-relaxed font-bold uppercase">System: v2.0 Professional<br/>Provider: EHH Secure</p>
+                    <p className="text-[10px] text-slate-300 leading-relaxed font-bold uppercase">System: v2.4 Professional<br/>Provider: EHH Secure</p>
                   </div>
                 </div>
               </div>
@@ -366,6 +393,7 @@ export default function App() {
           {view === "search" && <SearchPage />}
           {view === "upload" && <UploadPage onComplete={() => { fetchPosts(); setView("feed"); }} userId={user?.id || 0} />}
           {view === "profile" && user && <ProfilePage user={user} posts={posts.filter(p => p.userId === user.id)} onLogout={logout} />}
+          {view === "notifications" && <NotificationPage user={user!} />}
           {view === "lostfound" && <LostFoundPage />}
           {view === "admin" && <Admin onComplete={() => { fetchPosts(); setView("feed"); }} />}
         </AnimatePresence>
@@ -381,7 +409,8 @@ export default function App() {
               <PlusSquare size={28} />
             </button>
           </div>
-          <MobileNavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={24} />} />
+          <MobileNavButton active={view === "notifications"} onClick={() => setView("notifications")} icon={<Bell size={24} />} />
+          <MobileNavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Send size={24} />} />
           <MobileNavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={24} />} />
         </nav>
       )}
@@ -543,9 +572,19 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
         </div>
         <div className="flex items-center gap-2">
           {currentUser.role === "ADMIN" && (
-            <button onClick={handleDeleteRelated} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Purge Global Chain">
-              <ShieldAlert size={18} />
-            </button>
+            <>
+              <a 
+                href={`/uploads/${post.imagePath}`} 
+                download={`EHH_ASSET_${post.id}.jpg`}
+                className="p-2.5 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" 
+                title="Download Asset"
+              >
+                <PlusSquare size={18} className="rotate-180" />
+              </a>
+              <button onClick={handleDeleteRelated} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Purge Global Chain">
+                <ShieldAlert size={18} />
+              </button>
+            </>
           )}
           {(currentUser.id === post.userId || currentUser.role === "ADMIN") && (
             <button onClick={handleDeleteSingle} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Terminate Asset">
@@ -583,19 +622,6 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
             </motion.div>
           )}
         </AnimatePresence>
-
-        {post.parentId && (
-          <div className="absolute top-6 left-6 bg-white/60 backdrop-blur-xl border border-white/40 text-slate-900 text-[10px] font-black px-4 py-2 rounded-2xl flex items-center gap-2 tracking-[0.2em] shadow-sm">
-            <Repeat2 size={12} className="text-emerald-600" />
-            IDENTIFIED REPOST
-          </div>
-        )}
-
-        <div className="absolute bottom-6 right-6 flex flex-col gap-3 translate-y-4 opacity-0 group-hover/media:translate-y-0 group-hover/media:opacity-100 transition-all duration-500">
-           <div className="p-3 bg-white/80 backdrop-blur-xl border border-white/40 rounded-2xl text-[10px] font-black text-slate-400 tracking-widest uppercase shadow-sm">
-              SHA: {post.sha256.substring(0, 8)}...
-           </div>
-        </div>
       </div>
 
       {/* Interactions */}
@@ -1273,3 +1299,91 @@ function LostFoundPage() {
     </motion.div>
   );
 }
+
+interface AppNotification {
+  id: number;
+  userId: number;
+  senderName: string;
+  senderAvatar: string;
+  type: string;
+  content: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function NotificationPage({ user }: { user: User }) {
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await axios.get(`/api/notifications/${user.id}`);
+      setNotifications(res.data);
+    } catch (err) {
+      console.error("Failed to fetch notifications", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (id: number) => {
+    try {
+      await axios.post(`/api/notifications/${id}/read`);
+      setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } catch (err) {}
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto py-12">
+      <div className="flex items-center justify-between mb-12 px-4">
+        <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Notifications</h2>
+        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+           <Bell size={24} className="text-slate-900" />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {loading ? (
+          Array(5).fill(0).map((_, i) => (
+             <div key={i} className="h-24 w-full bg-slate-50 rounded-3xl animate-pulse" />
+          ))
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-20 bg-white border border-slate-100 rounded-[3rem]">
+            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Bell size={32} className="text-slate-200" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 uppercase">Silence in the Network</h3>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">New activity will appear here.</p>
+          </div>
+        ) : (
+          notifications.map((n) => (
+            <div 
+              key={n.id} 
+              onClick={() => markAsRead(n.id)}
+              className={`flex items-center gap-6 p-6 rounded-[2.5rem] border transition-all cursor-pointer ${n.isRead ? 'bg-white border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-xl shadow-slate-100 ring-2 ring-emerald-500/10'}`}
+            >
+              <div className="relative shrink-0">
+                <img src={n.senderAvatar} className="w-14 h-14 rounded-2xl object-cover border border-slate-100" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full flex items-center justify-center">
+                   {n.type === "LIKE" ? <Heart size={8} fill="white" className="text-white" /> : <MessageCircle size={8} fill="white" className="text-white" />}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                 <p className="text-sm text-slate-950 font-medium leading-relaxed">
+                   <span className="font-black uppercase tracking-tighter">@{n.senderName}</span> {n.content}
+                 </p>
+                 <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1 block">{new Date(n.createdAt).toLocaleDateString()}</span>
+              </div>
+              {!n.isRead && <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />}
+            </div>
+          ))
+        )}
+      </div>
+    </motion.div>
+  );
+}
+

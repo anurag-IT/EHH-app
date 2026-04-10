@@ -27,6 +27,7 @@ model User {
   flags        FlaggedContent[] // Content flagged by or related to this user
   likes        Like[]
   comments     Comment[]
+  notifications Notification[] @relation("UserNotifications")
 }
 
 model Post {
@@ -110,5 +111,19 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  senderId    Int?
+  senderName  String?
+  senderAvatar String?
+  type        String   // "LIKE", "COMMENT", "SYSTEM"
+  postId      Int?
+  content     String
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
