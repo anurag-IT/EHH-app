@@ -21,7 +21,7 @@ function getImageHash(filePath: string): Promise<string> {
 
 const prisma = new PrismaClient();
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 const uploadDir = path.join(process.cwd(), "uploads");
 if (!fs.existsSync(uploadDir)) {
@@ -337,18 +337,31 @@ app.get("/api/messages/:userId", async (req, res) => {
 
 async function findSimilarPostsToDelete(targetSha256: string, targetPhash: string, targetHash: string) {
   const allPosts = await prisma.post.findMany();
-  const matchedIds: number[] = [];
+  const matchedData: { id: number, matchType: string, distance: number }[] = [];
 
   for (const post of allPosts) {
-    if (
-      post.sha256 === targetSha256 ||
-      post.hash === targetHash ||
-      hammingDistance(post.phash, targetPhash) < 10
-    ) {
-      matchedIds.push(post.id);
+    let matchType = "";
+    let distance = 100;
+
+    if (post.sha256 === targetSha256) {
+      matchType = "SHA-256 (EXACT)";
+      distance = 0;
+    } else if (post.hash === targetHash) {
+      matchType = "IMAGE-HASH (STRONG)";
+      distance = 2;
+    } else {
+      const d = hammingDistance(post.phash, targetPhash);
+      if (d < 10) {
+        matchType = "P-HASH (VARIANT)";
+        distance = d;
+      }
+    }
+
+    if (matchType) {
+      matchedData.push({ id: post.id, matchType, distance });
     }
   }
-  return matchedIds;
+  return matchedData;
 }
 
 // --- ADMIN SYSTEM ---
@@ -521,8 +534,9 @@ app.post("/admin/flags/:id/resolve", checkAdminMode, async (req: any, res) => {
       if (!flag.post) return res.status(404).json({ error: "Original post no longer exists." });
       const post = flag.post;
       // We fall back to standard image hash/sha256 matching for wipes
-      const matchedIds = await findSimilarPostsToDelete(post.sha256, post.phash || "", post.hash || "");
-      if(matchedIds.length > 0) {
+      const matchedData = await findSimilarPostsToDelete(post.sha256, post.phash || "", post.hash || "");
+      if(matchedData.length > 0) {
+          const matchedIds = matchedData.map(m => m.id);
           const deleted = await prisma.post.deleteMany({ where: { id: { in: matchedIds } } });
           await prisma.flaggedContent.update({ where: { id }, data: { status: "APPROVED" } });
           await prisma.adminLog.create({
@@ -559,15 +573,23 @@ app.post("/admin/find-image", checkAdminMode, upload.single("image"), async (req
     const targetPhash = await getPHash(req.file.path);
     const targetHash = await getImageHash(req.file.path);
 
-    const matchedIds = await findSimilarPostsToDelete(targetSha256, targetPhash, targetHash);
+    const matchedData = await findSimilarPostsToDelete(targetSha256, targetPhash, targetHash);
     fs.unlinkSync(req.file.path);
 
-    if (matchedIds.length === 0) {
+    if (matchedData.length === 0) {
       return res.json({ postId: null, matchCount: 0, previewUrl: null });
     }
 
-    const representativePost = await prisma.post.findUnique({ where: { id: matchedIds[0] }, include: { user: true } });
-    res.json({ postId: representativePost?.id, matchCount: matchedIds.length, previewUrl: `/uploads/${representativePost?.imagePath}` });
+    const representativePost = await prisma.post.findUnique({ where: { id: matchedData[0].id }, include: { user: true } });
+    const similarity = Math.max(0, 100 - (matchedData[0].distance * 2)); // Dynamic similarity logic
+    
+    res.json({ 
+      postId: representativePost?.id, 
+      matchCount: matchedData.length, 
+      previewUrl: `/uploads/${representativePost?.imagePath}`,
+      matchType: matchedData[0].matchType,
+      similarity: `${similarity}%`
+    });
   } catch (err: any) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: "Failed to process image analysis." });
@@ -582,9 +604,10 @@ app.delete("/admin/delete/:id", checkAdminMode, async (req: any, res) => {
     const targetPost = await prisma.post.findUnique({ where: { id } });
     if (!targetPost) return res.status(404).json({ error: "Post not found" });
 
-    const matchedIds = await findSimilarPostsToDelete(targetPost.sha256, targetPost.phash, targetPost.hash);
-    if (matchedIds.length === 0) return res.status(404).json({ error: "No matching images found to delete." });
+    const matchedData = await findSimilarPostsToDelete(targetPost.sha256, targetPost.phash, targetPost.hash);
+    if (matchedData.length === 0) return res.status(404).json({ error: "No matching images found to delete." });
 
+    const matchedIds = matchedData.map(m => m.id);
     const deleted = await prisma.post.deleteMany({ where: { id: { in: matchedIds } } });
 
     await prisma.adminLog.create({
