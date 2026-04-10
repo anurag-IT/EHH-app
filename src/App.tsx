@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { 
-  Home, 
-  Search, 
-  PlusSquare, 
-  User as UserIcon, 
-  Heart, 
-  Repeat2, 
-  MessageCircle, 
-  Send, 
-  Trash2, 
+  LogOut,
+  Bell,
+  Home,
+  Search,
+  PlusSquare,
+  User as UserIcon,
+  Heart,
+  Repeat2,
+  MessageCircle,
+  Send,
+  Trash2,
   ShieldAlert,
   Flag,
   X,
   Camera,
-  MoreHorizontal,
-  Bell
+  MoreHorizontal
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Admin from "./pages/Admin";
@@ -149,22 +150,28 @@ export default function App() {
     <div className={`min-h-screen bg-white text-black font-sans ${view === "admin" ? "" : "pb-20 md:pb-0 md:pt-16"}`}>
       {/* Top Nav (Desktop) */}
       {view !== "admin" && (
-        <nav className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 items-center px-6 justify-between">
-        <div className="flex items-center cursor-pointer" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }}>
-          <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
-        </div>
-        
-        <div className="flex items-center gap-8">
-          <NavButton active={view === "feed"} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }} icon={<Home size={22} />} label="Home" />
-          <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={22} />} label="Search" />
-          <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={22} />} label="Create" />
-          <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={22} />} label="Lost & Found" />
-          <NavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={22} />} label="Profile" />
-          <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<ShieldAlert size={22} className="text-red-500" />} label="Dev Admin" />
-        </div>
+        <nav className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-gray-100 z-50 items-center shadow-sm">
+          <div className="max-w-6xl mx-auto w-full flex items-center justify-between px-6">
+            <div className="flex items-center cursor-pointer shrink-0" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }}>
+              <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
+            </div>
+            
+            <div className="flex items-center gap-8 bg-gray-50/50 px-6 py-2 rounded-2xl border border-gray-100/50">
+              <NavButton active={view === "feed"} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }} icon={<Home size={22} />} label="Home" />
+              <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={22} />} label="Search" />
+              <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={22} />} label="Create" />
+              <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={22} />} label="Lost & Found" />
+              <NavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={22} />} label="Profile" />
+              <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<ShieldAlert size={22} className="text-red-500" />} label="Dev Admin" />
+            </div>
 
-        </div>
-      </nav>
+            <div className="flex items-center gap-4 shrink-0">
+              <button onClick={logout} className="p-2 text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 rounded-xl transition-all duration-300 group" title="Sign Out">
+                 <LogOut size={20} className="group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+          </div>
+        </nav>
       )}
 
       {/* Main Content */}
@@ -182,7 +189,7 @@ export default function App() {
           {view === "upload" && <UploadPage onComplete={() => { fetchPosts(); setView("feed"); }} userId={user?.id || 0} />}
           {view === "profile" && user && <ProfilePage user={user} posts={posts.filter(p => p.userId === user.id)} />}
           {view === "lostfound" && <LostFoundPage />}
-          {view === "admin" && <Admin onComplete={() => { fetchPosts(); }} />}
+          {view === "admin" && <Admin onComplete={() => { fetchPosts(); setView("feed"); }} />}
         </AnimatePresence>
       </main>
 
