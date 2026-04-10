@@ -41,21 +41,24 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   }, [activeTab]);
 
   return (
-    <div className="flex flex-col md:flex-row h-auto md:h-[80vh] overflow-hidden bg-gray-900 rounded-3xl shadow-2xl text-white">
+    <div className="flex flex-col md:flex-row min-h-screen overflow-hidden bg-gray-900 text-white w-full shadow-2xl">
       <ToastContainer theme="dark" aria-label="Admin Notifications" />
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-gray-950 border-r border-gray-800 flex flex-col p-4 shrink-0">
-        <div className="flex items-center gap-3 mb-8 px-2 py-2 text-red-500 font-black tracking-widest text-lg">
-          <ShieldAlert /> ENFORCER
+      <div className="w-full md:w-64 bg-gray-950 border-r border-gray-800 flex flex-col p-4 shadow-xl z-10 shrink-0">
+        <div className="flex items-center gap-3 mb-8 px-2 py-2 text-green-500 font-black tracking-widest text-lg">
+          <LayoutDashboard /> ADMIN PANEL
         </div>
         
         <nav className="flex-1 space-y-2 flex flex-row md:flex-col overflow-x-auto md:overflow-visible">
           <SidebarButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
           <SidebarButton active={activeTab === "users"} onClick={() => setActiveTab("users")} icon={<Users size={18}/>} label="Users" />
-          <SidebarButton active={activeTab === "banned"} onClick={() => setActiveTab("banned")} icon={<UserX size={18}/>} label="Banned" />
-          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<ImageIcon size={18}/>} label="Images" />
-          <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={18}/>} label="Flags" />
+          <SidebarButton active={activeTab === "banned"} onClick={() => setActiveTab("banned")} icon={<UserX size={18}/>} label="Posts" />
+          <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={18}/>} label="Flagged Content" />
+          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<ImageIcon size={18}/>} label="Image Control" />
           <SidebarButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")} icon={<List size={18}/>} label="Logs" />
+          <div className="pt-8 mt-8 border-t border-gray-800">
+            <SidebarButton active={false} onClick={() => onComplete()} icon={<LogOut size={18}/>} label="Back to App" />
+          </div>
         </nav>
       </div>
 
@@ -78,12 +81,12 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                <h2 className="text-3xl font-black mb-6">System Overview</h2>
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                  <StatCard title="Total Users" value={stats.totalUsers} />
-                 <StatCard title="Active Users" value={stats.activeUsers} />
+                 <StatCard title="Active Users" value={stats.activeUsers} color="text-green-500" />
                  <StatCard title="Banned Users" value={stats.bannedUsers} color="text-red-500" />
-                 <StatCard title="Total Posts" value={stats.totalPosts} />
+                 <StatCard title="Total Posts" value={stats.totalPosts} color="text-blue-500" />
                </div>
                
-               <div className="h-64 bg-gray-800 rounded-2xl p-4 border border-gray-700">
+               <div className="h-64 bg-gray-800 rounded-2xl p-4 border border-gray-700 shadow-lg">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
                       { name: 'Users', value: stats.totalUsers },
@@ -95,7 +98,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                       <XAxis dataKey="name" stroke="#ccc" />
                       <YAxis stroke="#ccc" />
                       <Tooltip contentStyle={{ backgroundColor: "#1f2937", border: "none" }} />
-                      <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="value" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                </div>
@@ -117,7 +120,7 @@ function SidebarButton({ active, onClick, icon, label }: any) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-red-500/10 text-red-500 font-bold' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:scale-105 active:scale-95 ${active ? 'bg-green-500/10 text-green-500 font-bold shadow-[0_0_10px_rgba(34,197,94,0.2)]' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
     >
       {icon} {label}
     </button>
@@ -126,9 +129,9 @@ function SidebarButton({ active, onClick, icon, label }: any) {
 
 function StatCard({ title, value, color = "text-white" }: any) {
   return (
-    <div className="bg-gray-800/80 p-6 rounded-2xl border border-gray-700/50">
-      <div className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">{title}</div>
-      <div className={`text-4xl font-black ${color}`}>{value}</div>
+    <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700 hover:border-green-500/50 transition-all shadow-md hover:shadow-2xl hover:-translate-y-2 transform duration-300">
+      <div className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-3">{title}</div>
+      <div className={`text-5xl font-black ${color}`}>{value}</div>
     </div>
   );
 }
@@ -324,7 +327,7 @@ function ImageControl({ onComplete }: { onComplete: () => void }) {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-xl mx-auto">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full">
       <h2 className="text-3xl font-black mb-6 text-center text-red-500">Image Grid Wipe</h2>
       
       {!matchResult ? (
@@ -433,11 +436,12 @@ function FlaggedContent() {
               </div>
               <div className="p-6 flex-1 flex flex-col">
                 <div className="text-xs text-gray-400 mb-2 font-mono">Flagged by: {flag.user?.name || "System"} &bull; User ID: {flag.user?.uniqueId}</div>
-                <div className="text-xl font-bold mb-4">{flag.reason}</div>
+                <div className="text-xl font-bold mb-2">{flag.reason}</div>
+                <div className="text-sm mt-2 mb-4 italic text-gray-300">"{flag.post?.caption}"</div>
                 
                 <div className="mt-auto flex gap-3">
-                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold transition-all disabled:opacity-50" disabled={!flag.post}>Keep Post</button>
-                  <button onClick={() => resolveFlag(flag.id, "WIPE")} className="flex-[2] py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)] disabled:opacity-50" disabled={!flag.post}>Wipe Content</button>
+                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-50" disabled={!flag.post}>IGNORE</button>
+                  <button onClick={() => resolveFlag(flag.id, "WIPE")} className="flex-[2] py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.3)] disabled:opacity-50" disabled={!flag.post}>DELETE POST</button>
                 </div>
               </div>
             </div>

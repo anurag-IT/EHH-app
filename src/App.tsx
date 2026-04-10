@@ -129,14 +129,14 @@ export default function App() {
                 placeholder="john@example.com"
               />
             </div>
-            <button className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-black/90 transition-all">
+            <button className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all">
               {authMode === "login" ? "Sign In" : "Create Account"}
             </button>
           </form>
           
           <button 
             onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-            className="w-full mt-6 text-sm text-gray-500 hover:text-black transition-colors"
+            className="w-full mt-6 text-sm text-gray-500 hover:text-green-600 transition-colors"
           >
             {authMode === "login" ? "Don't have an account? Register" : "Already have an account? Login"}
           </button>
@@ -146,16 +146,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans pb-20 md:pb-0 md:pt-16">
+    <div className={`min-h-screen bg-white text-black font-sans ${view === "admin" ? "" : "pb-20 md:pb-0 md:pt-16"}`}>
       {/* Top Nav (Desktop) */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 items-center px-6 justify-between">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tighter cursor-pointer" onClick={() => setView("feed")}>
-          <Camera size={24} />
-          <span>SMART SOCIAL</span>
+      {view !== "admin" && (
+        <nav className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 items-center px-6 justify-between">
+        <div className="flex items-center cursor-pointer" onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }}>
+          <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
         </div>
         
         <div className="flex items-center gap-8">
-          <NavButton active={view === "feed"} onClick={() => setView("feed")} icon={<Home size={22} />} label="Home" />
+          <NavButton active={view === "feed"} onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }} icon={<Home size={22} />} label="Home" />
           <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={22} />} label="Search" />
           <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={22} />} label="Create" />
           <NavButton active={view === "lostfound"} onClick={() => setView("lostfound")} icon={<Bell size={22} />} label="Lost & Found" />
@@ -163,15 +163,12 @@ export default function App() {
           <NavButton active={view === "admin"} onClick={() => setView("admin")} icon={<ShieldAlert size={22} className="text-red-500" />} label="Dev Admin" />
         </div>
 
-        <div className="flex items-center gap-4">
-          <button onClick={logout} className="text-gray-400 hover:text-red-500 transition-colors">
-            <Trash2 size={20} />
-          </button>
         </div>
       </nav>
+      )}
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <main className={view === "admin" ? "w-full" : "max-w-2xl mx-auto px-4 py-8"}>
         <AnimatePresence mode="wait">
           {view === "feed" && (
             <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
@@ -190,21 +187,23 @@ export default function App() {
       </main>
 
       {/* Bottom Nav (Mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around z-50">
-        <button onClick={() => setView("feed")} className={view === "feed" ? "text-black" : "text-gray-300"}><Home size={24} /></button>
-        <button onClick={() => setView("search")} className={view === "search" ? "text-black" : "text-gray-300"}><Search size={24} /></button>
-        <button onClick={() => setView("upload")} className={view === "upload" ? "text-black" : "text-gray-300"}><PlusSquare size={24} /></button>
-        <button onClick={() => setView("lostfound")} className={view === "lostfound" ? "text-black" : "text-gray-300"}><Bell size={24} /></button>
-        <button onClick={() => setView("profile")} className={view === "profile" ? "text-black" : "text-gray-300"}><UserIcon size={24} /></button>
-        <button onClick={() => setView("admin")} className={view === "admin" ? "text-red-600" : "text-red-200"}><ShieldAlert size={24} /></button>
+      {view !== "admin" && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-100 flex items-center justify-around z-50">
+        <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); if(view==="feed") fetchPosts(); setView("feed"); }} className={view === "feed" ? "text-green-600" : "text-gray-300"}><Home size={24} /></button>
+        <button onClick={() => setView("search")} className={view === "search" ? "text-green-600" : "text-gray-300"}><Search size={24} /></button>
+        <button onClick={() => setView("upload")} className={view === "upload" ? "text-green-600" : "text-gray-300"}><PlusSquare size={24} /></button>
+        <button onClick={() => setView("lostfound")} className={view === "lostfound" ? "text-green-600" : "text-gray-300"}><Bell size={24} /></button>
+        <button onClick={() => setView("profile")} className={view === "profile" ? "text-green-600" : "text-gray-300"}><UserIcon size={24} /></button>
+        <button onClick={() => setView("admin")} className={view === "admin" ? "text-green-600" : "text-gray-300"}><ShieldAlert size={24} /></button>
       </nav>
+      )}
     </div>
   );
 }
 
 function NavButton({ active, onClick, icon, label }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-2 transition-all ${active ? "text-black font-bold" : "text-gray-400 hover:text-black"}`}>
+    <button onClick={onClick} className={`flex items-center gap-2 transition-all ${active ? "text-green-600 font-bold" : "text-gray-400 hover:text-green-600"}`}>
       {icon}
       <span className="text-sm hidden lg:block">{label}</span>
     </button>
@@ -273,7 +272,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -284,11 +283,6 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {post.user.id !== JSON.parse(localStorage.getItem("social_user") || "{}").id && (
-            <button onClick={() => setShowReport(true)} className="text-gray-300 hover:text-red-500 transition-colors tooltip" title="Report Post">
-              <Flag size={18} />
-            </button>
-          )}
           <button onClick={handleDeleteRelated} className="text-gray-300 hover:text-red-500 transition-colors" title="Admin Force Delete">
             <ShieldAlert size={18} />
           </button>
@@ -309,12 +303,34 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
       {/* Actions */}
       <div className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={handleLike} className={`transition-colors ${liked ? "text-red-500" : "text-gray-800 hover:text-red-500"}`}><Heart size={24} fill={liked ? "currentColor" : "none"} /></button>
-            <button onClick={handleRepost} className="text-gray-800 hover:text-blue-500 transition-colors"><Repeat2 size={24} /></button>
-            <button onClick={fetchChain} className="text-gray-800 hover:text-green-500 transition-colors"><MessageCircle size={24} /></button>
+          <div className="flex items-center gap-6 w-full justify-start">
+            <motion.button 
+              whileHover={{ scale: 1.1 }} 
+              whileTap={{ scale: 0.9 }}
+              onClick={handleLike} 
+              className={`transition-colors ${liked ? "text-red-500" : "text-gray-800 hover:text-red-500"}`}
+            >
+              {liked ? (
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}>
+                  <Heart size={24} fill="currentColor" />
+                </motion.div>
+              ) : (
+                <Heart size={24} fill="none" />
+              )}
+            </motion.button>
+            
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={fetchChain} className="text-gray-800 hover:text-green-500 transition-colors">
+              <MessageCircle size={24} />
+            </motion.button>
+            
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setShowReport(true)} className="text-gray-800 hover:text-red-500 transition-colors">
+              <Flag size={24} />
+            </motion.button>
+
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleRepost} className="text-gray-800 hover:text-blue-500 transition-colors">
+              <Repeat2 size={24} />
+            </motion.button>
           </div>
-          <div className="text-[10px] font-mono text-gray-300 truncate max-w-[100px]">pHash: {post.phash.substring(0, 8)}...</div>
         </div>
 
         <div>
@@ -378,7 +394,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               <h3 className="font-bold text-xl mb-4 text-red-500 flex items-center gap-2"><Flag /> Report Content</h3>
               <p className="text-sm text-gray-500 mb-4">Help us keep the community safe. Why are you reporting this post?</p>
               <div className="space-y-2">
-                {["Spam", "Harassment", "Inappropriate Content", "Other"].map(r => (
+                {["Spam", "Violence", "Adult Content", "Misinformation", "Other"].map(r => (
                   <button key={r} onClick={() => setReportReason(r)} className={`w-full p-3 rounded-xl border text-left font-bold ${reportReason === r ? 'bg-red-50 border-red-500 text-red-600' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                     {r}
                   </button>
@@ -453,7 +469,7 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
           <button 
             disabled={!file || loading}
             onClick={handleUpload}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-black/90 transition-all disabled:opacity-50"
+            className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all disabled:opacity-50"
           >
             {loading ? "Posting..." : "Share Post"}
           </button>
@@ -493,7 +509,7 @@ function SearchPage() {
         <p className="text-gray-400">Upload an image to find all related posts and reposts across the network.</p>
         
         <div className="pt-4">
-          <label className="bg-black text-white px-8 py-4 rounded-2xl font-bold cursor-pointer hover:bg-black/90 transition-all inline-flex items-center gap-2">
+          <label className="bg-green-600 text-white px-8 py-4 rounded-2xl font-bold cursor-pointer hover:bg-green-700 transition-all inline-flex items-center gap-2">
             <Search size={20} />
             {loading ? "Analyzing..." : "Upload Image to Search"}
             <input type="file" className="hidden" onChange={handleSearch} />
@@ -611,7 +627,7 @@ function LostFoundPage() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-md mx-auto">
       <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-        <div className="w-12 h-12 bg-black text-white rounded-xl flex items-center justify-center mb-6">
+        <div className="w-12 h-12 bg-green-600 text-white rounded-xl flex items-center justify-center mb-6">
           <Bell size={24} />
         </div>
         <h2 className="text-2xl font-bold mb-2">Lost & Found</h2>
@@ -642,7 +658,7 @@ function LostFoundPage() {
           
           {success && <p className="text-green-500 text-sm font-bold">Message sent successfully!</p>}
 
-          <button className="w-full bg-black text-white py-4 rounded-xl font-bold hover:bg-black/90 transition-all flex items-center justify-center gap-2">
+          <button className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2">
             <Send size={18} />
             {loading ? "Sending..." : "Send Message"}
           </button>
