@@ -156,8 +156,8 @@ export default function App() {
               >
                 <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto transition-opacity" />
               </motion.div>
-              <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">Identity Access</h1>
-              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Protocol EHH-Mainframe</p>
+              <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">EHH</h1>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for Human and Humanity</p>
             </div>
             
             <form onSubmit={handleAuth} className="space-y-6">
@@ -182,13 +182,13 @@ export default function App() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-7 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-400 outline-none transition-all duration-300"
-                  placeholder="name@organization.com"
+                  placeholder="EHH@gmail.com"
                 />
               </div>
               
               <button className="group w-full relative h-16 mt-4 overflow-hidden rounded-2xl bg-slate-900 font-black text-white transition-all hover:bg-slate-800 active:scale-95 shadow-lg shadow-slate-200">
                 <span className="relative z-10 flex items-center justify-center gap-3">
-                  {authMode === "login" ? "AUTHORIZE ENTRY" : "INITIALIZE IDENTITY"}
+                  {authMode === "login" ? "Login" : "SignUp"}
                   <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                 </span>
               </button>
@@ -199,13 +199,17 @@ export default function App() {
                 onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
                 className="text-sm text-slate-400 hover:text-slate-900 font-bold transition-all"
               >
-                {authMode === "login" ? "Request new access credentials" : "Return to secure authorization"}
+                {authMode === "login" ? "New to EHH? Signup" : "Already EHH member? Login"}
+                
               </button>
               <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
                 <span className="h-[1px] w-8 bg-slate-100" />
-                <span>Encrypted Connection Active</span>
+                <span bold>Welcome to EHH//Be the climate leaders</span>
+                
                 <span className="h-[1px] w-8 bg-slate-100" />
+                
               </div>
+          
             </div>
             </div>
           </motion.div>
