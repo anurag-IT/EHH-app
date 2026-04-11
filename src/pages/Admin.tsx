@@ -742,7 +742,7 @@ function FlaggedContent() {
             >
               <div className="relative h-64 bg-black overflow-hidden">
                 {flag.post ? (
-                   <img src={`/uploads/${flag.post.imagePath}`} className="w-full h-full object-cover opacity-60 group-hover/card:scale-110 transition-transform duration-[3s]" />
+                   <img src={flag.post.imageUrl || `/uploads/${flag.post.imagePath}`} className="w-full h-full object-cover opacity-60 group-hover/card:scale-110 transition-transform duration-[3s]" />
                 ) : (
                    <div className="w-full h-full flex flex-col items-center justify-center text-red-500/20 gap-4">
                       <Trash2 size={48} />

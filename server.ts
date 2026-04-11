@@ -10,9 +10,11 @@ const { cv } = opencv;
 import { imageHash } from "image-hash";
 import { PrismaClient } from "@prisma/client";
 import { createServer as createViteServer } from "vite";
-function getImageHash(filePath: string): Promise<string> {
+import { uploadImage } from "./src/services/uploadService.js";
+import { processImageAsync } from "./src/services/imageProcessingService.js";
+function getImageHash(data: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    imageHash(filePath, 16, true, (err, data) => {
+    imageHash(data, 16, true, (err, data) => {
       if (err) reject(err);
       else resolve(data);
     });
@@ -32,17 +34,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage });
+const upload = multer({ storage: multer.memoryStorage() });
 
 function generateUniqueId() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -61,9 +53,9 @@ function hammingDistance(h1: string, h2: string) {
   return distance;
 }
 
-async function getPHash(filePath: string): Promise<string> {
+async function getPHash(data: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    imageHash(filePath, 16, true, (error: any, data: string) => {
+    imageHash(data, 16, true, (error: any, data: string) => {
       if (error) reject(error);
       resolve(data);
     });
@@ -229,23 +221,23 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
     if (!req.file && !parentId) return res.status(400).json({ error: "Image required" });
 
     let imagePath = "";
-    let sha256 = "";
-    let phash = "";
-    let hash = "";
+    let imageUrl = "";
+    let sha256 = null;
+    let phash = null;
+    let hash = null;
 
     if (parentId) {
       const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
       imagePath = parent.imagePath;
+      imageUrl = parent.imageUrl || "";
       sha256 = parent.sha256;
-      phash = parent.phash;
-      hash = parent.hash;
+      phash = parent.phash || null;
+      hash = parent.hash || null;
     } else {
-      imagePath = req.file.filename;
-      const fileBuffer = fs.readFileSync(req.file.path);
-      sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
-      phash = await getPHash(req.file.path);
-      hash = await getImageHash(req.file.path);
+      const uploadResult = await uploadImage(req.file.buffer);
+      imageUrl = uploadResult.secure_url;
+      imagePath = uploadResult.public_id;
     }
 
     const post = await prisma.post.create({
@@ -254,6 +246,7 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
         caption,
         location: req.body.location || null,
         imagePath,
+        imageUrl,
         sha256,
         phash,
         hash,
@@ -261,7 +254,19 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
       } as any,
       include: { user: true, comments: true }
     });
+    
+    // Respond IMMEDIATELY
     res.json(post);
+
+    // Trigger BACKGROUND processing if new upload
+    if (!parentId) {
+      try {
+        processImageAsync(post.id, imageUrl);
+      } catch (err) {
+        console.error(`Failed to trigger async processing for post ${post.id}`, err);
+      }
+    }
+
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -271,8 +276,7 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
 app.post("/api/posts/search", upload.single("image"), async (req: any, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No image uploaded" });
-    const phash = await getPHash(req.file.path);
-    fs.unlinkSync(req.file.path);
+    const phash = await getPHash({ data: req.file.buffer, name: req.file.originalname });
 
     const allPosts = await prisma.post.findMany({ include: { user: true } });
     const results = allPosts

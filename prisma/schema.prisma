@@ -49,8 +49,9 @@ model Post {
   userId          Int
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   imagePath       String
+  imageUrl        String?
   caption         String?
-  sha256          String
+  sha256          String?
   phash           String?
   ahash           String?
   dhash           String?
@@ -140,5 +141,13 @@ model Notification {
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
+}
+
+model ImageMatch {
+  id              Int      @id @default(autoincrement())
+  imageId         Int
+  matchedImageId  Int
+  similarityScore Float
+  createdAt       DateTime @default(now())
 }
 

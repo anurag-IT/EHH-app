@@ -61,6 +61,7 @@ interface Post {
   userId: number;
   user: User;
   imagePath: string;
+  imageUrl?: string;
   caption: string;
   location?: string;
   sha256: string;
@@ -634,7 +635,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
         onDoubleClick={handleLike}
       >
         <img 
-          src={`/uploads/${post.imagePath}`} 
+          src={post.imageUrl || `/uploads/${post.imagePath}`} 
           className="w-full h-full object-cover transition-transform duration-[2.5s] group-hover/media:scale-105" 
           referrerPolicy="no-referrer" 
           loading="lazy"
@@ -755,7 +756,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               <div className="overflow-y-auto p-10 space-y-6">
                 {chain.map((p) => (
                   <div key={p.id} className="flex items-center gap-6 p-5 rounded-[2rem] bg-white border border-slate-100">
-                    <img src={`/uploads/${p.imagePath}`} className="w-20 h-20 rounded-2xl object-cover" />
+                    <img src={p.imageUrl || `/uploads/${p.imagePath}`} className="w-20 h-20 rounded-2xl object-cover" />
                     <div className="flex-1">
                        <div className="font-extrabold text-slate-900">{p.user.name}</div>
                        <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-2">{p.id === post.id ? "PRIMARY ASSET" : "CLONED IDENTIFIER"}</div>
@@ -1012,7 +1013,7 @@ function SearchPage() {
             {results.map((post) => (
               <div key={post.id} className="group/res bg-white border border-slate-100 rounded-[3rem] overflow-hidden shadow-sm hover:shadow-xl hover:border-slate-300 transition-all cursor-pointer">
                 <div className="aspect-square relative overflow-hidden bg-slate-50">
-                   <img src={`/uploads/${post.imagePath}`} className="w-full h-full object-cover group-hover/res:scale-105 transition-transform duration-700" />
+                   <img src={post.imageUrl || `/uploads/${post.imagePath}`} className="w-full h-full object-cover group-hover/res:scale-105 transition-transform duration-700" />
                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover/res:opacity-100 transition-opacity" />
                    <div className="absolute bottom-6 left-6 right-6 translate-y-4 group-hover/res:translate-y-0 opacity-0 group-hover/res:opacity-100 transition-all">
                       <div className="flex items-center gap-3">
@@ -1170,7 +1171,7 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
                whileHover={{ translateY: -10 }}
                className="aspect-[4/5] rounded-[2.5rem] overflow-hidden relative group/asset cursor-pointer border border-slate-100 shadow-sm"
              >
-                <img src={`/uploads/${post.imagePath}`} className="w-full h-full object-cover" />
+                <img src={post.imageUrl || `/uploads/${post.imagePath}`} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-emerald-500/80 opacity-0 group-hover/asset:opacity-100 transition-all flex flex-col items-center justify-center p-8 text-white scale-95 group-hover/asset:scale-100">
                     <Heart size={32} fill="white" className="mb-4" />
                     <div className="flex gap-6 mb-4">
