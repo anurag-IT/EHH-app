@@ -78,12 +78,77 @@ body::before {
   background: #cbd5e1;
 }
 
-/* Smooth Animations */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+/* 3D Greenish Hover Effects */
+.nav-3d-button {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  perspective: 1000px;
+  position: relative;
+  overflow: visible !important;
 }
 
-.animate-fade-in {
-  animation: slideUp 0.6s ease forwards;
+.nav-3d-button:hover {
+  transform: translateY(-5px) rotateX(10deg) rotateY(10deg);
+  box-shadow: 
+    -5px 5px 0px rgba(16, 185, 129, 0.2),
+    -10px 10px 0px rgba(16, 185, 129, 0.1);
+  background: white !important;
+  color: #10b981 !important;
+}
+
+.nav-3d-button:active {
+  transform: translateY(2px) scale(0.95);
+  box-shadow: none;
+}
+
+.nav-3d-button.active {
+  background: #10b981 !important;
+  color: white !important;
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 900;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Gen-Z Greenish Profile Styles */
+.profile-gradient-bg {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.gen-z-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  border-radius: 2rem;
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.gen-z-card:hover {
+  border-color: #10b981;
+  box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.15);
+}
+
+.text-gradient-green {
+  background: linear-gradient(to right, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbar for Chat */
+.chat-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background: #10b981;
+  border-radius: 10px;
 }

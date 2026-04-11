@@ -19,7 +19,7 @@ function getImageHash(filePath: string): Promise<string> {
   });
 }
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient() as any;
 const app = express();
 const PORT = 3001;
 
@@ -142,6 +142,13 @@ app.get("/api/posts", async (req, res) => {
       include: {
         user: true,
         parent: { include: { user: true } },
+        _count: {
+          select: {
+            likes: true,
+            comments: true,
+            reposts: true,
+          }
+        },
         comments: {
           include: { user: true },
           orderBy: { createdAt: "asc" }
@@ -527,7 +534,186 @@ app.post("/api/notifications/:id/read", async (req, res) => {
   }
 });
 
+app.get("/api/notifications/:userId/unread-count", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const count = await prisma.notification.count({
+      where: { userId, isRead: false }
+    });
+    res.json({ count });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
+// --- FOLLOWS ---
+app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res) => {
+  try {
+    const followingId = parseInt(req.params.id);
+    const followerId = req.currentUser.id;
+
+    if (followerId === followingId) return res.status(400).json({ error: "Cannot follow yourself" });
+
+    const existing = await prisma.userFollow.findUnique({
+      where: { followerId_followingId: { followerId, followingId } }
+    });
+
+    if (existing) {
+      await prisma.userFollow.delete({ where: { id: existing.id } });
+      res.json({ following: false });
+    } else {
+      await prisma.userFollow.create({
+        data: { followerId, followingId }
+      });
+      // Create Notification
+      const sender = await prisma.user.findUnique({ where: { id: followerId } });
+      await prisma.notification.create({
+        data: {
+          userId: followingId,
+          senderId: followerId,
+          senderName: sender?.name,
+          senderAvatar: sender?.avatar,
+          type: "FOLLOW",
+          content: "started following you"
+        }
+      });
+      res.json({ following: true });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- USER PROFILE ---
+app.get("/api/users/:id/profile", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            posts: true,
+            followers: true,
+            following: true
+          }
+        },
+        posts: {
+          orderBy: { createdAt: "desc" },
+          include: { 
+            user: true,
+            _count: { select: { likes: true, comments: true, reposts: true } }
+          }
+        }
+      }
+    });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// --- ENHANCED MESSAGING ---
+app.get("/api/messages/conversations/:userId", async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    // Find unique users that the current user has chatted with
+    const sent = await prisma.message.findMany({
+      where: { senderId: userId },
+      include: { receiver: true },
+      distinct: ['receiverId']
+    });
+    const received = await prisma.message.findMany({
+      where: { receiverId: userId },
+      include: { sender: true },
+      distinct: ['senderId']
+    });
+
+    const usersMap = new Map();
+    sent.forEach(m => {
+      if (m.receiver) usersMap.set(m.receiver.id, m.receiver);
+    });
+    received.forEach(m => {
+      if (m.sender) usersMap.set(m.sender.id, m.sender);
+    });
+
+    const conversations = Array.from(usersMap.values());
+    res.json(conversations);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/messages/chat/:u1/:u2", async (req, res) => {
+  try {
+    const u1 = parseInt(req.params.u1);
+    const u2 = parseInt(req.params.u2);
+    const messages = await prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: u1, receiverId: u2 },
+          { senderId: u2, receiverId: u1 }
+        ]
+      },
+      orderBy: { createdAt: "asc" }
+    });
+    res.json(messages);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/messages/send-v2", checkUserRestriction, async (req: any, res) => {
+  try {
+    const { receiverId, content } = req.body;
+    const senderId = req.currentUser.id;
+
+    const message = await prisma.message.create({
+      data: {
+        senderId,
+        receiverId: parseInt(receiverId),
+        content,
+        messageText: content // for back-compat
+      }
+    });
+    res.json(message);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});app.post("/api/messages/send", checkUserRestriction, async (req: any, res) => {
+  try {
+    const { uniqueId, messageText } = req.body;
+    const senderId = req.currentUser.id;
+
+    const receiver = await prisma.user.findUnique({ where: { uniqueId } });
+    if (!receiver) return res.status(404).json({ error: "Receiver not found" });
+
+    const message = await prisma.message.create({
+      data: {
+        senderId,
+        receiverId: receiver.id,
+        content: messageText,
+        messageText: messageText,
+        isAnonymous: true
+      }
+    });
+
+    // Notify receiver
+    await prisma.notification.create({
+      data: {
+        userId: receiver.id,
+        senderId,
+        type: "MESSAGE",
+        content: "sent you an anonymous transmission signal."
+      }
+    });
+
+    res.json(message);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.post("/api/posts/:id/report", checkUserRestriction, async (req: any, res) => {
   try {
