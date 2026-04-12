@@ -185,6 +185,10 @@ async def match_descriptors(request: MatchDescriptorsRequest):
 def health_check():
     return {"status": "healthy", "service": "ORB-Feature-Matcher"}
 
+@app.get("/")
+def root_check():
+    return {"status": "healthy", "message": "ORB Service is running. Use /health for monitoring."}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
