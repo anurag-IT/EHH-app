@@ -115,7 +115,7 @@ export default function App() {
 
   const fetchUnreadCount = async (uid: number) => {
     try {
-      const res = await axios.get(`/api/notifications/${uid}/unread-count`);
+      const res = await api.get(`/api/notifications/${uid}/unread-count`);
       setUnreadNotifications(res.data.count);
     } catch {}
   };

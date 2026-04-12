@@ -303,9 +303,10 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res) =
   }
 });
 
-app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req: any, res) => {
+app.post("/api/posts", upload.single("image"), checkUserRestriction, async (req: any, res) => {
   try {
-    const { userId, caption, location, parentId } = req.body;
+    const { caption, location, parentId } = req.body;
+    const userId = req.body.userId || req.currentUser.id;
     if (!req.file && !parentId) return res.status(400).json({ error: "Image required" });
 
     let imagePath = "";
@@ -625,44 +626,48 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res) => {
   try {
     const postId = parseInt(req.params.id);
     const userId = req.currentUser.id;
+    let liked = true;
 
-    // Fast Response Pattern: Send success IMMEDIATELY
-    res.json({ success: true, liked: true });
+    try {
+      const like = await prisma.like.create({
+        data: { userId, postId },
+        include: { user: { select: { name: true, avatar: true } }, post: { select: { userId: true } } }
+      });
 
-    // Background Processing: No await for non-critical side effects
-    (async () => {
-      try {
-        const like = await prisma.like.create({ 
-          data: { userId, postId },
-          select: { user: { select: { name: true, avatar: true } }, post: { select: { userId: true } } }
-        });
-
-        // Trigger notification asynchronously
-        if (like.post.userId !== userId) {
-          await prisma.notification.create({
-            data: {
-              userId: like.post.userId,
-              senderId: userId,
-              senderName: like.user.name,
-              senderAvatar: like.user.avatar,
-              type: "LIKE",
-              postId: postId,
-              content: "liked your post"
-            }
-          });
-        }
-      } catch (createError: any) {
-        // If Unique constraint fails -> Toggle: DELETE the like
-        if (createError.code === 'P2002') {
-          await prisma.like.delete({
-            where: { userId_postId: { userId, postId } }
-          }).catch(() => {}); // Catch silent delete failures
-        }
+      // Background notification
+      if (like.post.userId !== userId) {
+        prisma.notification.create({
+          data: {
+            userId: like.post.userId,
+            senderId: userId,
+            senderName: like.user.name,
+            senderAvatar: like.user.avatar,
+            type: "LIKE",
+            postId: postId,
+            content: "liked your post"
+          }
+        }).catch(err => console.error("[NOTIFY ERROR]", err));
       }
-    })().catch(err => console.error("[ASYNC LIKE ERROR]", err));
+    } catch (createError: any) {
+      if (createError.code === 'P2002') {
+        // Record already exists, so UNLIKE
+        await prisma.like.delete({
+          where: { userId_postId: { userId, postId } }
+        }).catch(() => {});
+        liked = false;
+      } else {
+        throw createError;
+      }
+    }
+
+    // Always fetch derived count for consistency
+    const likesCount = await prisma.like.count({ where: { postId } });
+
+    res.json({ success: true, liked, likesCount });
 
   } catch (error: any) {
     console.error("[LIKE API ERROR]", error);
+    res.status(500).json({ error: "Interaction synchronization failure." });
   }
 });
 

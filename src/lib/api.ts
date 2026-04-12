@@ -6,9 +6,9 @@ import axios from "axios";
  */
 const api = axios.create({
   baseURL: "", // Use relative paths to benefit from Vite proxy
-  timeout: 10000,
+  timeout: 60000,
   headers: {
-    "Content-Type": "application/json",
+    // Axios will automatically set Content-Type for JSON or FormData
   },
 });
 

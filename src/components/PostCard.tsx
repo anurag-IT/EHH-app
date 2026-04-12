@@ -32,7 +32,8 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
   const [commentText, setCommentText] = useState("");
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
-  const [isLiking, setIsLiking] = useState(false);
+  const [isLiking, setIsLiking] = useState(false); // Used ONLY for button animation/state
+  const [showHeart, setShowHeart] = useState(false); // Used ONLY for central pop-up heart
   const [showComments, setShowComments] = useState(false);
   const [following, setFollowing] = useState(false);
   const isSyncing = useRef(false);
@@ -85,27 +86,50 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const handleLike = useCallback(async () => {
     if (isBanned || isSyncing.current) return;
     
-    // IMMEDIATE OPTIMISTIC RESPONSE
+    isSyncing.current = true;
     setIsLiking(true);
+    
+    // OPTIMISTIC UI
     const wasLiked = liked;
     const previousCount = likeCount;
-    setLiked(!wasLiked);
-    setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
+    const newLiked = !wasLiked;
+    const newCount = newLiked ? previousCount + 1 : Math.max(0, previousCount - 1);
 
-    isSyncing.current = true;
+    setLiked(newLiked);
+    setLikeCount(newCount);
+
     try {
       const res = await api.post(`/api/posts/${post.id}/like`, {});
-      setLiked(res.data.liked);
+      if (res.data.success) {
+        setLiked(res.data.liked);
+        if (typeof res.data.likesCount === 'number') {
+          setLikeCount(res.data.likesCount);
+        }
+      }
     } catch (err) {
       setLiked(wasLiked);
       setLikeCount(previousCount);
       toast.error("Handshake failure. Interaction reverted.");
     } finally {
-      isSyncing.current = false;
-      // Ultra-snappy 400ms duration for the pop-up heart
-      setTimeout(() => setIsLiking(false), 400);
+      setIsLiking(false);
+      setTimeout(() => {
+        isSyncing.current = false;
+      }, 200);
     }
   }, [liked, likeCount, isBanned, post.id]);
+
+  const handleDoubleTap = useCallback(() => {
+    if (isBanned) return;
+    
+    // TRIGGER HEART ANIMATION (Instant, independent)
+    setShowHeart(true);
+    setTimeout(() => setShowHeart(false), 300);
+
+    // ONLY LIKE (Don't unlike on double tap)
+    if (!liked) {
+      handleLike();
+    }
+  }, [liked, isBanned, handleLike]);
 
   const handleFollow = async () => {
     if (isBanned || currentUser.id === post.userId) return;
@@ -214,10 +238,9 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         </div>
       </div>
 
-      {/* Media Block */}
       <div 
         className="aspect-[4/5] bg-slate-100 relative group/media cursor-pointer overflow-hidden"
-        onDoubleClick={handleLike}
+        onDoubleClick={handleDoubleTap}
       >
         <div className="absolute inset-0 bg-slate-200 animate-pulse" style={{ display: 'none' }} />
         <img 
@@ -230,15 +253,15 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 via-transparent to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity" />
         
         <AnimatePresence>
-          {isLiking && (
+          {showHeart && (
             <motion.div 
                initial={{ scale: 0, opacity: 0 }}
-               animate={{ scale: 1.2, opacity: 1 }} // Reduced scale slightly for better fit
+               animate={{ scale: 1.2, opacity: 1 }}
                exit={{ scale: 1.5, opacity: 0 }}
-               transition={{ duration: 0.3 }} // Fast entry
+               transition={{ duration: 0.25, type: "spring", damping: 10 }}
                className="absolute inset-0 flex items-center justify-center pointer-events-none z-50"
             >
-              <Heart size={100} fill="#10b981" stroke="white" strokeWidth={2} className="drop-shadow-2xl" />
+              <Heart size={100} fill="#EF4444" stroke="white" strokeWidth={2} className="drop-shadow-2xl" />
             </motion.div>
           )}
         </AnimatePresence>

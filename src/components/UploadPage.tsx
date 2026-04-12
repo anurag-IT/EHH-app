@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import api from "../lib/api";
 import { 
   PlusSquare, 
   TrendingUp, 
@@ -71,8 +72,9 @@ export default function UploadPage({ onComplete, userId }: UploadPageProps) {
 
       await api.post("/api/posts", formData);
       onComplete();
-    } catch (err) {
-      alert("Upload failed");
+    } catch (err: any) {
+      const msg = err.response?.data?.error || "Upload failed. Check your network or account status.";
+      alert(msg);
     } finally {
       setLoading(false);
     }
