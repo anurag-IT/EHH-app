@@ -5,13 +5,14 @@ import fs from "fs";
 import crypto from "crypto";
 import multer from "multer";
 import sharp from "sharp";
-import opencv from "opencv-wasm";
-const { cv } = opencv;
 import { imageHash } from "image-hash";
+
 import { PrismaClient } from "@prisma/client";
 import { createServer as createViteServer } from "vite";
 import { uploadImage } from "./src/services/uploadService.js";
 import { processImageAsync } from "./src/services/imageProcessingService.js";
+import { calculateSimilarityScore } from "./src/services/imageSimilarityService.js";
+
 function getImageHash(data: any): Promise<string> {
   return new Promise((resolve, reject) => {
     imageHash(data, 16, true, (err, data) => {
@@ -64,7 +65,7 @@ async function getPHash(data: any): Promise<string> {
 // --- MIDDLEWARES ---
 const checkUserRestriction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const userId = req.headers["x-user-id"] || req.body.userId;
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!userId) return res.status(401).json({ error: "Please login to continue" });
 
   try {
     const user = await prisma.user.findUnique({ where: { id: parseInt(userId as string) } });
@@ -77,7 +78,7 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
     }
 
     if (user.status === "BANNED" || user.status === "PERMANENT_BAN" || user.isRestricted) {
-      return res.status(403).json({ error: "Your account is currently restricted from this action." });
+      return res.status(403).json({ error: "Your account is currently blocked." });
     }
     
     (req as any).currentUser = user;
@@ -89,11 +90,11 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
 
 const checkAdminMode = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const userId = req.headers["x-user-id"];
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!userId) return res.status(401).json({ error: "Please login" });
 
   try {
     const user = await prisma.user.findUnique({ where: { id: parseInt(userId as string) } });
-    if (!user || user.role !== "ADMIN") return res.status(403).json({ error: "Admin access required." });
+    if (!user || user.role !== "ADMIN") return res.status(403).json({ error: "Admin access is needed." });
     
     (req as any).adminUser = user;
     next();
@@ -105,24 +106,53 @@ const checkAdminMode = async (req: express.Request, res: express.Response, next:
 // --- AUTH ---
 app.post("/api/users/register", async (req, res) => {
   try {
-    const { name, email } = req.body;
+    let { name, email } = req.body;
+    if (!name || !email) return res.status(400).json({ error: "Name and Email are required" });
+
+    email = email.trim().toLowerCase();
+    
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) return res.status(400).json({ error: "An account with this email already exists." });
+
     const uniqueId = generateUniqueId();
     const user = await prisma.user.create({
-      data: { name, email, uniqueId, avatar: `https://i.pravatar.cc/150?u=${email}` },
+      data: { name: name.trim(), email, uniqueId, avatar: `https://i.pravatar.cc/150?u=${email}` },
     });
+    console.log(`[AUTH] New user registered: ${user.name} (${user.email})`);
     res.json(user);
   } catch (error: any) {
+    console.error("[AUTH] Registration error:", error);
     res.status(400).json({ error: error.message });
   }
 });
 
 app.post("/api/users/login", async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    let { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    
+    email = email.trim().toLowerCase();
+    console.log(`[AUTH] Login attempt for: ${email}`);
+
+    const user = await prisma.user.findFirst({ 
+      where: { 
+        email: {
+          equals: email,
+          mode: 'insensitive'
+        }
+      } 
+    });
+
+    if (!user) {
+      console.log(`[AUTH] User not found: ${email}`);
+      return res.status(404).json({ error: "No account found with this email. Please sign up." });
+    }
+
+    console.log(`[AUTH] Login successful: ${user.name} (${user.id})`);
     res.json(user);
   } catch (error: any) {
+    console.error("[AUTH] Login error:", error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -167,11 +197,11 @@ app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res) => {
 
     // Authorize: Owner or Admin
     if (post.userId !== userId && userRole !== "ADMIN") {
-      return res.status(403).json({ error: "Unauthorized: You can only delete your own posts." });
+      return res.status(403).json({ error: "You can only delete your own posts." });
     }
 
     await prisma.post.delete({ where: { id } });
-    res.json({ message: "Post deleted successfully" });
+    res.json({ message: "Post deleted" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -454,6 +484,57 @@ app.post("/admin/users/:id/ban", checkAdminMode, async (req: any, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.post("/admin/find-image", checkAdminMode, upload.single("image"), async (req: any, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+    
+    // Hash the uploaded image
+    const hashData = { data: req.file.buffer, name: req.file.originalname };
+    const phash = await getPHash(hashData);
+    const hash = await getImageHash(hashData);
+    
+    const existingPosts = await prisma.post.findMany();
+    
+    let bestMatch = null;
+    let highestScore = 0;
+    let matchCount = 0;
+
+    for (const p of existingPosts) {
+      if (!p.phash && !p.hash) continue;
+      
+      const score = calculateSimilarityScore(
+        { phash, dhash: hash },
+        { phash: p.phash, dhash: p.hash }
+      );
+      
+      if (score >= 0.65) {
+        matchCount++;
+        if (score > highestScore) {
+          highestScore = score;
+          bestMatch = p;
+        }
+      }
+    }
+
+    if (!bestMatch) {
+      return res.json({ matchCount: 0 });
+    }
+
+    res.json({
+      matchCount,
+      postId: bestMatch.id,
+      similarity: (highestScore * 100).toFixed(1) + "%",
+      matchType: highestScore > 0.85 ? "STRONG MATCH" : "POSSIBLE MATCH",
+      previewUrl: bestMatch.imageUrl || `/uploads/${bestMatch.imagePath}`
+    });
+
+  } catch (error: any) {
+    console.error("Deep scan error:", error);
+    res.status(500).json({ error: "Network handshake failure" });
+  }
+});
+
 
 app.post("/admin/users/:id/unban", checkAdminMode, async (req: any, res) => {
   try {
@@ -870,6 +951,16 @@ app.delete("/admin/delete/:id", checkAdminMode, async (req: any, res) => {
     res.json({ message: `Successfully deleted ${deleted.count} posts globally.` });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to process image deletion." });
+  }
+});
+
+app.get("/db-test", async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({ take: 5 });
+    const posts = await prisma.post.findMany({ take: 5 });
+    res.json({ users, posts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { orbService } from "./orbService.js";
+
 
 const prisma = new PrismaClient() as any;
 
@@ -66,9 +68,17 @@ export const calculateSimilarityScore = (
 export const findMatchesAndLog = async (
   newPostId: number,
   newPhash: string | null,
-  newDhash: string | null
+  newDhash: string | null,
+  newImageUrl?: string
 ) => {
   if (!newPhash && !newDhash) return;
+
+  // Check ORB service health early to avoid wasted calls
+  const isOrbHealthy = await orbService.checkHealth();
+  if (!isOrbHealthy) {
+    console.warn("[SIMILARITY] ORB Service is down. Falling back to Hash-only matching.");
+  }
+
 
   try {
     const existingPosts = await prisma.post.findMany({
@@ -86,16 +96,39 @@ export const findMatchesAndLog = async (
     const matches = [];
 
     for (const p of existingPosts) {
-      const score = calculateSimilarityScore(
+      const hashScore = calculateSimilarityScore(
         { phash: newPhash, dhash: newDhash }, 
-        // newDhash here is passing the newer post's `hash` 
         { phash: p.phash, dhash: p.hash }
       );
 
-      if (score >= 0.65) {
-         matches.push({ post: p, score });
+      let finalScore = hashScore;
+      let orbResult = null;
+
+      // ORB Trigger Logic: Run if Hash > 0.6 OR if Hash is moderately high but could be a crop
+      // We also verify imageUrl exists for both
+      if (isOrbHealthy && newImageUrl && p.imageUrl && (hashScore > 0.6 || hashScore > 0.5)) {
+        console.log(`  [ORB] High hash similarity (${hashScore.toFixed(2)}). Running ORB for Post ${p.id}...`);
+        orbResult = await orbService.compareWithORB(newImageUrl, p.imageUrl);
+        
+        if (orbResult.status === "OK") {
+           // Smoother Dynamic Weighting
+           // orbWeight = min(0.7, orbScore)
+           // finalScore = (orbScore * orbWeight) + (hashScore * (1 - orbWeight))
+           const orbScore = orbResult.matchScore;
+           const orbWeight = Math.min(0.7, orbScore);
+           finalScore = (orbScore * orbWeight) + (hashScore * (1 - orbWeight));
+           
+           console.log(`  [ORB] Match: ${orbScore.toFixed(4)} | Weight: ${orbWeight.toFixed(2)} | Combined: ${finalScore.toFixed(4)}`);
+        } else {
+           console.log(`  [ORB] Skipped/Failed for Post ${p.id}: ${orbResult.status}`);
+        }
+      }
+
+      if (finalScore >= 0.65) {
+         matches.push({ post: p, score: finalScore, orbInfo: orbResult });
       }
     }
+
 
     matches.sort((a, b) => b.score - a.score);
 

@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -66,6 +66,11 @@ model Post {
   flags           FlaggedContent[]
   likes           Like[]
   comments        Comment[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([sha256])
+  @@index([phash])
 }
 
 model Like {
@@ -77,6 +82,8 @@ model Like {
   createdAt DateTime @default(now())
 
   @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId])
 }
 
 model Comment {
@@ -87,6 +94,9 @@ model Comment {
   postId    Int
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([userId])
 }
 
 

@@ -52,9 +52,10 @@ export const processImageAsync = async (postId: number, imageUrl: string) => {
     console.log(`[ASYNC] Processing completed for post ${postId}`);
 
     // Trigger Similarity Comparison
-    await findMatchesAndLog(postId, phash, hash);
+    await findMatchesAndLog(postId, phash, hash, imageUrl);
 
   } catch (error) {
+
     console.error(`[ASYNC] Error processing image for post ${postId}:`, error);
   }
 };

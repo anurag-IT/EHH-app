@@ -24,7 +24,8 @@ import {
   LayoutDashboard,
   TrendingUp,
   Image as ImageIcon,
-  ArrowRight
+  ArrowRight,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ToastContainer, toast } from "react-toastify";
@@ -95,6 +96,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
 
@@ -146,15 +148,23 @@ export default function App() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (authLoading) return;
+    
+    setAuthLoading(true);
     try {
       const endpoint = authMode === "register" ? "/api/users/register" : "/api/users/login";
-      const res = await axios.post(endpoint, { name, email });
+      const res = await axios.post(endpoint, { 
+        name: name.trim(), 
+        email: email.trim().toLowerCase() 
+      });
       setUser(res.data);
       localStorage.setItem("social_user", JSON.stringify(res.data));
       setView("feed");
       toast.success(`Welcome back, ${res.data.name}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Authentication failed. Check your link.");
+      toast.error(err.response?.data?.error || "Login failed. Please check your details.");
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -162,7 +172,7 @@ export default function App() {
     setUser(null);
     localStorage.removeItem("social_user");
     setView("auth");
-    toast.info("Session terminated.");
+    toast.info("Logged out.");
   };
 
   const refreshHome = () => {
@@ -196,7 +206,7 @@ export default function App() {
                 <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto transition-opacity" />
               </motion.div>
               <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">EHH</h1>
-              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for Human and Humanity</p>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Helping humans and humanity</p>
             </div>
             
             <form onSubmit={handleAuth} className="space-y-6">
@@ -214,7 +224,7 @@ export default function App() {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-400 ml-4 tracking-widest">Verification ID (Email)</label>
+                <label className="text-[10px] font-bold uppercase text-slate-400 ml-4 tracking-widest">Email Address</label>
                 <input 
                   type="email" 
                   required 
@@ -225,10 +235,19 @@ export default function App() {
                 />
               </div>
               
-              <button className="group w-full relative h-16 mt-4 overflow-hidden rounded-2xl bg-slate-900 font-black text-white transition-all hover:bg-slate-800 active:scale-95 shadow-lg shadow-slate-200">
+              <button 
+                disabled={authLoading}
+                className={`group w-full relative h-16 mt-4 overflow-hidden rounded-2xl bg-slate-900 font-black text-white transition-all hover:bg-slate-800 active:scale-95 shadow-lg shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
                 <span className="relative z-10 flex items-center justify-center gap-3">
-                  {authMode === "login" ? "Login" : "SignUp"}
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                  {authLoading ? (
+                    <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      {authMode === "login" ? "Login" : "SignUp"}
+                      <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
                 </span>
               </button>
             </form>
@@ -312,10 +331,10 @@ export default function App() {
               <ShieldAlert className="text-red-500" size={32} />
             </div>
             <div className="relative z-10">
-              <h3 className="text-red-100 font-black text-xl tracking-tight">Access Restricted</h3>
+              <h3 className="text-red-100 font-black text-xl tracking-tight">Account Blocked</h3>
               <p className="text-red-400/80 text-sm font-medium mt-1">
-                Your account is currently suspended for: <span className="text-red-400 font-bold decoration-red-500/50 underline-offset-4">{user.banReason || "Violation of system protocols"}</span>. 
-                {user.banUntil ? ` Normal operations resume on ${new Date(user.banUntil).toLocaleDateString()}.` : " This restriction is permanent."}
+                Your account is currently suspended for: <span className="text-red-400 font-bold decoration-red-500/50 underline-offset-4">{user.banReason || "Not following our rules"}</span>. 
+                {user.banUntil ? ` You can use the app again on ${new Date(user.banUntil).toLocaleDateString()}.` : " This block is permanent."}
               </p>
             </div>
           </motion.div>
@@ -361,9 +380,9 @@ export default function App() {
                       <Camera size={48} className="text-emerald-500/40" />
                     </div>
                     <div className="max-w-xs transition-all">
-                      <h3 className="text-xl font-bold">The Network is Silent</h3>
-                      <p className="text-emerald-400/40 text-sm mt-2 font-medium">Be the first to transmit an image to the EHH global tracking network.</p>
-                      <button onClick={() => setView("upload")} className="mt-8 px-8 py-3 bg-emerald-500 text-emerald-950 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all">START BROADCAST</button>
+                      <h3 className="text-xl font-bold">No posts yet</h3>
+                      <p className="text-emerald-400/40 text-sm mt-2 font-medium">Be the first to share an image with everyone.</p>
+                      <button onClick={() => setView("upload")} className="mt-8 px-8 py-3 bg-emerald-500 text-emerald-950 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all">POST SOMETHING</button>
                     </div>
                   </div>
                 ) : (
@@ -381,7 +400,7 @@ export default function App() {
                   {user?.role === "ADMIN" ? (
                     <>
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                        <TrendingUp size={14} className="text-emerald-500" /> System Monitoring
+                        <TrendingUp size={14} className="text-emerald-500" /> App Stats
                       </h3>
                       <div className="space-y-6">
                         <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
@@ -389,7 +408,7 @@ export default function App() {
                             <span className="text-2xl font-black text-slate-900">{posts.length}</span>
                             <span className="text-[10px] font-bold text-emerald-600">+12%</span>
                           </div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Global Assets</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Posts</div>
                         </div>
                         
                         <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
@@ -397,19 +416,19 @@ export default function App() {
                             <span className="text-2xl font-black text-slate-900">100%</span>
                             <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
                           </div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Network Uptime</div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">App Status</div>
                         </div>
                       </div>
                     </>
                   ) : (
                     <>
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                        <Smile size={14} className="text-emerald-500" /> Network Insights
+                        <Smile size={14} className="text-emerald-500" /> Tips
                       </h3>
                       <div className="space-y-6">
                         <div className="p-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] text-white shadow-lg shadow-emerald-100">
-                          <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Verified Protocol</h4>
-                          <p className="text-[10px] opacity-80 mt-2 font-bold uppercase tracking-widest">Your connection is fully encrypted and secure.</p>
+                          <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Safe connection</h4>
+                          <p className="text-[10px] opacity-80 mt-2 font-bold uppercase tracking-widest">Your data and account are safe with us.</p>
                         </div>
                         
                         <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
@@ -419,7 +438,7 @@ export default function App() {
                               </div>
                               <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Community Hub</div>
                            </div>
-                           <p className="text-xs font-bold text-slate-600 leading-relaxed uppercase">Join the global network and share identifiers with precision.</p>
+                           <p className="text-xs font-bold text-slate-600 leading-relaxed uppercase">Join our community and share your images accurately.</p>
                         </div>
                       </div>
                     </>
@@ -617,9 +636,20 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
         </div>
         <div className="flex items-center gap-2">
           {currentUser.role === "ADMIN" && (
-            <button onClick={fetchChain} className="p-2.5 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Trace Analysis">
-                <ShieldAlert size={18} />
-            </button>
+            <>
+              <a 
+                href={(post.imageUrl || `/uploads/${post.imagePath}`).replace('/upload/', '/upload/fl_attachment/')} 
+                target="_blank" rel="noreferrer"
+                download={`asset_${post.id}`}
+                className="p-2.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all" 
+                title="Download Asset Data"
+              >
+                <Download size={18} />
+              </a>
+              <button onClick={fetchChain} className="p-2.5 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="View matches">
+                  <ShieldAlert size={18} />
+              </button>
+            </>
           )}
           {(currentUser.id === post.userId || currentUser.role === "ADMIN") && (
             <button onClick={() => { if(confirm("Delete this post?")) onDelete(); }} className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Terminate Asset">
@@ -702,7 +732,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               ))}
               {postComments.length > 2 && (
                 <button onClick={() => setShowComments(true)} className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600">
-                  View all {postComments.length} entries
+                  View all {postComments.length} comments
                 </button>
               )}
             </div>
@@ -729,7 +759,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
                 disabled={!commentText.trim() || isBanned}
                 className="text-emerald-500 font-black text-xs uppercase tracking-widest disabled:opacity-0"
               >
-                Index
+                Comment
               </button>
            </form>
         </div>
@@ -748,7 +778,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               <div className="p-10 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="font-black text-2xl text-slate-900 tracking-tighter flex items-center gap-3">
-                    <ShieldAlert className="text-emerald-500" /> Identity Intelligence
+                    <ShieldAlert className="text-emerald-500" /> Similar Images
                   </h3>
                 </div>
                 <button onClick={() => setShowChain(false)}><X size={24} /></button>
@@ -759,7 +789,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
                     <img src={p.imageUrl || `/uploads/${p.imagePath}`} className="w-20 h-20 rounded-2xl object-cover" />
                     <div className="flex-1">
                        <div className="font-extrabold text-slate-900">{p.user.name}</div>
-                       <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-2">{p.id === post.id ? "PRIMARY ASSET" : "CLONED IDENTIFIER"}</div>
+                       <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-2">{p.id === post.id ? "THIS POST" : "SIMILAR POST"}</div>
                     </div>
                   </div>
                 ))}
@@ -778,7 +808,7 @@ function PostCard({ post, onRepost, onDelete }: { post: Post, onRepost: () => vo
               className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
             >
               <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-black text-xl uppercase tracking-tighter">Engagement Logs</h3>
+                <h3 className="font-black text-xl uppercase tracking-tighter">Comments</h3>
                 <button onClick={() => setShowComments(false)}><X size={24} /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-8 space-y-6">
@@ -855,8 +885,8 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
       <div className="bg-white rounded-[4rem] border border-slate-100 shadow-2xl transition-all overflow-hidden">
         <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-white">
           <div>
-            <h2 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Input Intelligence</h2>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1 italic">Authorized Asset Indexing System</p>
+            <h2 className="text-3xl font-black tracking-tighter text-slate-900 uppercase">Upload Post</h2>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1 italic">Share your image here</p>
           </div>
           <button 
             disabled={!file || loading || isBanned}
@@ -864,7 +894,7 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
             className="group relative px-10 py-4 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:bg-slate-800 disabled:opacity-20 transition-all"
           >
             <span className="flex items-center gap-3">
-              {loading ? "DATA INDEXING..." : "COMMIT TO NETWORK"}
+              {loading ? "UPLOADING..." : "POST NOW"}
               <TrendingUp size={16} className="group-hover:translate-x-1 transition-transform" />
             </span>
           </button>
@@ -883,8 +913,8 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
                 <div className="w-24 h-24 bg-white rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-8 group-hover/drop:scale-110 group-hover/drop:shadow-lg transition-all">
                    <PlusSquare size={48} className="text-slate-200 group-hover/drop:text-slate-900 transition-colors" />
                 </div>
-                <h3 className="text-slate-900 font-black text-2xl tracking-tight mb-2 uppercase">CHOOSE SOURCE</h3>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest max-w-[240px] mx-auto">Upload identifiers for global network cross-referencing</p>
+                <h3 className="text-slate-900 font-black text-2xl tracking-tight mb-2 uppercase">UPLOAD IMAGE</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest max-w-[240px] mx-auto">Upload images for others to see</p>
               </div>
             )}
             <input id="post-file" type="file" className="hidden" onChange={(e) => {
@@ -896,10 +926,10 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
           {/* Details Area */}
           <div className="w-full lg:w-[400px] p-12 space-y-10 bg-white flex flex-col">
             <div className="space-y-4">
-              <label className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] pl-2">Descriptive Logs</label>
+              <label className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] pl-2">Caption</label>
               <div className="relative">
                 <textarea 
-                  placeholder="Analyze and describe transmissible content..." 
+                  placeholder="Write something about your post..." 
                   className="w-full p-6 rounded-[2rem] bg-slate-50 border border-slate-100 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-300 outline-none resize-none h-48 text-sm font-medium transition-all"
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
@@ -924,12 +954,12 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
             </div>
 
             <div className="space-y-4">
-              <label className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] pl-2">Coordinate Tag</label>
+              <label className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] pl-2">Location</label>
               <div className="relative group/input">
                 <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within/input:text-slate-900 transition-colors" size={20} />
                 <input 
                   type="text" 
-                  placeholder="Set tracking position..." 
+                  placeholder="Add location..." 
                   className="w-full pl-16 pr-6 py-5 rounded-2xl bg-slate-50 border border-slate-100 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-300 outline-none text-sm transition-all"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -941,9 +971,9 @@ function UploadPage({ onComplete, userId }: { onComplete: () => void, userId: nu
               <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
                 <div className="flex items-center gap-3 mb-2">
                   <ShieldAlert size={16} className="text-slate-900" />
-                  <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Protocol Sync</span>
+                  <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Notice</span>
                 </div>
-                <p className="text-[10px] text-slate-400 leading-relaxed font-bold uppercase">All content is subject to algorithmic scanning for safety violations. Misuse results in immediate identity restriction.</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed font-bold uppercase">All content is checked for safety. Breaking the rules causes an account block.</p>
               </div>
             </div>
           </div>
@@ -988,15 +1018,15 @@ function SearchPage() {
         <div className="inline-block p-4 bg-slate-50 rounded-full border border-slate-100 mb-4 shadow-sm">
            <Search size={48} className="text-slate-900" />
         </div>
-        <h2 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">Visual Analysis</h2>
-        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] leading-relaxed">Cross-network identity detection algorithms powered by algorithmic fingerprinting.</p>
+        <h2 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">Image Search</h2>
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] leading-relaxed">Find if an image has been posted before.</p>
         
         <div className="pt-8">
           <label className="relative group cursor-pointer inline-block overflow-hidden rounded-[2.5rem] bg-slate-900 px-12 py-6 shadow-xl">
             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
             <div className="relative z-10 flex items-center gap-4 text-white font-black uppercase text-sm tracking-[0.2em]">
               <ImageIcon size={24} />
-              {loading ? analyzingText : "SCAN SOURCE IDENTIFIER"}
+              {loading ? analyzingText : "SEARCH WITH IMAGE"}
               <input type="file" className="hidden" onChange={handleSearch} disabled={loading} />
             </div>
           </label>
@@ -1025,9 +1055,9 @@ function SearchPage() {
                 <div className="p-8">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                      <CheckCircle2 size={12} /> MATCH DETECTED
+                      <CheckCircle2 size={12} /> FOUND A MATCH
                     </div>
-                    <div className="text-[10px] text-slate-300 font-black">99% PROBABILITY</div>
+                    <div className="text-[10px] text-slate-300 font-black">99% MATCH</div>
                   </div>
                   <p className="text-sm text-slate-400 font-medium truncate italic">"{post.caption}"</p>
                 </div>
@@ -1120,11 +1150,11 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
             <div className="flex flex-wrap justify-center md:justify-start gap-8">
                <div className="space-y-1">
                   <div className="text-2xl font-black text-slate-900">{profileUser?._count?.posts || 0}</div>
-                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Transmissions</div>
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Posts</div>
                </div>
                <div className="space-y-1">
                   <div className="text-2xl font-black text-slate-900">{profileUser?._count?.followers || 0}</div>
-                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Network Nodes</div>
+                  <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Followers</div>
                </div>
                <div className="space-y-1">
                   <div className="text-2xl font-black text-slate-900">{profileUser?._count?.following || 0}</div>
@@ -1135,8 +1165,8 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
             <div className="flex flex-wrap justify-center md:justify-start gap-4">
                {isOwnProfile ? (
                  <>
-                   <button className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl">Edit Protocol</button>
-                   <button onClick={onLogout} className="px-8 py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all">Sign Out</button>
+                   <button className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl">Edit Profile</button>
+                   <button onClick={onLogout} className="px-8 py-4 bg-red-50 text-red-600 border border-red-100 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all">Logout</button>
                  </>
                ) : (
                  <>
@@ -1144,7 +1174,7 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
                     onClick={handleFollow}
                     className={`px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl ${following ? 'bg-slate-100 text-slate-400' : 'bg-emerald-500 text-white'}`}
                    >
-                    {following ? 'Connected' : 'Establish Link'}
+                    {following ? 'Following' : 'Follow'}
                    </button>
                    <button className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-all">
                       <MessageCircle size={20} />
@@ -1160,7 +1190,7 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
       <div className="mt-16">
         <div className="flex items-center gap-4 mb-10">
            <div className="h-[2px] flex-1 bg-slate-100" />
-           <div className="text-xs font-black text-slate-400 uppercase tracking-[0.5em]">Transmitted Assets</div>
+           <div className="text-xs font-black text-slate-400 uppercase tracking-[0.5em]">Your Posts</div>
            <div className="h-[2px] flex-1 bg-slate-100" />
         </div>
 
@@ -1181,7 +1211,7 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
                        </div>
                        <div className="text-center">
                           <div className="text-xl font-black">{post._count?.comments || 0}</div>
-                          <div className="text-[8px] font-black uppercase tracking-widest opacity-60">Logs</div>
+                          <div className="text-[8px] font-black uppercase tracking-widest opacity-60">Comments</div>
                        </div>
                     </div>
                     <p className="text-xs font-bold text-center line-clamp-2 uppercase tracking-tighter">{post.caption}</p>
@@ -1195,7 +1225,7 @@ function ProfilePage({ userId, user: initialUser, isOwnProfile, onLogout, curren
              <div className="inline-block p-8 bg-slate-50 rounded-full border border-slate-100 mb-6">
                 <ImageIcon size={48} className="text-slate-200" />
              </div>
-             <p className="text-slate-300 font-black uppercase tracking-[0.4em]">No active transmissions</p>
+             <p className="text-slate-300 font-black uppercase tracking-[0.4em]">No posts yet</p>
           </div>
         )}
       </div>
@@ -1253,7 +1283,7 @@ function MessagingPage({ currentUser }: { currentUser: User }) {
     <div className="max-w-6xl mx-auto h-[calc(100vh-160px)] flex gap-8 py-4">
       {/* Conversations List */}
       <div className="w-80 gen-z-card flex flex-col p-6 overflow-hidden">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6 px-2">Active Channels</h3>
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6 px-2">Chats</h3>
         <div className="flex-1 overflow-y-auto space-y-2 pr-2 chat-scrollbar">
           {conversations.map(c => (
             <button 
@@ -1264,7 +1294,7 @@ function MessagingPage({ currentUser }: { currentUser: User }) {
               <img src={c.avatar} className="w-10 h-10 rounded-2xl border-2 border-white object-cover" />
               <div className="text-left">
                  <div className="text-xs font-black uppercase tracking-tighter truncate w-32">{c.name}</div>
-                 <div className={`text-[8px] font-bold uppercase tracking-widest ${selectedUser?.id === c.id ? 'text-white/60' : 'text-slate-300'}`}>Channel Active</div>
+                 <div className={`text-[8px] font-bold uppercase tracking-widest ${selectedUser?.id === c.id ? 'text-white/60' : 'text-slate-300'}`}>Online</div>
               </div>
             </button>
           ))}
@@ -1287,7 +1317,7 @@ function MessagingPage({ currentUser }: { currentUser: User }) {
                   <img src={selectedUser.avatar} className="w-10 h-10 rounded-2xl object-cover" />
                   <div>
                     <div className="text-sm font-black text-slate-900 uppercase tracking-tighter">{selectedUser.name}</div>
-                    <div className="text-[8px] text-emerald-500 font-black uppercase tracking-widest">Secure Link Established</div>
+                    <div className="text-[8px] text-emerald-500 font-black uppercase tracking-widest">Connected</div>
                   </div>
                </div>
                <button onClick={() => setSelectedUser(null)} className="md:hidden p-2 text-slate-400 hover:text-slate-900"><X size={20} /></button>
@@ -1309,7 +1339,7 @@ function MessagingPage({ currentUser }: { currentUser: User }) {
                <form onSubmit={sendMessage} className="relative">
                   <input 
                     type="text" 
-                    placeholder="Enter broadcast signal..." 
+                    placeholder="Type a message..." 
                     className="w-full pl-6 pr-16 py-5 rounded-2xl bg-slate-50 border border-slate-100 outline-none text-sm font-medium focus:bg-white focus:border-emerald-300 transition-all"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
@@ -1326,8 +1356,8 @@ function MessagingPage({ currentUser }: { currentUser: User }) {
                 <MessageCircle size={64} className="text-slate-900" />
              </div>
              <div className="text-center space-y-2">
-                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Identity Messenger</h3>
-                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Select a node to initiate transmission</p>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Messages</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Pick a user to start chatting</p>
              </div>
           </div>
         )}
@@ -1360,7 +1390,7 @@ function NotificationPage({ user, onRead }: { user: User, onRead: () => void }) 
 
   return (
     <div className="max-w-2xl mx-auto py-12">
-      <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-10">Broadcast History</h2>
+      <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter mb-10">Notifications</h2>
       <div className="space-y-4">
         {notifications.map(n => (
           <div 
@@ -1386,7 +1416,7 @@ function NotificationPage({ user, onRead }: { user: User, onRead: () => void }) 
         {notifications.length === 0 && (
           <div className="py-20 text-center opacity-20">
              <Bell size={48} className="mx-auto mb-6" />
-             <p className="text-xs font-black uppercase tracking-[0.5em]">No signals received</p>
+             <p className="text-xs font-black uppercase tracking-[0.5em]">Nothing to see here</p>
           </div>
         )}
       </div>
@@ -1437,14 +1467,14 @@ function LostFoundPage() {
               <Send size={32} />
             </div>
             <div>
-              <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Signal Sync</h2>
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Targeted anonymous messaging via network identifiers.</p>
+              <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Anonymous Message</h2>
+              <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Send a message using an ID.</p>
             </div>
           </div>
 
           <form onSubmit={handleSend} className="space-y-8">
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-slate-400 ml-4 tracking-[0.2em]">Target Identifier</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 ml-4 tracking-[0.2em]">User ID</label>
               <input 
                 type="text" 
                 required 
@@ -1459,7 +1489,7 @@ function LostFoundPage() {
               <label className="text-[10px] font-black uppercase text-slate-400 ml-4 tracking-[0.2em]">Message Payload</label>
               <textarea 
                 required 
-                placeholder="Enter transmission content..."
+                placeholder="Write your message..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="w-full px-8 py-6 rounded-3xl bg-slate-50 border border-slate-100 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-300 outline-none h-48 resize-none font-medium leading-relaxed transition-all shadow-sm"
@@ -1470,7 +1500,7 @@ function LostFoundPage() {
               {success && (
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-3 text-emerald-600 bg-emerald-50 p-5 rounded-2xl border border-emerald-100">
                    <CheckCircle2 size={18} />
-                   <span className="text-xs font-black uppercase tracking-widest">Signal delivered successfully.</span>
+                   <span className="text-xs font-black uppercase tracking-widest">Message sent.</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1478,7 +1508,7 @@ function LostFoundPage() {
             <button className="group w-full relative overflow-hidden bg-slate-900 text-white py-6 rounded-3xl font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all active:scale-95 shadow-xl">
               <div className="absolute inset-0 bg-white/10 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
               <div className="relative z-10 flex items-center justify-center gap-4">
-                {loading ? "DATA BROADCASTING..." : "START TRANSMISSION"}
+                {loading ? "SENDING..." : "SEND MESSAGE"}
                 {!loading && <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />}
               </div>
             </button>
