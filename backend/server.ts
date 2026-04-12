@@ -211,13 +211,23 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
       data: { text, postId, userId },
       include: { user: true, post: { include: { user: true } } }
     });
+    // Create notification (wrap in separate try/catch so comment doesn't fail if notification does)
     if (comment.post.userId !== userId) {
-      await prisma.notification.create({
-        data: {
-          userId: comment.post.userId, senderId: userId, senderName: comment.user.name,
-          senderAvatar: comment.user.avatar, type: "COMMENT", postId: postId, content: "commented on your post"
-        }
-      });
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: comment.post.userId, 
+            senderId: userId, 
+            senderName: comment.user.name,
+            senderAvatar: comment.user.avatar, 
+            type: "COMMENT", 
+            postId: postId, 
+            content: "commented on your post"
+          }
+        });
+      } catch (notifyError) {
+        console.error("[NOTIFICATION ERROR]", notifyError);
+      }
     }
     res.json(comment);
   } catch (error: any) {
