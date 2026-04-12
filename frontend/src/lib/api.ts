@@ -4,8 +4,11 @@ import axios from "axios";
  * Centralized API instance for the web app.
  * Includes a 5000ms timeout to prevent "Handshake Failure" caused by hanging requests.
  */
+const API_URL = import.meta.env.VITE_API_URL || "";
+console.log("DEBUG: Connecting to API at:", API_URL || "CURRENT DOMAIN (RELATIVE)");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "", 
+  baseURL: API_URL, 
   timeout: 60000,
   headers: {
     // Axios will automatically set Content-Type for JSON or FormData
