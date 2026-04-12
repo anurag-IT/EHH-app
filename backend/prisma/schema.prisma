@@ -168,6 +168,8 @@ model ImageMatch {
   imageId         Int
   matchedImageId  Int
   similarityScore Float
+  matchType       String   @default("HASH_MATCH")
+  confidenceLevel String   @default("LOW")
   createdAt       DateTime @default(now())
 }
 

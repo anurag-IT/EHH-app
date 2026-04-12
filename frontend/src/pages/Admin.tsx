@@ -402,11 +402,11 @@ function ImageTrace() {
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [
-    "Reading image pixels...",
-    "Scanning all posts...",
-    "Comparing colors...",
-    "Looking for duplicates...",
-    "Almost done..."
+    "Analyzing structure...",
+    "Generating deep hashes...",
+    "Extracting AI vectors...",
+    "ORB feature mapping...",
+    "Final scoring..."
   ];
 
   const scanNetwork = async () => {
@@ -415,14 +415,8 @@ function ImageTrace() {
     setCurrentStep(0);
     
     const interval = setInterval(() => {
-      setCurrentStep(prev => {
-        if (prev >= steps.length - 1) {
-          clearInterval(interval);
-          return prev;
-        }
-        return prev + 1;
-      });
-    }, 800);
+      setCurrentStep(prev => (prev < steps.length - 1 ? prev + 1 : prev));
+    }, 1200);
 
     const formData = new FormData();
     formData.append("image", file);
@@ -432,9 +426,12 @@ function ImageTrace() {
       setMatchResult(res.data);
       if (res.data.matchCount === 0) toast.info("No matching images found.");
       else toast.warning(`Found ${res.data.matchCount} similar images.`);
-    } catch {
-      toast.error("Process failed.");
+    } catch (err: any) {
+      console.error("Trace error:", err);
+      const msg = err.response?.data?.error || "Pipeline handshake failure";
+      toast.error(`Process Failed: ${msg}`);
     } finally { 
+       clearInterval(interval);
        setLoading(false);
     }
   }
@@ -443,24 +440,39 @@ function ImageTrace() {
     if (!confirm(`Delete all ${matchResult.matchCount} matching images forever?`)) return;
     setLoading(true);
     try {
-      await axios.delete(`/admin/delete/${matchResult.postId}`, { headers: getHeaders() });
+      await axios.delete(`/admin/delete/${matchResult.bestMatch.postId}`, { headers: getHeaders() });
       toast.success("All copies deleted.");
-      setMatchResult(null);
-      setFile(null); setPreview(null);
+      setMatchResult(null); setFile(null); setPreview(null);
     } catch {
       toast.error("Error deleting images.");
     } finally { setLoading(false); }
   }
 
+  const deleteSingle = async (postId: number) => {
+    if (!confirm("Delete this specific post?")) return;
+    try {
+      await axios.delete(`/api/posts/${postId}`, { headers: getHeaders() });
+      toast.success("Post deleted.");
+      // Refresh matches by filtering out the deleted one locally
+      setMatchResult({
+        ...matchResult,
+        matchCount: matchResult.matchCount - 1,
+        allMatches: matchResult.allMatches.filter((m: any) => m.postId !== postId)
+      });
+    } catch {
+      toast.error("Error deleting post.");
+    }
+  }
+
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-[2.5rem] border border-[#f1f5f9] p-12 shadow-sm">
+    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-6xl mx-auto pb-20">
+      <div className="bg-white rounded-[2.5rem] border border-[#f1f5f9] p-8 lg:p-12 shadow-sm">
         <header className="text-center mb-10">
-          <div className="inline-block p-4 bg-emerald-50 rounded-full border border-emerald-100 mb-6">
-             <Search size={32} className="text-emerald-500" />
+          <div className="inline-block p-4 bg-emerald-50 rounded-full border border-emerald-100 mb-6 font-bold text-emerald-600 uppercase text-[10px] tracking-widest">
+            Production-Level 5-Layer Hybrid Pipeline
           </div>
-          <h2 className="text-3xl font-bold tracking-tight">Image Search</h2>
-          <p className="text-[#94a3b8] text-xs font-medium mt-3">Upload an image to find copies posted by others.</p>
+          <h2 className="text-3xl font-bold tracking-tight">Advanced Image Trace System</h2>
+          <p className="text-[#94a3b8] text-xs font-medium mt-3">Using SHA256, aHash, dHash, pHash, ORB & MobileNet AI</p>
         </header>
 
         {!matchResult ? (
@@ -479,7 +491,7 @@ function ImageTrace() {
                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto border border-[#f1f5f9] shadow-sm">
                       <ImageIcon size={28} className="text-emerald-500" />
                    </div>
-                   <p className="text-[#94a3b8] font-bold text-[10px] uppercase">Upload image</p>
+                   <p className="text-[#94a3b8] font-bold text-[10px] uppercase">Upload image to scan</p>
                 </div>
               )}
             </label>
@@ -487,44 +499,98 @@ function ImageTrace() {
             <button 
               disabled={!file || loading} 
               onClick={scanNetwork} 
-              className="w-full h-16 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-[0.98] transition-all disabled:opacity-30"
+              className="w-full h-16 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3 overflow-hidden"
             >
-              {loading ? steps[currentStep] : "Start Search"}
+              {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {loading ? steps[currentStep] : "Initiate Global Scan"}
             </button>
           </div>
         ) : (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="grid md:grid-cols-2 gap-10">
-             <div className="bg-[#f8fafc] rounded-[2rem] p-8 border border-[#f1f5f9] flex flex-col items-center justify-center text-center">
-                <div className="relative mb-6 w-full max-w-xs">
-                  <img src={matchResult.previewUrl} className="w-full rounded-[2rem] border-4 border-white shadow-xl" />
-                  <div className="absolute -top-3 -right-3 bg-emerald-500 p-2.5 rounded-2xl shadow-lg border-4 border-white">
-                    <CheckCircle2 size={24} className="text-white" />
+          <div className="space-y-12">
+             {/* Side-by-Side Comparison */}
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider px-2">Uploaded Source</h4>
+                  <div className="bg-[#f8fafc] rounded-[2rem] p-4 border border-[#f1f5f9]">
+                    <img src={preview!} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
                   </div>
                 </div>
-                <div className="text-6xl font-bold tracking-tight">{matchResult.matchCount}</div>
-                <div className="text-emerald-600 font-bold text-xs uppercase mt-2">Copies found</div>
-             </div>
-
-             <div className="space-y-6 flex flex-col justify-center">
-                <div className="bg-white p-6 rounded-2xl border border-[#f1f5f9]">
-                   <div className="flex items-center justify-between mb-3 text-[10px] font-bold uppercase text-[#94a3b8]">
-                      <span>Similarity</span>
-                      <span className="text-emerald-600">{matchResult.similarity || "High"}</span>
-                   </div>
-                   <div className="h-1.5 w-full bg-[#f1f5f9] rounded-full overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: matchResult.similarity || "99%" }} className="h-full bg-emerald-500" />
-                   </div>
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider px-2">Best Match Encountered</h4>
+                  <div className="bg-emerald-50 rounded-[2rem] p-4 border border-emerald-100 relative">
+                    {matchResult.bestMatch ? (
+                      <>
+                        <img src={matchResult.bestMatch.previewUrl} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
+                        <div className="absolute top-8 right-8 bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-lg shadow-xl shadow-emerald-500/20">
+                          {matchResult.bestMatch.similarity}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full aspect-square flex items-center justify-center text-[#94a3b8] font-bold text-sm uppercase italic">No Match Found</div>
+                    )}
+                  </div>
                 </div>
-
-               <div className="grid grid-cols-2 gap-3 pt-6">
-                 <button onClick={() => setMatchResult(null)} className="h-14 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl font-bold text-xs text-[#64748b]">Go Back</button>
-                 <button onClick={deleteFamily} className="flex items-center justify-center gap-2 h-14 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">
-                    <Trash2 size={16} />
-                    Delete All
-                 </button>
-               </div>
              </div>
-          </motion.div>
+
+             {/* Match Details List */}
+             <div className="bg-[#f8fafc] rounded-[2rem] border border-[#f1f5f9] overflow-hidden">
+                <div className="px-8 py-6 border-b border-[#f1f5f9] flex items-center justify-between">
+                   <h3 className="font-bold text-lg">Similarity Results ({matchResult.matchCount})</h3>
+                   {matchResult.matchCount > 0 && (
+                     <button onClick={deleteFamily} className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">
+                        <Trash2 size={14} /> Wipe All Variants
+                     </button>
+                   )}
+                </div>
+                
+                <div className="p-4 space-y-4">
+                  {matchResult.allMatches?.map((m: any, idx: number) => (
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }} 
+                      animate={{ opacity: 1, x: 0 }} 
+                      transition={{ delay: idx * 0.1 }}
+                      key={m.postId} 
+                      className="bg-white p-6 rounded-2xl border border-[#f1f5f9] flex flex-wrap lg:flex-nowrap items-center gap-6 group hover:border-emerald-200 transition-all"
+                    >
+                       <img src={m.previewUrl} className="w-20 h-20 rounded-xl object-cover border border-[#f1f5f9]" />
+                       <div className="flex-1 min-w-[200px]">
+                          <div className="flex items-center gap-3 mb-2">
+                             <span className="text-sm font-bold text-[#0f172a]">Post #{m.postId}</span>
+                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${m.confidenceLevel === 'HIGH' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : m.confidenceLevel === 'MEDIUM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                {m.confidenceLevel} CONFIDENCE
+                             </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-[10px] font-bold text-[#94a3b8] uppercase tracking-wide">
+                             <div className="flex items-center gap-1"><Fingerprint size={12} className="text-emerald-500" /> {m.matchType}</div>
+                             <div className="flex items-center gap-1"><Users size={12} className="text-[#64748b]" /> {m.user || "Unknown User"}</div>
+                          </div>
+                       </div>
+                       
+                       <div className="flex items-center gap-3 ml-auto">
+                          <div className="text-right mr-4 hidden md:block">
+                             <div className="text-xs font-bold text-emerald-600">{m.similarity} Similarity</div>
+                             <div className="text-[10px] text-[#cbd5e1] font-medium uppercase mt-0.5">Hybrid Score</div>
+                          </div>
+                          <button onClick={() => deleteSingle(m.postId)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all">
+                             <Trash2 size={18} />
+                          </button>
+                          <button onClick={() => toast.info("Ignoring variant...")} className="p-3 bg-[#f8fafc] text-[#94a3b8] rounded-xl hover:bg-[#0f172a] hover:text-white transition-all">
+                             <CheckCircle2 size={18} />
+                          </button>
+                       </div>
+                    </motion.div>
+                  ))}
+                  
+                  {matchResult.matchCount === 0 && (
+                    <div className="py-20 text-center text-[#94a3b8] italic text-sm">No significant matches detected across the network.</div>
+                  )}
+                </div>
+                
+                <div className="px-8 py-6 border-t border-[#f1f5f9] flex justify-center">
+                   <button onClick={() => setMatchResult(null)} className="font-bold text-xs text-emerald-600 hover:underline">Clear results and scan new image</button>
+                </div>
+             </div>
+          </div>
         )}
       </div>
     </motion.div>

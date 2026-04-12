@@ -107,6 +107,80 @@ async def compare_images(request: CompareRequest):
                 status="FAILED", error=str(e)
             )
 
+class DescriptorRequest(BaseModel):
+    image_url: str
+
+class DescriptorResponse(BaseModel):
+    descriptors: Optional[str] = None
+    shape: Optional[list] = None
+    status: str
+    error: Optional[str] = None
+
+class MatchDescriptorsRequest(BaseModel):
+    des1: str
+    shape1: list
+    des2: str
+    shape2: list
+
+@app.post("/descriptors", response_model=DescriptorResponse)
+async def get_descriptors(request: DescriptorRequest):
+    try:
+        loop = asyncio.get_event_loop()
+        img = await loop.run_in_executor(executor, download_image, request.image_url)
+        orb = cv2.ORB_create(nfeatures=1000)
+        kp, des = orb.detectAndCompute(img, None)
+        if des is None:
+            return DescriptorResponse(descriptors=None, shape=None, status="OK")
+        
+        import base64
+        des_bytes = des.tobytes()
+        des_b64 = base64.b64encode(des_bytes).decode('utf-8')
+        return DescriptorResponse(descriptors=des_b64, shape=list(des.shape), status="OK")
+    except Exception as e:
+        return DescriptorResponse(descriptors=None, shape=None, status="FAILED", error=str(e))
+
+@app.post("/match-descriptors", response_model=CompareResponse)
+async def match_descriptors(request: MatchDescriptorsRequest):
+    try:
+        import base64
+        if not request.des1 or not request.des2:
+            return CompareResponse(matchScore=0, confidence="NONE", goodMatches=0, totalKeypoints=0, status="EMPTY_DESCRIPTORS")
+
+        # Decode descriptors
+        des1_bytes = base64.b64decode(request.des1)
+        des1 = np.frombuffer(des1_bytes, dtype=np.uint8).reshape(request.shape1)
+        
+        des2_bytes = base64.b64decode(request.des2)
+        des2 = np.frombuffer(des2_bytes, dtype=np.uint8).reshape(request.shape2)
+        
+        # create BFMatcher object
+        bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+        # Match descriptors
+        matches = bf.match(des1, des2)
+        matches = sorted(matches, key = lambda x:x.distance)
+        good_matches = [m for m in matches if m.distance < 45]
+        
+        total_kp = max(len(des1), len(des2), 1)
+        score = len(good_matches) / total_kp if total_kp > 0 else 0
+        
+        confidence = "LOW"
+        if score > 0.4: confidence = "MEDIUM"
+        if score > 0.7: confidence = "HIGH"
+        
+        return CompareResponse(
+            matchScore=score,
+            confidence=confidence,
+            goodMatches=len(good_matches),
+            totalKeypoints=total_kp,
+            status="OK"
+        )
+    except Exception as e:
+        return CompareResponse(
+            matchScore=0, confidence="NONE", goodMatches=0, totalKeypoints=0, 
+            status="FAILED", error=str(e)
+        )
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "ORB-Feature-Matcher"}
