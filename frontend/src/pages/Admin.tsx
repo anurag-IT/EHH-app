@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import { motion, AnimatePresence } from "motion/react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -25,7 +25,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   
   useEffect(() => {
     if (activeTab === "dashboard") {
-      axios.get("/admin/stats", { headers: getHeaders() })
+      api.get("/admin/stats", { headers: getHeaders() })
         .then(res => {
           setStats(res.data);
           setError(null);
@@ -256,7 +256,7 @@ function UsersManager() {
   const [banModal, setBanModal] = useState<any>(null);
 
   const fetchUsers = () => {
-    axios.get("/admin/users", { headers: getHeaders() })
+    api.get("/admin/users", { headers: getHeaders() })
       .then(res => setUsers(res.data))
       .catch(() => toast.error("Could not load users."));
   };
@@ -265,7 +265,7 @@ function UsersManager() {
 
   const handleBan = async (id: number, durationDays: number, reason: string) => {
     try {
-      await axios.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
+      await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
       toast.success("User banned successfully.");
       setBanModal(null);
       fetchUsers();
@@ -277,7 +277,7 @@ function UsersManager() {
   const handleDelete = async (id: number) => {
     if (!confirm("Delete User? This cannot be undone.")) return;
     try {
-      await axios.delete(`/admin/users/${id}`, { headers: getHeaders() });
+      await api.delete(`/admin/users/${id}`, { headers: getHeaders() });
       toast.success("User deleted.");
       fetchUsers();
     } catch {
@@ -422,7 +422,7 @@ function ImageTrace() {
     formData.append("image", file);
 
     try {
-      const res = await axios.post("/admin/find-image", formData, { headers: getHeaders() });
+      const res = await api.post("/admin/find-image", formData, { headers: getHeaders() });
       setMatchResult(res.data);
       if (res.data.matchCount === 0) toast.info("No matching images found.");
       else toast.warning(`Found ${res.data.matchCount} similar images.`);
@@ -440,7 +440,7 @@ function ImageTrace() {
     if (!confirm(`Delete all ${matchResult.matchCount} matching images forever?`)) return;
     setLoading(true);
     try {
-      await axios.delete(`/admin/delete/${matchResult.bestMatch.postId}`, { headers: getHeaders() });
+      await api.delete(`/admin/delete/${matchResult.bestMatch.postId}`, { headers: getHeaders() });
       toast.success("All copies deleted.");
       setMatchResult(null); setFile(null); setPreview(null);
     } catch {
@@ -451,7 +451,7 @@ function ImageTrace() {
   const deleteSingle = async (postId: number) => {
     if (!confirm("Delete this specific post?")) return;
     try {
-      await axios.delete(`/api/posts/${postId}`, { headers: getHeaders() });
+      await api.delete(`/api/posts/${postId}`, { headers: getHeaders() });
       toast.success("Post deleted.");
       // Refresh matches by filtering out the deleted one locally
       setMatchResult({
@@ -601,7 +601,7 @@ function SystemPulse() {
   const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    axios.get("/admin/logs", { headers: getHeaders() }).then(res => setLogs(res.data)).catch();
+    api.get("/admin/logs", { headers: getHeaders() }).then(res => setLogs(res.data)).catch();
   }, []);
 
   return (
@@ -641,7 +641,7 @@ function FlaggedContent() {
   const [loading, setLoading] = useState(true);
 
   const fetchFlags = () => {
-    axios.get("/admin/flags", { headers: getHeaders() })
+    api.get("/admin/flags", { headers: getHeaders() })
       .then(res => { setFlags(res.data); setLoading(false); })
       .catch(() => { toast.error("Could not load reports."); setLoading(false); });
   };
@@ -650,7 +650,7 @@ function FlaggedContent() {
 
   const resolveFlag = async (id: number, action: "KEEP" | "WIPE") => {
     try {
-      await axios.post(`/admin/flags/${id}/resolve`, { action }, { headers: getHeaders() });
+      await api.post(`/admin/flags/${id}/resolve`, { action }, { headers: getHeaders() });
       toast.success(action === "KEEP" ? "Report ignored." : "Post deleted.");
       fetchFlags();
     } catch {
