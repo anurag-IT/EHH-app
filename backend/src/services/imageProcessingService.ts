@@ -30,8 +30,6 @@ function binaryToHex(bin: string): string {
 async function getAHash(buffer: Buffer): Promise<string> {
   const { data } = await sharp(buffer)
     .grayscale()
-    .resize(100, 100, { fit: "fill" })
-    .extract({ left: 10, top: 10, width: 80, height: 80 })
     .resize(8, 8, { fit: "fill" })
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -49,8 +47,6 @@ async function getAHash(buffer: Buffer): Promise<string> {
 async function getDHash(buffer: Buffer): Promise<string> {
   const { data } = await sharp(buffer)
     .grayscale()
-    .resize(100, 100, { fit: "fill" })
-    .extract({ left: 10, top: 10, width: 80, height: 80 })
     .resize(9, 8, { fit: "fill" })
     .raw()
     .toBuffer({ resolveWithObject: true });
@@ -69,8 +65,7 @@ async function getDHash(buffer: Buffer): Promise<string> {
 async function getPHash(data: any): Promise<string> {
   const buffer = data.data;
   const processedBuffer = await sharp(buffer)
-    .resize(100, 100, { fit: "fill" })
-    .extract({ left: 10, top: 10, width: 80, height: 80 })
+    .resize(64, 64, { fit: "fill" })
     .toBuffer();
 
   return new Promise((resolve, reject) => {
