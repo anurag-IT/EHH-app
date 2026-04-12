@@ -544,6 +544,39 @@ app.post("/admin/reset-similarities", checkAdminMode, async (req: any, res: any)
   }
 });
 
+app.delete("/admin/delete/:id", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const targetPostId = parseInt(req.params.id);
+    const post = await prisma.post.findUnique({ where: { id: targetPostId } });
+    
+    if (!post) return res.status(404).json({ error: "Source post not found" });
+    if (!post.phash) return res.status(400).json({ error: "Target post lacks a perceptual hash" });
+
+    const matches = await getSimilarityResults({ phash: post.phash });
+    const matchIds = matches.map((m: any) => m.post.id);
+
+    // Make sure we encompass the origin post just in case it didn't pass its own filter for some reason (it should)
+    if (!matchIds.includes(targetPostId)) matchIds.push(targetPostId);
+    
+    const deleteResult = await prisma.post.deleteMany({
+      where: { id: { in: matchIds } }
+    });
+
+    await prisma.adminLog.create({
+      data: {
+        actionType: "global_delete_image",
+        adminName: req.adminUser.name,
+        targetId: post.uniqueId || `Post-${targetPostId}`,
+        details: `Deleted ${deleteResult.count} variants from the network based on pHash thresholding.`
+      }
+    });
+
+    res.json({ success: true, count: deleteResult.count });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/db-test", async (req: any, res: any) => {
   try {
     const users = await prisma.user.findMany({ take: 5 });
