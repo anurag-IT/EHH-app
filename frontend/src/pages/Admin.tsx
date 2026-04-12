@@ -424,13 +424,8 @@ function ImageTrace() {
     try {
       const res = await api.post("/admin/scan", formData, { headers: getHeaders() });
       setMatchResult(res.data);
-      if (res.data.matchCount === 0 || !res.data.matches || res.data.matches.matchCount === 0) toast.info("No matching images found.");
-      else toast.warning(`Found matching images.`);
-      
-      // Adapt the structure since the backend wraps it in { matches: { bestMatch, allMatches, matchCount } }
-      if (res.data.matches) {
-          setMatchResult(res.data.matches);
-      }
+      if (res.data.matchCount === 0) toast.info("No matching images found.");
+      else toast.warning(`Found ${res.data.matchCount} similar images.`);
     } catch (err: any) {
       console.error("Trace error:", err);
       const msg = err.response?.data?.error || "Pipeline handshake failure";

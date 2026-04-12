@@ -526,7 +526,23 @@ app.post("/admin/scan", upload.single("image"), checkAdminMode, async (req: any,
     if (!req.file) return res.status(400).json({ error: "No image provided" });
     const { sha256, ahash, dhash, phash, embedding } = await extractFeaturesFromBuffer(req.file.buffer);
     const matches = await getSimilarityResults({ sha256, ahash, dhash, phash, embedding });
-    res.json({ matches });
+    
+    const formattedMatches = matches.map((m: any) => ({
+       postId: m.post.id,
+       previewUrl: m.post.imageUrl,
+       similarity: `${Math.round(m.totalScore)}%`,
+       confidenceLevel: m.confidenceLevel,
+       matchType: m.matchType,
+       user: m.post.user?.name || "Unknown"
+    }));
+
+    const resultObj = {
+       matchCount: formattedMatches.length,
+       bestMatch: formattedMatches.length > 0 ? formattedMatches[0] : null,
+       allMatches: formattedMatches
+    };
+
+    res.json(resultObj);
   } catch (error: any) {
     console.error("[ADMIN SCAN ERROR]", error);
     res.status(500).json({ error: error.message || "Trace operation failed." });
