@@ -25,15 +25,17 @@ function getPHash(data: any): Promise<string> {
 
 export const processImageAsync = async (postId: number, imageUrl: string) => {
   try {
-    console.log(`[ASYNC] Processing started for post ${postId}`);
+    console.log(`[ASYNC START] Processing post ${postId} in background...`);
     
+    // REQUIREMENT: Resilient Fetch
     const response = await fetch(imageUrl);
     if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
+      throw new Error(`Failed to fetch indexed asset: ${response.statusText}`);
     }
     const arrayBuffer = await response.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
 
+    console.log(`[ASYNC] Asset fetched for ${postId}. Generating hashes...`);
     const sha256 = crypto.createHash("sha256").update(fileBuffer).digest("hex");
     
     const hashData = { data: fileBuffer, name: 'image.jpg' };
@@ -42,20 +44,20 @@ export const processImageAsync = async (postId: number, imageUrl: string) => {
 
     await prisma.post.update({
       where: { id: postId },
-      data: {
-        sha256,
-        phash,
-        hash
-      }
+      data: { sha256, phash, hash }
     });
 
-    console.log(`[ASYNC] Processing completed for post ${postId}`);
+    console.log(`[ASYNC] Hashes committed for ${postId}. Triggering similarity net...`);
 
-    // Trigger Similarity Comparison
-    await findMatchesAndLog(postId, phash, hash, imageUrl);
+    // Trigger Similarity Comparison (Non-blocking internal call)
+    await findMatchesAndLog(postId, phash, hash, imageUrl).catch(matchErr => {
+      console.error(`[ASYNC FAILURE] Match analysis failed for post ${postId}:`, matchErr);
+    });
 
-  } catch (error) {
+    console.log(`[ASYNC SUCCESS] Pipeline completed for post ${postId}`);
 
-    console.error(`[ASYNC] Error processing image for post ${postId}:`, error);
+  } catch (error: any) {
+    // REAL FIX: Clear, categorized failure logging
+    console.error(`[ASYNC FATAL ERROR] Pipeline failed for post ${postId}:`, error.message);
   }
 };

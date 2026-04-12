@@ -47,6 +47,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
         theme="light" 
         toastClassName="!bg-white !border !border-[#f1f5f9] !rounded-2xl !shadow-xl"
         progressClassName="!bg-emerald-500"
+        aria-label="Admin Notifications"
       />
       
       {/* Sidebar */}
@@ -614,7 +615,7 @@ function FlaggedContent() {
             <motion.div layout key={flag.id} className="bg-white rounded-[2rem] overflow-hidden border border-[#f1f5f9] shadow-sm flex flex-col">
               <div className="relative h-56 bg-[#f8fafc]">
                 {flag.post ? (
-                   <img src={flag.post.imageUrl || `/uploads/${flag.post.imagePath}`} className="w-full h-full object-cover" />
+                   <img src={(flag.post.imageUrl || "").replace('/upload/', '/upload/f_auto,q_auto,w_600,c_limit/')} className="w-full h-full object-cover" />
                 ) : (
                    <div className="w-full h-full flex items-center justify-center text-[#cbd5e1] uppercase text-[10px] font-bold">Image Deleted</div>
                 )}

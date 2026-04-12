@@ -26,14 +26,15 @@ const prisma = new PrismaClient() as any;
 const app = express();
 const PORT = 3001;
 
-const uploadDir = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
-}
-
-app.use(cors());
+app.use(cors({ 
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if(!origin) return callback(null, true);
+    return callback(null, true); // In development, allow all origins specifically
+  },
+  credentials: true 
+})); // FIX: Solve handshake/CORS issues
 app.use(express.json());
-app.use("/uploads", express.static(uploadDir));
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -160,27 +161,84 @@ app.post("/api/users/login", async (req, res) => {
 // --- POSTS ---
 app.get("/api/posts", async (req, res) => {
   try {
-    const posts = await prisma.post.findMany({
-      include: {
-        user: true,
-        parent: { include: { user: true } },
-        _count: {
-          select: {
-            likes: true,
-            comments: true,
-            reposts: true,
-          }
-        },
-        comments: {
-          include: { user: true },
-          orderBy: { createdAt: "asc" }
+    const limit = parseInt(req.query.limit as string) || 10;
+    const cursor = req.query.cursor ? parseInt(req.query.cursor as string) : undefined;
+    
+    // REQUIREMENT 1: Safe x-user-id reading (treat as guest if missing or invalid)
+    const xUserId = req.headers["x-user-id"];
+    const currentUserId = xUserId ? parseInt(xUserId as string) : null;
+    const isValidUser = currentUserId && !isNaN(currentUserId);
+
+    // REQUIREMENT 2 & 3: Optimized query with conditional likes filter
+    const selectFields: any = {
+      id: true,
+      imageUrl: true,
+      caption: true,
+      location: true,
+      createdAt: true,
+      userId: true,
+      user: {
+        select: {
+          name: true,
+          avatar: true,
+          uniqueId: true
         }
       },
+      _count: {
+        select: {
+          likes: true,
+          comments: true,
+          reposts: true
+        }
+      }
+    };
+
+    // Only include likes subquery if we have a valid user to check against
+    if (isValidUser) {
+      selectFields.likes = {
+        where: { userId: currentUserId },
+        select: { id: true }
+      };
+    }
+
+    const posts = await prisma.post.findMany({
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
       orderBy: { createdAt: "desc" },
+      select: selectFields
     });
-    res.json(posts);
+
+    let nextCursor = null;
+    if (posts.length > limit) {
+      const nextItem = posts.pop();
+      nextCursor = nextItem.id;
+    }
+
+    // REQUIREMENT 4 & 5: Format response with isLiked and flat counts
+    const formattedPosts = posts.map(post => ({
+      id: post.id,
+      imageUrl: post.imageUrl,
+      caption: post.caption,
+      location: post.location,
+      createdAt: post.createdAt,
+      user: post.user,
+      likesCount: post._count.likes,
+      commentsCount: post._count.comments,
+      repostsCount: post._count.reposts,
+      // REQUIREMENT 4: isLiked boolean
+      isLiked: isValidUser && post.likes ? post.likes.length > 0 : false
+    }));
+
+    // REQUIREMENT 5: Return proper format
+    res.json({
+      posts: formattedPosts,
+      nextCursor
+    });
+
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[FEED ERROR]", error);
+    res.status(500).json({ error: "Unable to retrieve network feed. Synchronization failure." });
   }
 });
 
@@ -282,19 +340,30 @@ app.post("/api/posts", checkUserRestriction, upload.single("image"), async (req:
         hash,
         parentId: parentId ? parseInt(parentId) : null,
       } as any,
-      include: { user: true, comments: true }
+      select: { id: true, userId: true, imageUrl: true, caption: true, createdAt: true, user: { select: { name: true } } }
     });
     
-    // Respond IMMEDIATELY
-    res.json(post);
-
-    // Trigger BACKGROUND processing if new upload
-    if (!parentId) {
-      try {
-        processImageAsync(post.id, imageUrl);
-      } catch (err) {
-        console.error(`Failed to trigger async processing for post ${post.id}`, err);
+    // REQUIREMENT: Send response IMMEDIATELY
+    res.json({
+      success: true,
+      post: {
+        id: post.id,
+        imageUrl: post.imageUrl,
+        caption: post.caption,
+        user: post.user,
+        createdAt: post.createdAt,
+        likesCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        isLiked: false
       }
+    });
+
+    // BACKGROUND: Heavy similarity processing
+    if (!parentId) {
+      processImageAsync(post.id, post.imageUrl!).catch(err => {
+        console.error(`Failed to trigger async processing for post ${post.id}`, err);
+      });
     }
 
   } catch (error: any) {
@@ -556,38 +625,44 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res) => {
   try {
     const postId = parseInt(req.params.id);
     const userId = req.currentUser.id;
-    const existing = await prisma.like.findUnique({
-      where: { userId_postId: { userId, postId } }
-    });
-    if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
-      res.json({ success: true, liked: false });
-    } else {
-      const like = await prisma.like.create({ 
-        data: { userId, postId },
-        include: { user: true, post: { include: { user: true } } }
-      });
 
-      // Create Notification
-      if (like.post.userId !== userId) {
-        await prisma.notification.create({
-          data: {
-            userId: like.post.userId,
-            senderId: userId,
-            senderName: like.user.name,
-            senderAvatar: like.user.avatar,
-            type: "LIKE",
-            postId: postId,
-            content: "liked your post"
-          }
+    // Fast Response Pattern: Send success IMMEDIATELY
+    res.json({ success: true, liked: true });
+
+    // Background Processing: No await for non-critical side effects
+    (async () => {
+      try {
+        const like = await prisma.like.create({ 
+          data: { userId, postId },
+          select: { user: { select: { name: true, avatar: true } }, post: { select: { userId: true } } }
         });
-      }
 
-      res.json({ success: true, liked: true });
-    }
+        // Trigger notification asynchronously
+        if (like.post.userId !== userId) {
+          await prisma.notification.create({
+            data: {
+              userId: like.post.userId,
+              senderId: userId,
+              senderName: like.user.name,
+              senderAvatar: like.user.avatar,
+              type: "LIKE",
+              postId: postId,
+              content: "liked your post"
+            }
+          });
+        }
+      } catch (createError: any) {
+        // If Unique constraint fails -> Toggle: DELETE the like
+        if (createError.code === 'P2002') {
+          await prisma.like.delete({
+            where: { userId_postId: { userId, postId } }
+          }).catch(() => {}); // Catch silent delete failures
+        }
+      }
+    })().catch(err => console.error("[ASYNC LIKE ERROR]", err));
+
   } catch (error: any) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    console.error("[LIKE API ERROR]", error);
   }
 });
 

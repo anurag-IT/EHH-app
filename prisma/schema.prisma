@@ -71,6 +71,7 @@ model Post {
   @@index([createdAt])
   @@index([sha256])
   @@index([phash])
+  @@index([parentId])
 }
 
 model Like {
@@ -84,6 +85,7 @@ model Like {
   @@unique([userId, postId])
   @@index([postId])
   @@index([userId])
+  @@index([createdAt])
 }
 
 model Comment {
@@ -97,6 +99,7 @@ model Comment {
 
   @@index([postId])
   @@index([userId])
+  @@index([createdAt])
 }
 
 
@@ -110,6 +113,9 @@ model Message {
   messageText String?  // Kept for backwards compatibility but we'll use content
   isAnonymous Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([receiverId, createdAt])
+  @@index([senderId, receiverId])
 }
 
 model FlaggedContent {
@@ -151,6 +157,10 @@ model Notification {
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([postId])
 }
 
 model ImageMatch {
