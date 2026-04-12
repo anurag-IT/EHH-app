@@ -5,7 +5,7 @@ import axios from "axios";
  * Includes a 5000ms timeout to prevent "Handshake Failure" caused by hanging requests.
  */
 const api = axios.create({
-  baseURL: "", // Use relative paths to benefit from Vite proxy
+  baseURL: import.meta.env.VITE_API_URL || "", 
   timeout: 60000,
   headers: {
     // Axios will automatically set Content-Type for JSON or FormData
