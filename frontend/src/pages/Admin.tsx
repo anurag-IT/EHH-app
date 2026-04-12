@@ -403,9 +403,9 @@ function ImageTrace() {
 
   const steps = [
     "Analyzing structure...",
-    "Generating deep hashes...",
-    "Extracting AI vectors...",
-    "ORB feature mapping...",
+    "Extracting Perceptual Hash...",
+    "Computing Hamming Distance...",
+    "Thresholding 16-bit blocks...",
     "Final scoring..."
   ];
 
@@ -468,11 +468,11 @@ function ImageTrace() {
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-6xl mx-auto pb-20">
       <div className="bg-white rounded-[2.5rem] border border-[#f1f5f9] p-8 lg:p-12 shadow-sm">
         <header className="text-center mb-10">
-          <div className="inline-block p-4 bg-emerald-50 rounded-full border border-emerald-100 mb-6 font-bold text-emerald-600 uppercase text-[10px] tracking-widest">
-            Production-Level 5-Layer Hybrid Pipeline
+          <div className="inline-block bg-[#0f172a] text-[#38bdf8] px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 border border-[#1e293b]">
+            High-Performance Fast-Trace Pipeline
           </div>
           <h2 className="text-3xl font-bold tracking-tight">Advanced Image Trace System</h2>
-          <p className="text-[#94a3b8] text-xs font-medium mt-3">Using SHA256, aHash, dHash, pHash, ORB & MobileNet AI</p>
+          <p className="text-[#94a3b8] text-xs font-medium mt-3">Using Perceptual Hashing (pHash)</p>
         </header>
 
         {!matchResult ? (

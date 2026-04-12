@@ -10,8 +10,7 @@
     "install:all": "npm install",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "start:orb": "npm run start:orb --workspace=backend",
-    "dev": "concurrently -n \"BACKEND,ORB,FRONTEND\" -c \"blue,green,magenta\" \"npm run dev:backend\" \"npm run start:orb\" \"npm run dev:frontend\"",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "start:all": "npm run dev"
   },
   "devDependencies": {

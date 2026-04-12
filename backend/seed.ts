@@ -150,18 +150,14 @@ async function seed() {
     
     try {
       const { filePath, buffer } = await downloadImage(url, filename);
-      const sha256 = crypto.createHash("sha256").update(buffer).digest("hex");
       const phash = await getPHash(filePath);
-      const hash = await getImageHash(filePath);
 
       const post = await prisma.post.create({
         data: {
           userId: user.id,
           imagePath: filename,
           caption: CAPTIONS[Math.floor(Math.random() * CAPTIONS.length)],
-          sha256,
           phash,
-          hash,
         },
       });
       createdPosts.push(post);
@@ -182,9 +178,7 @@ async function seed() {
         userId: user.id,
         imagePath: parentPost.imagePath,
         caption: `Repost: ${parentPost.caption}`,
-        sha256: parentPost.sha256,
         phash: parentPost.phash,
-        hash: parentPost.hash,
         parentId: parentPost.id,
       },
     });

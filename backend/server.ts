@@ -2,24 +2,12 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
-import crypto from "crypto";
 import multer from "multer";
-import sharp from "sharp";
-import { imageHash } from "image-hash";
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
 import { processImageAsync, extractFeaturesFromBuffer } from "./src/services/imageProcessingService.js";
 import { getSimilarityResults } from "./src/services/imageSimilarityService.js";
-
-function getImageHash(data: any): Promise<string> {
-  return new Promise((resolve: any, reject: any) => {
-    imageHash(data, 16, true, (err: any, data: any) => {
-      if (err) reject(err);
-      else resolve(data);
-    });
-  });
-}
 
 const prisma = new PrismaClient() as any;
 const app = express();
@@ -43,23 +31,6 @@ function generateUniqueId() {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
-}
-
-function hammingDistance(h1: string, h2: string) {
-  let distance = 0;
-  for (let i = 0; i < h1.length; i++) {
-    if (h1[i] !== h2[i]) distance++;
-  }
-  return distance;
-}
-
-async function getPHash(data: any): Promise<string> {
-  return new Promise((resolve: any, reject: any) => {
-    imageHash(data, 16, true, (error: any, data: string) => {
-      if (error) reject(error);
-      resolve(data);
-    });
-  });
 }
 
 const checkUserRestriction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -243,18 +214,14 @@ app.post("/api/posts", upload.single("image"), checkUserRestriction, async (req:
 
     let imagePath = "";
     let imageUrl = "";
-    let sha256 = null;
     let phash = null;
-    let hash = null;
 
     if (parentId) {
       const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
       imagePath = parent.imagePath;
       imageUrl = parent.imageUrl || "";
-      sha256 = parent.sha256;
       phash = parent.phash || null;
-      hash = parent.hash || null;
     } else {
       const uploadResult = await uploadImage(req.file.buffer);
       imageUrl = uploadResult.secure_url;
@@ -264,7 +231,7 @@ app.post("/api/posts", upload.single("image"), checkUserRestriction, async (req:
     const post = await prisma.post.create({
       data: {
         userId: parseInt(userId), caption, location: req.body.location || null,
-        imagePath, imageUrl, sha256, phash, hash, parentId: parentId ? parseInt(parentId) : null,
+        imagePath, imageUrl, phash, parentId: parentId ? parseInt(parentId) : null,
       } as any,
       select: { id: true, userId: true, imageUrl: true, caption: true, createdAt: true, user: { select: { name: true } } }
     });
@@ -293,7 +260,7 @@ app.get("/api/posts/:id/chain", async (req: any, res: any) => {
     const post = await prisma.post.findUnique({ where: { id } });
     if (!post) return res.status(404).json({ error: "Post not found" });
     const related = await prisma.post.findMany({
-      where: { OR: [{ sha256: post.sha256 }, { parentId: post.id }, { id: post.parentId || -1 }] },
+      where: { OR: [{ phash: post.phash }, { parentId: post.id }, { id: post.parentId || -1 }] },
       include: { user: true }
     });
     res.json(related);
@@ -524,8 +491,12 @@ app.post("/api/messages/send", checkUserRestriction, async (req: any, res: any) 
 app.post("/admin/scan", upload.single("image"), checkAdminMode, async (req: any, res: any) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No image provided" });
-    const { sha256, ahash, dhash, phash, embedding } = await extractFeaturesFromBuffer(req.file.buffer);
-    const matches = await getSimilarityResults({ sha256, ahash, dhash, phash, embedding });
+    const { phash } = await extractFeaturesFromBuffer(req.file.buffer);
+    
+    console.log(`\n[ADMIN SCAN RECEIVED] Extracted pHash for incoming scan image: ${phash}`);
+
+    const matches = await getSimilarityResults({ phash });
+    console.log(`[ADMIN SCAN RESULTS] Found ${matches.length} valid matches above 65% threshold.`);
     
     const formattedMatches = matches.map((m: any) => ({
        postId: m.post.id,
@@ -566,7 +537,7 @@ app.get("/api/posts/search", async (req: any, res: any) => {
 
 app.post("/admin/reset-similarities", checkAdminMode, async (req: any, res: any) => {
   try {
-    await prisma.post.updateMany({ data: { ahash: null, dhash: null, phash: null, orb: null, embedding: null } });
+    await prisma.post.updateMany({ data: { phash: null } });
     res.json({ success: true, message: "Similarity data reset. Background processing will refill it." });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
