@@ -10,10 +10,9 @@
     "install:all": "npm install",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
-    "build:frontend": "npm run build --workspace=frontend",
-    "start": "npm run start --workspace=backend",
     "start:orb": "npm run start:orb --workspace=backend",
-    "start:all": "concurrently \"npm run start\" \"npm run start:orb\""
+    "dev": "concurrently -n \"BACKEND,ORB,FRONTEND\" -c \"blue,green,magenta\" \"npm run dev:backend\" \"npm run start:orb\" \"npm run dev:frontend\"",
+    "start:all": "npm run dev"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
