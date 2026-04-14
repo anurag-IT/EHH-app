@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import api from "./lib/api";
 import { 
   LogOut,
@@ -19,17 +20,44 @@ import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import Admin from "./pages/Admin";
 import { User, Post } from "./types";
+import OptimizedImage from "./components/common/OptimizedImage";
 
-// --- Modular Components ---
-import PostCard from "./components/PostCard";
-import UploadPage from "./components/UploadPage";
-import SearchPage from "./components/SearchPage";
-import ProfilePage from "./components/ProfilePage";
-import MessagingPage from "./components/MessagingPage";
-import NotificationPage from "./components/NotificationPage";
-import LostFoundPage from "./components/LostFoundPage";
+// --- Modular Components (Lazy Loaded) ---
+const PostCard = lazy(() => import("./components/PostCard"));
+const UploadPage = lazy(() => import("./components/UploadPage"));
+const SearchPage = lazy(() => import("./components/SearchPage"));
+const ProfilePage = lazy(() => import("./components/ProfilePage"));
+const MessagingPage = lazy(() => import("./components/MessagingPage"));
+const NotificationPage = lazy(() => import("./components/NotificationPage"));
+const LostFoundPage = lazy(() => import("./components/LostFoundPage"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      gcTime: 1000 * 60 * 30, // 30 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const PremiumLoader = () => (
+  <div className="flex flex-col items-center justify-center p-20 space-y-4">
+    <div className="w-12 h-12 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
+    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Synchronizing Network...</p>
+  </div>
+);
 
 export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
+  );
+}
+
+function AppContent() {
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
@@ -312,127 +340,133 @@ export default function App() {
           </motion.div>
         )}
 
-        <AnimatePresence mode="wait">
-          {view === "feed" && (
-            <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="hidden lg:block lg:col-span-3 space-y-6">
-                <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="relative mb-6">
-                      <img src={user?.avatar} className="w-24 h-24 rounded-full border-4 border-slate-50 object-cover shadow-lg" alt="" />
-                      <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full" />
-                    </div>
-                    <h2 className="text-xl font-black text-slate-900">{user?.name}</h2>
-                    <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">{user?.uniqueId}</p>
-                    
-                    <div className="grid grid-cols-2 gap-4 w-full mt-8 border-t border-slate-50 pt-8">
-                       <div>
-                         <div className="text-lg font-black text-slate-900">{posts.filter(p => p.userId === user?.id).length}</div>
-                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Posts</div>
-                       </div>
-                       <div>
-                         <div className="text-lg font-black text-slate-900">{posts.length}</div>
-                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tracking</div>
-                       </div>
+        <Suspense fallback={<PremiumLoader />}>
+          <AnimatePresence mode="wait">
+            {view === "feed" && (
+              <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="hidden lg:block lg:col-span-3 space-y-6">
+                  <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="relative mb-6">
+                        <OptimizedImage 
+                          src={user?.avatar || ""} 
+                          width={200}
+                          className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg" 
+                        />
+                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full" />
+                      </div>
+                      <h2 className="text-xl font-black text-slate-900">{user?.name}</h2>
+                      <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">{user?.uniqueId}</p>
+                      
+                      <div className="grid grid-cols-2 gap-4 w-full mt-8 border-t border-slate-50 pt-8">
+                         <div>
+                           <div className="text-lg font-black text-slate-900">{posts.filter(p => p.userId === user?.id).length}</div>
+                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Posts</div>
+                         </div>
+                         <div>
+                           <div className="text-lg font-black text-slate-900">{posts.length}</div>
+                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tracking</div>
+                         </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="col-span-1 lg:col-span-6 space-y-8 pb-12">
-                {loading ? (
-                  Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="h-[600px] w-full bg-slate-50 border border-slate-100 rounded-[3rem] animate-pulse" />
-                  ))
-                ) : posts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-                    <div className="p-8 bg-slate-50 rounded-full border border-slate-100">
-                      <Camera size={48} className="text-slate-200" />
-                    </div>
-                    <div className="max-w-xs transition-all">
-                      <h3 className="text-xl font-black text-slate-900 uppercase">No signals yet</h3>
-                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Initialize the feed by sharing your first asset.</p>
-                      <button onClick={() => setView("upload")} className="mt-10 px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all">START BROADCAST</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {posts.map((post) => (
-                      <PostCard key={post.id} post={post} onRepost={() => fetchPosts(true)} onDelete={() => fetchPosts(true)} />
-                    ))}
-                    
-                    {/* Infinite Scroll Sentinel */}
-                    <div ref={sentinelRef} className="h-20 flex items-center justify-center">
-                      {loadingMore && (
-                        <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">
-                          <div className="w-4 h-4 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin" />
-                          Synchronizing...
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="hidden lg:block lg:col-span-3 space-y-6">
-                <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
-                  {user?.role === "ADMIN" ? (
-                    <>
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                        <TrendingUp size={14} className="text-emerald-500" /> App Stats
-                      </h3>
-                      <div className="space-y-6">
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                          <div className="flex justify-between items-baseline mb-2">
-                            <span className="text-2xl font-black text-slate-900">{posts.length}</span>
-                            <span className="text-[10px] font-bold text-emerald-600">+12%</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Posts</div>
-                        </div>
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                          <div className="flex justify-between items-baseline mb-2">
-                            <span className="text-2xl font-black text-slate-900">100%</span>
-                            <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">App Status</div>
-                        </div>
+                <div className="col-span-1 lg:col-span-6 space-y-8 pb-12">
+                  {loading ? (
+                    Array(3).fill(0).map((_, i) => (
+                      <div key={i} className="h-[600px] w-full bg-slate-50 border border-slate-100 rounded-[3rem] animate-pulse" />
+                    ))
+                  ) : posts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+                      <div className="p-8 bg-slate-50 rounded-full border border-slate-100">
+                        <Camera size={48} className="text-slate-200" />
                       </div>
-                    </>
+                      <div className="max-w-xs transition-all">
+                        <h3 className="text-xl font-black text-slate-900 uppercase">No signals yet</h3>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Initialize the feed by sharing your first asset.</p>
+                        <button onClick={() => setView("upload")} className="mt-10 px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all">START BROADCAST</button>
+                      </div>
+                    </div>
                   ) : (
                     <>
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Protocol Notice</h3>
-                      <div className="space-y-6">
-                        <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl">
-                          <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Safe Network</h4>
-                          <p className="text-[10px] opacity-60 mt-2 font-bold uppercase tracking-widest">All transmissions are end-to-end encrypted and verified.</p>
-                        </div>
-                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                           <div className="flex items-center gap-3 mb-3">
-                              <ImageIcon size={14} className="text-slate-900" />
-                              <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">EHH Hub</div>
-                           </div>
-                           <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase">Join our community and share your images accurately.</p>
-                        </div>
+                      {posts.map((post) => (
+                        <PostCard key={post.id} post={post} onRepost={() => fetchPosts(true)} onDelete={() => fetchPosts(true)} />
+                      ))}
+                      
+                      {/* Infinite Scroll Sentinel */}
+                      <div ref={sentinelRef} className="h-20 flex items-center justify-center">
+                        {loadingMore && (
+                          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.4em] text-slate-400">
+                            <div className="w-4 h-4 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin" />
+                            Synchronizing...
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
-                  <div className="mt-8 pt-8 border-t border-slate-50">
-                    <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest leading-loose">System: v2.4-stable<br/>Provider: EHH Secure<br/>Status: Synchronized</p>
+                </div>
+
+                <div className="hidden lg:block lg:col-span-3 space-y-6">
+                  <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
+                    {user?.role === "ADMIN" ? (
+                      <>
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                          <TrendingUp size={14} className="text-emerald-500" /> App Stats
+                        </h3>
+                        <div className="space-y-6">
+                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div className="flex justify-between items-baseline mb-2">
+                              <span className="text-2xl font-black text-slate-900">{posts.length}</span>
+                              <span className="text-[10px] font-bold text-emerald-600">+12%</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Posts</div>
+                          </div>
+                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div className="flex justify-between items-baseline mb-2">
+                              <span className="text-2xl font-black text-slate-900">100%</span>
+                              <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">App Status</div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Protocol Notice</h3>
+                        <div className="space-y-6">
+                          <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl">
+                            <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Safe Network</h4>
+                            <p className="text-[10px] opacity-60 mt-2 font-bold uppercase tracking-widest">All transmissions are end-to-end encrypted and verified.</p>
+                          </div>
+                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                             <div className="flex items-center gap-3 mb-3">
+                                <ImageIcon size={14} className="text-slate-900" />
+                                <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">EHH Hub</div>
+                             </div>
+                             <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase">Join our community and share your images accurately.</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="mt-8 pt-8 border-t border-slate-50">
+                      <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest leading-loose">System: v2.4-stable<br/>Provider: EHH Secure<br/>Status: Synchronized</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
 
-          {view === "search" && <SearchPage />}
-          {view === "upload" && user && <UploadPage onComplete={() => { fetchPosts(true); setView("feed"); }} userId={user.id} />}
-          {view === "profile" && user && <ProfilePage user={user} isOwnProfile={true} onLogout={logout} />}
-          {view === "userProfile" && targetUserId && <ProfilePage userId={targetUserId} isOwnProfile={false} currentUserId={user?.id} />}
-          {view === "notifications" && user && <NotificationPage user={user} onRead={() => fetchUnreadCount(user.id)} />}
-          {view === "messages" && user && <MessagingPage currentUser={user} />}
-          {view === "lostfound" && <LostFoundPage />}
-          {view === "admin" && <Admin onComplete={() => { fetchPosts(true); setView("feed"); }} />}
-        </AnimatePresence>
+            {view === "search" && <SearchPage />}
+            {view === "upload" && user && <UploadPage onComplete={() => { fetchPosts(true); setView("feed"); }} userId={user.id} />}
+            {view === "profile" && user && <ProfilePage user={user} isOwnProfile={true} onLogout={logout} />}
+            {view === "userProfile" && targetUserId && <ProfilePage userId={targetUserId} isOwnProfile={false} currentUserId={user?.id} />}
+            {view === "notifications" && user && <NotificationPage user={user} onRead={() => fetchUnreadCount(user.id)} />}
+            {view === "messages" && user && <MessagingPage currentUser={user} />}
+            {view === "lostfound" && <LostFoundPage />}
+            {view === "admin" && <Admin onComplete={() => { fetchPosts(true); setView("feed"); }} />}
+          </AnimatePresence>
+        </Suspense>
       </main>
 
       {view !== "admin" && (

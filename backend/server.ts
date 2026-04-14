@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
@@ -21,6 +22,23 @@ app.use(cors({
   credentials: true 
 })); 
 app.use(express.json());
+app.use(compression() as any);
+
+// --- Simple Cache Implementation ---
+const cache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 30000; // 30 seconds
+
+const getCachedData = (key: string) => {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  return null;
+};
+
+const setCachedData = (key: string, data: any) => {
+  cache.set(key, { data, timestamp: Date.now() });
+};
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -113,6 +131,11 @@ app.get("/api/posts", async (req: any, res: any) => {
     const currentUserId = xUserId ? parseInt(xUserId as string) : null;
     const isValidUser = currentUserId && !isNaN(currentUserId);
 
+    // Cache key based on query params and user
+    const cacheKey = `posts_${limit}_${cursor || 'start'}_${currentUserId || 'guest'}`;
+    const cached = getCachedData(cacheKey);
+    if (cached) return res.json(cached);
+
     const selectFields: any = {
       id: true, imageUrl: true, caption: true, location: true, createdAt: true, userId: true,
       user: { select: { name: true, avatar: true, uniqueId: true } },
@@ -150,7 +173,9 @@ app.get("/api/posts", async (req: any, res: any) => {
       isLiked: isValidUser && post.likes ? post.likes.length > 0 : false
     }));
 
-    res.json({ posts: formattedPosts, nextCursor });
+    const responseData = { posts: formattedPosts, nextCursor };
+    setCachedData(cacheKey, responseData);
+    res.json(responseData);
   } catch (error: any) {
     res.status(500).json({ error: "Unable to retrieve network feed." });
   }

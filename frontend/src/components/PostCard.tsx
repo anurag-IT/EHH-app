@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "react-toastify";
 import { Post, Comment, User } from "../types";
 import api, { getOptimizedImageUrl } from "../lib/api";
+import OptimizedImage from "./common/OptimizedImage";
 
 interface PostCardProps {
   post: Post;
@@ -187,7 +188,11 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
           <div className="relative cursor-pointer" onClick={() => {
             window.dispatchEvent(new CustomEvent('open-profile', { detail: post.userId }));
           }}>
-            <img src={post.user.avatar || ""} className="w-12 h-12 rounded-[1.25rem] object-cover border-2 border-slate-50" />
+            <OptimizedImage 
+              src={post.user.avatar || ""} 
+              width={100} 
+              className="w-12 h-12 rounded-[1.25rem] border-2 border-slate-50" 
+            />
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
           </div>
           <div>
@@ -242,13 +247,11 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         className="aspect-[4/5] bg-slate-100 relative group/media cursor-pointer overflow-hidden"
         onDoubleClick={handleDoubleTap}
       >
-        <div className="absolute inset-0 bg-slate-200 animate-pulse" style={{ display: 'none' }} />
-        <img 
-          src={getOptimizedImageUrl(post.imageUrl || "")} 
-          className="w-full h-full object-cover transition-transform duration-[2.5s] group-hover/media:scale-105" 
-          referrerPolicy="no-referrer" 
-          onLoad={(e) => (e.currentTarget.previousElementSibling as HTMLElement).style.display = 'none'}
-          loading="lazy"
+        <OptimizedImage 
+          src={post.imageUrl || ""} 
+          width={800}
+          className="w-full h-full"
+          referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 via-transparent to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity" />
         

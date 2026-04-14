@@ -29,11 +29,25 @@ api.interceptors.request.use((config) => {
 
 /**
  * Formats a Cloudinary URL with optimization parameters.
- * STRICT: w_600, q_auto, f_auto
+ * USES: f_auto, q_auto, w_auto, dpr_auto
  */
-export const getOptimizedImageUrl = (url: string) => {
-  if (!url || !url.includes("cloudinary.com")) return url;
-  return url.replace("/upload/", "/upload/w_600,q_auto,f_auto/");
+export const getOptimizedImageUrl = (url: string, width: number | string = "auto") => {
+  if (!url) return "";
+  if (!url.includes("cloudinary.com")) return url;
+  
+  // Standardize Cloudinary URL to use auto-format, auto-quality and specified width
+  // Also added dpr_auto for high-density displays
+  const transformations = `f_auto,q_auto,w_${width},dpr_auto`;
+  
+  if (url.includes("/upload/v")) {
+    return url.replace("/upload/", `/upload/${transformations}/`);
+  }
+  
+  if (url.includes("/upload/")) {
+    return url.replace("/upload/", `/upload/${transformations}/`);
+  }
+
+  return url;
 };
 
 export default api;

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Post } from "../types";
+import OptimizedImage from "./common/OptimizedImage";
 
 export default function SearchPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -69,11 +70,19 @@ export default function SearchPage() {
             {results.map((post) => (
               <div key={post.id} className="group/res bg-white border border-slate-100 rounded-[3rem] overflow-hidden shadow-sm hover:shadow-xl hover:border-slate-300 transition-all cursor-pointer">
                 <div className="aspect-square relative overflow-hidden bg-slate-50">
-                   <img src={(post.imageUrl || "").replace('/upload/', '/upload/f_auto,q_auto,w_600,c_limit/')} className="w-full h-full object-cover group-hover/res:scale-105 transition-transform duration-700" />
+                    <OptimizedImage 
+                      src={post.imageUrl || ""} 
+                      width={600} 
+                      className="w-full h-full group-hover/res:scale-105 transition-transform duration-700" 
+                    />
                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-0 group-hover/res:opacity-100 transition-opacity" />
                    <div className="absolute bottom-6 left-6 right-6 translate-y-4 group-hover/res:translate-y-0 opacity-0 group-hover/res:opacity-100 transition-all">
                       <div className="flex items-center gap-3">
-                        <img src={post.user.avatar} className="w-8 h-8 rounded-full ring-2 ring-emerald-500" />
+                        <OptimizedImage 
+                          src={post.user.avatar} 
+                          width={50} 
+                          className="w-8 h-8 rounded-full ring-2 ring-emerald-500" 
+                        />
                         <div className="font-black text-white text-xs tracking-widest">@{post.user.name}</div>
                       </div>
                    </div>

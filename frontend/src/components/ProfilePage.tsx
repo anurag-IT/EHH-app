@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { User, Post } from "../types";
+import OptimizedImage from "./common/OptimizedImage";
 
 interface ProfilePageProps {
   userId?: number;
@@ -68,7 +69,11 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
               animate={{ rotate: 0, scale: 1 }}
               className="w-48 h-48 rounded-[3rem] border-8 border-white shadow-2xl overflow-hidden bg-slate-100"
             >
-              <img src={(profileUser?.avatar || "").replace('/upload/', '/upload/f_auto,q_auto,w_800,c_fill/')} className="w-full h-full object-cover" />
+              <OptimizedImage 
+                src={profileUser?.avatar || ""} 
+                width={400} 
+                className="w-full h-full" 
+              />
             </motion.div>
             <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center border-4 border-white shadow-lg">
                <CheckCircle2 className="text-white" size={24} />
@@ -135,7 +140,11 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
                whileHover={{ translateY: -10 }}
                className="aspect-[4/5] rounded-[2.5rem] overflow-hidden relative group/asset cursor-pointer border border-slate-100 shadow-sm bg-white"
              >
-                <img src={(post.imageUrl || "").replace('/upload/', '/upload/f_auto,q_auto,w_600,c_limit/')} className="w-full h-full object-cover" />
+                <OptimizedImage 
+                  src={post.imageUrl || ""} 
+                  width={600} 
+                  className="w-full h-full" 
+                />
                 <div className="absolute inset-0 bg-emerald-500/80 opacity-0 group-hover/asset:opacity-100 transition-all flex flex-col items-center justify-center p-8 text-white scale-95 group-hover/asset:scale-100 backdrop-blur-sm">
                     <HeartIcon size={32} fill="white" className="mb-4" />
                     <div className="flex gap-6 mb-4">
