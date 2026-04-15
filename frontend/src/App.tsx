@@ -32,7 +32,6 @@ const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const MessagingPage = lazy(() => import("./components/MessagingPage"));
 const NotificationPage = lazy(() => import("./components/NotificationPage"));
 const LostFoundPage = lazy(() => import("./components/LostFoundPage"));
-const InstallPWA = lazy(() => import("./components/InstallPWA"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -532,7 +531,6 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         </nav>
       )}
 
-      <InstallPWA />
       <ToastContainer theme="light" position="bottom-right" aria-label="System Notifications" />
     </div>
   );
