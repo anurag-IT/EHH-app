@@ -120,6 +120,11 @@ export default function FeedScreen() {
         onEndReachedThreshold={0.5}
         contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={5}
+        windowSize={10}
+        maxToRenderPerBatch={5}
+        updateCellsBatchingPeriod={50}
+        removeClippedSubviews={true}
       />
     </SafeAreaView>
   );

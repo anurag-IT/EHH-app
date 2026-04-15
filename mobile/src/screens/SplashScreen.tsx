@@ -8,6 +8,11 @@ import {
   Image,
 } from "react-native";
 import { colors } from "../theme";
+import * as SystemSplashScreen from 'expo-splash-screen';
+
+// Keep the native splash screen visible while we initialize
+SystemSplashScreen.preventAutoHideAsync().catch(() => {});
+
 
 interface SplashScreenProps {
   /** Whether auth is still being read from AsyncStorage */
@@ -41,6 +46,9 @@ export default function SplashScreen({ authLoading, onAuthReady }: SplashScreenP
   }, [animDone, authLoading]);
 
   useEffect(() => {
+    // Hide the native system splash screen as soon as our JS animation starts
+    SystemSplashScreen.hideAsync().catch(() => {});
+
     Animated.sequence([
       // 1. Background fade in
       Animated.timing(fadeAnim, {
