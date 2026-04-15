@@ -20,6 +20,14 @@ body {
   -webkit-font-smoothing: antialiased;
   position: relative;
   overflow-x: hidden;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* Prevents text selection on long press, typical for native apps except in inputs */
+}
+
+input, textarea {
+  user-select: auto; /* Allow selection in inputs */
 }
 
 /* Sophisticated Light Tech Grid */
@@ -141,6 +149,7 @@ body::before {
 .text-gradient-green {
   background: linear-gradient(to right, #10b981, #34d399);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 

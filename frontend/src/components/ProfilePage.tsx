@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import { toast } from "react-toastify";
 import { 
   Heart as HeartIcon, 
@@ -10,6 +10,7 @@ import {
 import { motion } from "motion/react";
 import { User, Post } from "../types";
 import OptimizedImage from "./common/OptimizedImage";
+import { useSocket } from "../context/SocketContext";
 
 interface ProfilePageProps {
   userId?: number;
@@ -24,33 +25,66 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
+  
+  const { socket } = useSocket();
 
   useEffect(() => {
     fetchProfile();
   }, [userId, initialUser]);
 
-  const fetchProfile = async () => {
-    setLoading(true);
+  useEffect(() => {
+    if (socket) {
+      const handleNotify = (data: any) => {
+        if (data.type === "FOLLOW" || data.type === "FOLLOW_UPDATE") {
+          // Refresh profile data to get new counts
+          fetchProfile(false);
+        }
+      };
+      socket.on("notification", handleNotify);
+      return () => {
+        socket.off("notification", handleNotify);
+      };
+    }
+  }, [socket, userId, initialUser]);
+
+  const fetchProfile = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const id = userId || initialUser?.id;
       if (!id) return;
-      const res = await axios.get(`/api/users/${id}/profile`);
+      const res = await api.get(`/api/users/${id}/profile`);
       setProfileUser(res.data);
       setPosts(res.data.posts);
+      setFollowing(res.data.isFollowing);
     } catch (err) {
-      toast.error("Failed to load profile");
+      if (showLoading) toast.error("Failed to load profile");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   const handleFollow = async () => {
     if (!profileUser || isOwnProfile) return;
     try {
-      const res = await axios.post(`/api/users/${profileUser.id}/follow`, {}, { headers: { 'x-user-id': currentUserId } });
+      const res = await api.post(`/api/users/${profileUser.id}/follow`, {});
       setFollowing(res.data.following);
-      fetchProfile(); // Refresh counts
-    } catch {}
+      // Update local follower count for instant feedback
+      setProfileUser(prev => {
+        if (!prev) return null;
+        const newCount = res.data.following 
+          ? (prev._count?.followers || 0) + 1 
+          : Math.max(0, (prev._count?.followers || 0) - 1);
+        return {
+          ...prev,
+          _count: {
+            ...prev._count!,
+            followers: newCount
+          }
+        };
+      });
+    } catch (err) {
+      toast.error("Signal broadcast failed");
+    }
   };
 
   if (loading && !profileUser) return <div className="py-20 text-center animate-pulse text-emerald-500 font-black uppercase tracking-widest">SYNCING PROFILE...</div>;

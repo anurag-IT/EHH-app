@@ -48,7 +48,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const handleReport = async () => {
     try {
       if (!reportReason) return;
-      await axios.post(`/api/posts/${post.id}/report`, { reason: reportReason }, { headers: { 'x-user-id': currentUser.id } });
+      await api.post(`/api/posts/${post.id}/report`, { reason: reportReason });
       setShowReport(false);
       setReportReason("");
       toast.success("Report submitted");
@@ -75,7 +75,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     setCommentText("");
 
     try {
-      const res = await axios.post(`/api/posts/${post.id}/comment`, { text: newComment.text }, { headers: { 'x-user-id': currentUser.id } });
+      const res = await api.post(`/api/posts/${post.id}/comment`, { text: newComment.text });
       // Replace temp comment with actual one from server
       setPostComments(prev => prev.map(c => c.id === temporaryId ? res.data : c));
     } catch {
@@ -135,7 +135,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const handleFollow = async () => {
     if (isBanned || currentUser.id === post.userId) return;
     try {
-      const res = await api.get(`/api/users/${post.userId}/follow`);
+      const res = await api.post(`/api/users/${post.userId}/follow`);
       setFollowing(res.data.following);
       toast.success(res.data.following ? `Followed ${post.user.name}` : `Unfollowed ${post.user.name}`);
     } catch { } // Silence errors for small interactions

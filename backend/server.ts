@@ -10,8 +10,18 @@ import { uploadImage } from "./src/services/uploadService.js";
 import { processImageAsync, extractFeaturesFromBuffer } from "./src/services/imageProcessingService.js";
 import { getSimilarityResults } from "./src/services/imageSimilarityService.js";
 
+import { createServer } from "http";
+import { Server } from "socket.io";
+
 const prisma = new PrismaClient() as any;
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors({ 
@@ -23,6 +33,9 @@ app.use(cors({
 })); 
 app.use(express.json());
 app.use(compression() as any);
+
+// --- Real-time Tracking ---
+const userSockets = new Map<number, string>(); // userId -> socketId
 
 // --- Simple Cache Implementation ---
 const cache = new Map<string, { data: any, timestamp: number }>();
@@ -56,8 +69,12 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
   if (!userId) return res.status(401).json({ error: "Please login to continue" });
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: parseInt(userId as string) } });
+    const id = parseInt(userId as string);
+    const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Update real-time presence (last seen)
+    prisma.user.update({ where: { id }, data: { lastSeen: new Date() } }).catch(() => {});
 
     if (user.status === "BANNED" && user.banUntil && new Date() > user.banUntil) {
        await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE", isRestricted: false, banUntil: null } });
@@ -72,7 +89,7 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
     (req as any).currentUser = user;
     next();
   } catch (error: any) {
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Server sync fail" });
   }
 };
 
@@ -425,6 +442,22 @@ app.get("/api/notifications/:userId/unread-count", async (req: any, res: any) =>
   }
 });
 
+app.post("/api/posts/:id/report", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const postId = parseInt(req.params.id);
+    const { reason } = req.body;
+    const userId = req.currentUser.id;
+
+    const flag = await prisma.flaggedContent.create({
+      data: { postId, userId, reason, status: "PENDING", priority: "MEDIUM" }
+    });
+
+    res.json({ success: true, flag });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: any) => {
   try {
     const followingId = parseInt(req.params.id);
@@ -433,16 +466,35 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
     const existing = await prisma.userFollow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
     if (existing) {
       await prisma.userFollow.delete({ where: { id: existing.id } });
+      
+      // Notify for real-time count update
+      const targetSocketId = userSockets.get(followingId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("notification", { type: "FOLLOW_UPDATE" });
+      }
+
       res.json({ following: false });
     } else {
       await prisma.userFollow.create({ data: { followerId, followingId } });
       const sender = await prisma.user.findUnique({ where: { id: followerId } });
+      
       await prisma.notification.create({
         data: {
           userId: followingId, senderId: followerId, senderName: sender?.name,
           senderAvatar: sender?.avatar, type: "FOLLOW", content: "started following you"
         }
       });
+
+      // Real-time notification
+      const targetSocketId = userSockets.get(followingId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("notification", { 
+          type: "FOLLOW", 
+          senderName: sender?.name,
+          content: "started following you" 
+        });
+      }
+
       res.json({ following: true });
     }
   } catch (error: any) {
@@ -453,6 +505,8 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
 app.get("/api/users/:id/profile", async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
+    const viewerId = req.headers["x-user-id"] ? parseInt(req.headers["x-user-id"] as string) : null;
+
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
@@ -460,8 +514,18 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
         posts: { orderBy: { createdAt: "desc" }, include: { user: true, _count: { select: { likes: true, comments: true, reposts: true } } } }
       }
     });
+    
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json(user);
+
+    let isFollowing = false;
+    if (viewerId && viewerId !== id) {
+      const follow = await prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: viewerId, followingId: id } }
+      });
+      isFollowing = !!follow;
+    }
+
+    res.json({ ...user, isFollowing });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -470,12 +534,34 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
 app.get("/api/messages/conversations/:userId", async (req: any, res: any) => {
   try {
     const userId = parseInt(req.params.userId);
-    const sent = await prisma.message.findMany({ where: { senderId: userId }, include: { receiver: true }, distinct: ['receiverId'] });
-    const received = await prisma.message.findMany({ where: { receiverId: userId }, include: { sender: true }, distinct: ['senderId'] });
-    const usersMap = new Map();
-    sent.forEach((m: any) => { if (m.receiver) usersMap.set(m.receiver.id, m.receiver); });
-    received.forEach((m: any) => { if (m.sender) usersMap.set(m.sender.id, m.sender); });
-    res.json(Array.from(usersMap.values()));
+    
+    // Efficiently get conversations with last message
+    const rawConversations = await prisma.message.findMany({
+      where: { OR: [{ senderId: userId }, { receiverId: userId }] },
+      orderBy: { createdAt: "desc" },
+      include: { sender: true, receiver: true }
+    });
+
+    const conversationsMap = new Map();
+    rawConversations.forEach((m: any) => {
+      const otherUser = m.senderId === userId ? m.receiver : m.sender;
+      if (!otherUser) return;
+      if (!conversationsMap.has(otherUser.id)) {
+        conversationsMap.set(otherUser.id, {
+          ...otherUser,
+          lastMessage: m.content || m.messageText,
+          lastTimestamp: m.createdAt,
+          unread: !m.isRead && m.receiverId === userId
+        });
+      }
+    });
+
+    conversationsMap.forEach((u, id) => {
+      const isOnline = Date.now() - new Date(u.lastSeen).getTime() < 60000; // Online if active in last 1 min
+      conversationsMap.set(id, { ...u, isOnline });
+    });
+
+    res.json(Array.from(conversationsMap.values()));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -485,11 +571,24 @@ app.get("/api/messages/chat/:u1/:u2", async (req: any, res: any) => {
   try {
     const u1 = parseInt(req.params.u1);
     const u2 = parseInt(req.params.u2);
+    const limit = parseInt(req.query.limit) || 50;
+    const cursor = req.query.cursor ? { id: parseInt(req.query.cursor) } : undefined;
+
     const messages = await prisma.message.findMany({
       where: { OR: [{ senderId: u1, receiverId: u2 }, { senderId: u2, receiverId: u1 }] },
-      orderBy: { createdAt: "asc" }
+      orderBy: { createdAt: "desc" }, // Fetch newest first for pagination
+      take: limit,
+      cursor: cursor,
+      skip: cursor ? 1 : 0
     });
-    res.json(messages);
+
+    // Mark as read
+    await prisma.message.updateMany({
+      where: { senderId: u2, receiverId: u1, isRead: false },
+      data: { isRead: true }
+    });
+
+    res.json(messages.reverse()); // Flip back to chronological for UI
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -507,6 +606,36 @@ app.post("/api/messages/send", checkUserRestriction, async (req: any, res: any) 
     await prisma.notification.create({
       data: { userId: receiver.id, senderId, type: "MESSAGE", content: "sent you an anonymous transmission signal." }
     });
+    res.json(message);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/messages/send-v2", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const { receiverId, content } = req.body;
+    const senderId = req.currentUser.id;
+    
+    const message = await prisma.message.create({
+      data: { 
+        senderId, 
+        receiverId: parseInt(receiverId), 
+        content: content, 
+        messageText: content 
+      }
+    });
+
+    // Quick notification trigger
+    prisma.notification.create({
+      data: { 
+        userId: parseInt(receiverId), 
+        senderId, 
+        type: "MESSAGE", 
+        content: "sent you a message." 
+      }
+    }).catch((e: any) => console.error("Message Notify Error", e));
+
     res.json(message);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -635,7 +764,104 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-  app.listen(PORT, "0.0.0.0", () => {
+
+  // Socket.io Presence and Messaging
+
+  io.on("connection", (socket) => {
+    console.log("Socket connected:", socket.id);
+
+    socket.on("register", async (userId: number) => {
+      userSockets.set(userId, socket.id);
+      (socket as any).userId = userId;
+      
+      // Update last seen and online status
+      await prisma.user.update({
+        where: { id: userId },
+        data: { lastSeen: new Date() }
+      }).catch(() => {});
+
+      io.emit("userStatusUpdate", { userId, status: "online" });
+      console.log(`User ${userId} registered with socket ${socket.id}`);
+    });
+
+    socket.on("sendMessage", async (data: { receiverId: number; content: string }) => {
+      const senderId = (socket as any).userId;
+      if (!senderId) return;
+
+      try {
+        const message = await prisma.message.create({
+          data: {
+            senderId,
+            receiverId: data.receiverId,
+            content: data.content,
+            messageText: data.content
+          }
+        });
+
+        const receiverSocketId = userSockets.get(data.receiverId);
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("receiveMessage", message);
+        }
+        
+        // Also emit back to sender to confirm (or for multi-device sync)
+        socket.emit("messageSent", message);
+
+        // Create notification
+        await prisma.notification.create({
+          data: {
+            userId: data.receiverId,
+            senderId,
+            type: "MESSAGE",
+            content: "sent you a message."
+          }
+        }).catch(() => {});
+
+      } catch (err) {
+        console.error("Socket SendMessage Error:", err);
+      }
+    });
+
+    socket.on("typing", (data: { receiverId: number; isTyping: boolean }) => {
+      const senderId = (socket as any).userId;
+      if (!senderId) return;
+
+      const receiverSocketId = userSockets.get(data.receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("userTyping", { userId: senderId, isTyping: data.isTyping });
+      }
+    });
+
+    socket.on("markAsRead", async (data: { senderId: number }) => {
+      const receiverId = (socket as any).userId;
+      if (!receiverId) return;
+
+      await prisma.message.updateMany({
+        where: { senderId: data.senderId, receiverId, isRead: false },
+        data: { isRead: true }
+      });
+
+      const senderSocketId = userSockets.get(data.senderId);
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesRead", { readerId: receiverId });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      const userId = (socket as any).userId;
+      if (userId) {
+        userSockets.delete(userId);
+        io.emit("userStatusUpdate", { userId, status: "offline" });
+        
+        prisma.user.update({
+          where: { id: userId },
+          data: { lastSeen: new Date() }
+        }).catch(() => {});
+      }
+      console.log("Socket disconnected:", socket.id);
+    });
+  });
+
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
 }

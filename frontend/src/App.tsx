@@ -21,6 +21,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import Admin from "./pages/Admin";
 import { User, Post } from "./types";
 import OptimizedImage from "./components/common/OptimizedImage";
+import { SocketProvider, useSocket } from "./context/SocketContext";
 
 // --- Modular Components (Lazy Loaded) ---
 const PostCard = lazy(() => import("./components/PostCard"));
@@ -30,6 +31,7 @@ const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const MessagingPage = lazy(() => import("./components/MessagingPage"));
 const NotificationPage = lazy(() => import("./components/NotificationPage"));
 const LostFoundPage = lazy(() => import("./components/LostFoundPage"));
+const InstallPWA = lazy(() => import("./components/InstallPWA"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,15 +52,25 @@ const PremiumLoader = () => (
 );
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("social_user");
+    if (saved) {
+      setUser(JSON.parse(saved));
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <SocketProvider user={user}>
+        <AppContent user={user} setUser={setUser} />
+      </SocketProvider>
     </QueryClientProvider>
   );
 }
 
-function AppContent() {
-  const [user, setUser] = useState<User | null>(null);
+function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | null) => void }) {
   const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,13 +102,10 @@ function AppContent() {
   }, [loading, loadingMore, hasMore]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("social_user");
-    if (saved) {
-      setUser(JSON.parse(saved));
-    } else {
+    if (!user) {
       setView("auth");
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (user || view === "feed") {
@@ -148,12 +157,22 @@ function AppContent() {
     } catch {}
   };
 
+  const { socket } = useSocket();
+
   useEffect(() => {
-    if (user) {
-      const interval = setInterval(() => fetchUnreadCount(user.id), 10000);
-      return () => clearInterval(interval);
+    if (socket) {
+      socket.on("receiveMessage", () => {
+        if (user) fetchUnreadCount(user.id);
+      });
+      socket.on("notification", () => {
+        if (user) fetchUnreadCount(user.id);
+      });
     }
-  }, [user]);
+    return () => {
+      socket?.off("receiveMessage");
+      socket?.off("notification");
+    };
+  }, [socket, user]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -483,6 +502,7 @@ function AppContent() {
         </nav>
       )}
 
+      <InstallPWA />
       <ToastContainer theme="light" position="bottom-right" aria-label="System Notifications" />
     </div>
   );

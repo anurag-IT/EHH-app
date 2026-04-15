@@ -22,6 +22,7 @@ model User {
   banCount     Int       @default(0)
   banReason    String?
   isRestricted Boolean   @default(false)
+  lastSeen    DateTime  @default(now())
   posts        Post[]
   messagesSent     Message[] @relation("SentMessages")
   messagesReceived Message[] @relation("ReceivedMessages")
@@ -103,12 +104,15 @@ model Message {
   receiverId  Int
   receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
   content     String   @default("")
-  messageText String?  // Kept for backwards compatibility but we'll use content
+  messageText String?  // Kept for backwards compatibility 
+  isRead      Boolean  @default(false)
   isAnonymous Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  @@index([receiverId, createdAt])
-  @@index([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@index([receiverId, isRead])
 }
 
 model FlaggedContent {
