@@ -22,6 +22,7 @@ import Admin from "./pages/Admin";
 import { User, Post } from "./types";
 import OptimizedImage from "./components/common/OptimizedImage";
 import { SocketProvider, useSocket } from "./context/SocketContext";
+import SplashScreen from "./components/SplashScreen";
 
 // --- Modular Components (Lazy Loaded) ---
 const PostCard = lazy(() => import("./components/PostCard"));
@@ -53,13 +54,40 @@ const PremiumLoader = () => (
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("social_user");
-    if (saved) {
-      setUser(JSON.parse(saved));
-    }
+    const initApp = async () => {
+      try {
+        const saved = localStorage.getItem("social_user");
+        if (saved) {
+          const parsedUser = JSON.parse(saved);
+          setUser(parsedUser);
+          
+          // Silently validate the session in the background
+          api.get(`/api/users/${parsedUser.id}`).then((res) => {
+            if (res.data && res.data.id) {
+              setUser(res.data);
+              localStorage.setItem("social_user", JSON.stringify(res.data));
+            }
+          }).catch(() => {
+            setUser(null);
+            localStorage.removeItem("social_user");
+          });
+        }
+      } catch (err) {
+        console.error("Failed to restore session:", err);
+      } finally {
+        // Show splash screen for at least 2.2 seconds for branding
+        setTimeout(() => setIsInitialized(true), 2200);
+      }
+    };
+    initApp();
   }, []);
+
+  if (!isInitialized) {
+    return <SplashScreen />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -104,14 +132,16 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   useEffect(() => {
     if (!user) {
       setView("auth");
+    } else if (view === "auth") {
+      setView("feed");
     }
   }, [user]);
 
   useEffect(() => {
-    if (user || view === "feed") {
+    if (user && view === "feed") {
       fetchPosts(true);
     }
-  }, [user]);
+  }, [user, view]);
 
   useEffect(() => {
     const handleOpenProfile = (e: any) => {
