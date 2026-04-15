@@ -12,8 +12,12 @@ export default defineConfig(({mode}) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true
+        },
         includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-splash.png', 'logo.png'],
         manifest: {
+          id: '/ehh-pwa-v2',
           name: 'EHH - Earth for Human and humanity',
           short_name: 'EHH',
           description: 'EHH | Earth for Human and humanity',
