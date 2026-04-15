@@ -233,7 +233,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
               </motion.div>
               <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">EHH</h1>
-              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Helping humans and humanity</p>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for human and humanity</p>
             </div>
             
             <form onSubmit={handleAuth} className="space-y-6">
@@ -288,7 +288,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               </button>
               <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
                 <span className="h-[1px] w-8 bg-slate-100" />
-                <span>Welcome to EHH | Be the climate leaders</span>
+                <span>EHH | Earth for human and humanity</span>
                 <span className="h-[1px] w-8 bg-slate-100" />
               </div>
             </div>
