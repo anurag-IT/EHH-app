@@ -23,14 +23,17 @@
       },
       "package": "com.ehh.app",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "enableDangerousExperimentalLeanBuilds": true
     },
     "updates": {
-      "url": "https://u.expo.dev/00000000-0000-0000-0000-000000000000"
+      "url": "https://u.expo.dev/00000000-0000-0000-0000-000000000000",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
+    "jsEngine": "hermes",
     "extra": {
       "eas": {
         "projectId": "00000000-0000-0000-0000-000000000000"
@@ -38,6 +41,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ]
   }
 }

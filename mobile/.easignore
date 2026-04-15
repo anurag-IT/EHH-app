@@ -1,0 +1,21 @@
+# Ignore node_modules
+node_modules/
+
+# Ignore local environment files
+.env
+.env.local
+
+# Build directories
+dist/
+build/
+web-build/
+.expo/
+
+# Git directories
+.git/
+
+# MacOS
+.DS_Store
+
+# Ignore test coverage
+coverage/
