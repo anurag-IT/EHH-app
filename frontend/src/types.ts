@@ -33,7 +33,6 @@ export interface Post {
   imageUrl?: string;
   caption: string;
   location?: string;
-  sha256: string;
   phash: string;
   parentId: number | null;
   parent?: Post;

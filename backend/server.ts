@@ -4,7 +4,6 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import crypto from "crypto";
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
@@ -562,7 +561,6 @@ app.post("/api/posts", upload.array("images", 10), checkUserRestriction, async (
     let mainImageUrl = "";
     let mainImagePath = "";
     let mainPhash = null;
-    let mainSha256 = null;
     let imageUrls: string[] = [];
     let imagePaths: string[] = [];
 
@@ -572,13 +570,9 @@ app.post("/api/posts", upload.array("images", 10), checkUserRestriction, async (
       mainImageUrl = parent.imageUrl || "";
       mainImagePath = parent.imagePath;
       mainPhash = parent.phash;
-      mainSha256 = parent.sha256;
       imageUrls = parent.imageUrls;
       imagePaths = parent.imagePaths;
     } else {
-      // Background: Calc sha256 for the main image
-      mainSha256 = crypto.createHash("sha256").update(files[0].buffer).digest("hex");
-
       // Parallel upload all images to Cloudinary
       const uploadPromises = files.map(file => uploadImage(file.buffer));
       const results = await Promise.all(uploadPromises);
@@ -602,8 +596,6 @@ app.post("/api/posts", upload.array("images", 10), checkUserRestriction, async (
         imageUrls,
         imagePaths,
         phash: mainPhash,
-        sha256: mainSha256,
-        hash: mainSha256 ? mainSha256.substring(0, 16) : null,
         parentId: parentId ? parseInt(parentId) : null
       },
       include: { 

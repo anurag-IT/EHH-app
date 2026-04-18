@@ -58,8 +58,6 @@ model Post {
   imagePaths      String[]        @default([])
   imageUrls       String[]        @default([])
   caption         String?
-  sha256          String?
-  hash            String?
   phash           String?
   parentId        Int?            // For repost tracking
   parent          Post?           @relation("Reposts", fields: [parentId], references: [id])
@@ -73,7 +71,6 @@ model Post {
   @@index([userId])
   @@index([createdAt])
   @@index([phash])
-  @@index([sha256])
   @@index([parentId])
 }
 
