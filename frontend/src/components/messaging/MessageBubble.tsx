@@ -19,24 +19,24 @@ const MessageBubble = React.memo(({ content, isSender, timestamp, isRead }: Mess
     >
       <div className={`max-w-[75%] relative group`}>
         <div className={`
-          px-5 py-3.5 rounded-[1.8rem] text-[13px] font-medium leading-relaxed shadow-sm
+          px-5 py-3.5 rounded-[1.8rem] text-[13px] font-medium leading-relaxed shadow-sm transition-all duration-300
           ${isSender 
-            ? 'bg-slate-900 text-white rounded-br-none' 
-            : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none'}
+            ? 'bg-green-500 text-slate-900 rounded-br-none shadow-[0_0_15px_rgba(34,197,94,0.2)]' 
+            : 'bg-slate-800 text-white border border-slate-700/50 rounded-bl-none shadow-md'}
         `}>
           {content}
         </div>
         
         <div className={`
-          flex items-center gap-1.5 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300
+          flex items-center gap-1.5 mt-1.5 opacity-60 transition-opacity duration-300
           ${isSender ? 'justify-end pr-2' : 'justify-start pl-2'}
         `}>
-          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none flex items-center gap-1">
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {isSender && (
+               <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={`${isRead ? 'text-green-500' : 'text-slate-500'}`}><polyline points="20 6 9 17 4 12"/></svg>
+            )}
           </span>
-          {isSender && (
-            <div className={`w-1 h-1 rounded-full ${isRead ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-          )}
         </div>
       </div>
     </motion.div>

@@ -140,6 +140,17 @@ app.post("/api/users/login", async (req: any, res: any) => {
   }
 });
 
+app.get("/api/users/:id", async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json(user);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/posts", async (req: any, res: any) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
@@ -248,50 +259,79 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
   }
 });
 
-app.post("/api/posts", upload.single("image"), checkUserRestriction, async (req: any, res: any) => {
+app.post("/api/posts", upload.array("images", 20), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
     const userId = req.body.userId || req.currentUser.id;
-    if (!req.file && !parentId) return res.status(400).json({ error: "Image required" });
+    const files = req.files as any[];
 
-    let imagePath = "";
-    let imageUrl = "";
-    let phash = null;
+    if ((!files || files.length === 0) && !parentId) {
+      return res.status(400).json({ error: "At least one image is required" });
+    }
+
+    let mainImageUrl = "";
+    let mainImagePath = "";
+    let mainPhash = null;
+    let postImages: any[] = [];
 
     if (parentId) {
-      const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
+      const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) }, include: { images: true } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
-      imagePath = parent.imagePath;
-      imageUrl = parent.imageUrl || "";
-      phash = parent.phash || null;
+      mainImageUrl = parent.imageUrl || "";
+      mainImagePath = parent.imagePath;
+      mainPhash = parent.phash;
+      postImages = parent.images.map((img: any) => ({ url: img.url, path: img.path, order: img.order }));
     } else {
-      const uploadResult = await uploadImage(req.file.buffer);
-      imageUrl = uploadResult.secure_url;
-      imagePath = uploadResult.public_id;
+      // Parallel upload all images
+      const uploadPromises = files.map(file => uploadImage(file.buffer));
+      const results = await Promise.all(uploadPromises);
+      
+      mainImageUrl = results[0].secure_url;
+      mainImagePath = results[0].public_id;
+      postImages = results.map((res, i) => ({
+        url: res.secure_url,
+        path: res.public_id,
+        order: i
+      }));
     }
 
     const post = await prisma.post.create({
       data: {
-        userId: parseInt(userId), caption, location: req.body.location || null,
-        imagePath, imageUrl, phash, parentId: parentId ? parseInt(parentId) : null,
-      } as any,
-      select: { id: true, userId: true, imageUrl: true, caption: true, createdAt: true, user: { select: { name: true } } }
+        userId: parseInt(userId),
+        caption,
+        location: location || null,
+        imagePath: mainImagePath,
+        imageUrl: mainImageUrl,
+        phash: mainPhash,
+        parentId: parentId ? parseInt(parentId) : null,
+        images: {
+          create: postImages
+        }
+      },
+      include: { 
+        user: { select: { name: true } },
+        images: true
+      }
     });
     
     res.json({
       success: true,
       post: {
-        id: post.id, imageUrl: post.imageUrl, caption: post.caption, user: post.user,
-        createdAt: post.createdAt, likesCount: 0, commentsCount: 0, repostsCount: 0, isLiked: false
+        ...post,
+        likesCount: 0,
+        commentsCount: 0,
+        repostsCount: 0,
+        isLiked: false
       }
     });
 
-    if (!parentId) {
-      processImageAsync(post.id, post.imageUrl!).catch((err: any) => {
+    if (!parentId && mainImageUrl) {
+      processImageAsync(post.id, mainImageUrl).catch((err: any) => {
          console.error(`Failed to trigger async processing for post ${post.id}`, err);
       });
     }
   } catch (error: any) {
+    console.error("Upload Error:", error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -674,6 +714,25 @@ app.post("/admin/scan", upload.single("image"), checkAdminMode, async (req: any,
   }
 });
 
+app.get("/api/users/search", async (req: any, res: any) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.json([]);
+    const users = await prisma.user.findMany({
+      where: { 
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { uniqueId: { contains: query, mode: "insensitive" } }
+        ] 
+      },
+      take: 10
+    });
+    res.json(users);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/posts/search", async (req: any, res: any) => {
   try {
     const query = req.query.q as string;
@@ -736,6 +795,60 @@ app.get("/db-test", async (req: any, res: any) => {
     const users = await prisma.user.findMany({ take: 5 });
     const posts = await prisma.post.findMany({ take: 5 });
     res.json({ users, posts });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/admin/flags", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const flags = await prisma.flaggedContent.findMany({
+      where: { status: "PENDING" },
+      include: {
+        user: { select: { name: true, avatar: true } },
+        post: { select: { imageUrl: true, caption: true, id: true } }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    res.json(flags);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/admin/flags/:id/resolve", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { action } = req.body; // "KEEP" | "WIPE"
+    
+    const flag = await prisma.flaggedContent.findUnique({ where: { id } });
+    if (!flag) return res.status(404).json({ error: "Report not found" });
+
+    if (action === "WIPE" && flag.postId) {
+      await prisma.post.delete({ where: { id: flag.postId } }).catch(() => {});
+      await prisma.adminLog.create({
+        data: { actionType: "delete_flagged_post", adminName: req.adminUser.name, targetId: `Post-${flag.postId}`, details: `Deleted post due to report: ${flag.reason}` }
+      });
+    }
+
+    await prisma.flaggedContent.update({
+      where: { id },
+      data: { status: action === "WIPE" ? "APPROVED" : "REJECTED" }
+    });
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/admin/logs", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const logs = await prisma.adminLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+    res.json(logs);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -18,15 +18,28 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
 }) => {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
-  const [currentSrc, setCurrentSrc] = useState("");
+  const [currentSrc, setCurrentSrc] = useState(() => src ? getOptimizedImageUrl(src, width) : fallbackSrc);
+  const imgRef = React.useRef<HTMLImageElement>(null);
+  const [hasCheckedCache, setHasCheckedCache] = useState(false);
+
+  React.useLayoutEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
+    setHasCheckedCache(true);
+  }, [currentSrc]);
 
   useEffect(() => {
     if (src) {
       setCurrentSrc(getOptimizedImageUrl(src, width));
       setLoaded(false);
       setError(false);
+    } else {
+      setCurrentSrc(fallbackSrc);
+      setLoaded(true); // fallbacks shouldn't spin usually
+      setError(false);
     }
-  }, [src, width]);
+  }, [src, width, fallbackSrc]);
 
   const handleLoad = () => {
     setLoaded(true);
@@ -42,21 +55,24 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   return (
     <div className={`relative overflow-hidden ${className}`}>
       {/* Skeleton / Placeholder */}
-      {!loaded && !error && (
-        <div className="absolute inset-0 bg-slate-100 animate-pulse flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-500 rounded-full animate-spin"></div>
+      {/* Skeleton / Placeholder */}
+      {!loaded && !error && hasCheckedCache && (
+        <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-20">
+          <div className="w-6 h-6 border-2 border-slate-800 border-t-green-500 rounded-full animate-spin"></div>
         </div>
       )}
       
-      <img
-        src={currentSrc}
-        alt={alt}
-        onLoad={handleLoad}
-        onError={handleError}
-        loading="lazy"
-        className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
-        {...props}
-      />
+      {currentSrc && (
+        <img
+          ref={imgRef}
+          src={currentSrc}
+          alt={alt}
+          onLoad={handleLoad}
+          onError={handleError}
+          className={`w-full h-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100 relative z-10" : "opacity-0"}`}
+          {...props}
+        />
+      )}
     </div>
   );
 };

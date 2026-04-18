@@ -13,7 +13,8 @@ import {
   ArrowRight,
   TrendingUp,
   Camera,
-  Image as ImageIcon
+  Image as ImageIcon,
+  MessageCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast, ToastContainer } from "react-toastify";
@@ -23,6 +24,7 @@ import { User, Post } from "./types";
 import OptimizedImage from "./components/common/OptimizedImage";
 import { SocketProvider, useSocket } from "./context/SocketContext";
 import SplashScreen from "./components/SplashScreen";
+import StoriesRow from "./components/StoriesRow";
 
 // --- Modular Components (Lazy Loaded) ---
 const PostCard = lazy(() => import("./components/PostCard"));
@@ -64,7 +66,7 @@ export default function App() {
           setUser(parsedUser);
           
           // Silently validate the session in the background
-          api.get(`/api/users/${parsedUser.id}`).then((res) => {
+          api.get(`/api/users/${parsedUser.id}/profile`).then((res) => {
             if (res.data && res.data.id) {
               setUser(res.data);
               localStorage.setItem("social_user", JSON.stringify(res.data));
@@ -98,7 +100,7 @@ export default function App() {
 }
 
 function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | null) => void }) {
-  const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages">("feed");
+  const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages" | "notifications">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -243,61 +245,61 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   if (view === "auth") {
     return (
-      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-[#fdfcfb]">
-        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-slate-100/50 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-slate-200/50 rounded-full blur-[120px]" />
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-slate-900">
+        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-green-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-emerald-500/10 rounded-full blur-[120px]" />
 
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full relative z-10"
         >
-          <div className="premium-card p-10 backdrop-blur-3xl shadow-2xl border border-slate-200">
+          <div className="premium-card bg-slate-800 p-10 backdrop-blur-3xl shadow-[0_0_50px_rgba(34,197,94,0.1)] border border-slate-700/50 rounded-[2.5rem]">
             <div className="flex flex-col items-center mb-12">
               <motion.div 
                 animate={{ rotate: [0, 2, -2, 0] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                className="mb-6 p-4 bg-slate-50 rounded-[2rem] border border-slate-100 shadow-sm"
+                className="mb-6 p-4 bg-slate-900 rounded-[2rem] border border-slate-700 shadow-[0_0_20px_rgba(34,197,94,0.2)]"
               >
-                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
+                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto filter brightness-0 invert" />
               </motion.div>
-              <h1 className="text-4xl font-black text-slate-900 mb-1 tracking-tighter uppercase">EHH</h1>
+              <h1 className="text-4xl font-black text-white mb-1 tracking-tighter uppercase">EHH</h1>
               <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for human and humanity</p>
             </div>
             
             <form onSubmit={handleAuth} className="space-y-6">
               {authMode === "register" && (
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase text-slate-400 ml-4 tracking-widest">Full Name</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Full Name</label>
                   <input 
                     type="text" 
                     required 
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-7 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-400 outline-none transition-all duration-300"
+                    className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
                     placeholder="Enter full name"
                   />
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-400 ml-4 tracking-widest">Email Address</label>
+                <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Email Address</label>
                 <input 
                   type="email" 
                   required 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-7 py-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-300 focus:bg-white focus:border-slate-400 outline-none transition-all duration-300"
+                  className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
                   placeholder="EHH@gmail.com"
                 />
               </div>
               
               <button 
                 disabled={authLoading}
-                className="group w-full relative h-16 mt-4 overflow-hidden rounded-2xl bg-slate-900 font-black text-white transition-all hover:bg-slate-800 active:scale-95 shadow-lg shadow-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group w-full relative h-16 mt-4 overflow-hidden rounded-2xl bg-green-500 font-black text-slate-900 transition-all hover:bg-green-400 active:scale-95 shadow-[0_0_20px_rgba(34,197,94,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="relative z-10 flex items-center justify-center gap-3">
                   {authLoading ? (
-                    <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-4 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
                   ) : (
                     <>
                       {authMode === "login" ? "Login" : "SignUp"}
@@ -311,12 +313,12 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             <div className="mt-12 flex flex-col items-center">
               <button 
                 onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                className="text-sm text-slate-400 hover:text-slate-900 font-bold transition-all"
+                className="text-sm text-slate-400 hover:text-green-500 font-bold transition-all"
               >
                 {authMode === "login" ? "New to EHH? Signup" : "Already EHH member? Login"}
               </button>
-              <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-300 uppercase tracking-widest">
-                <span className="h-[1px] w-8 bg-slate-100" />
+              <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                <span className="h-[1px] w-8 bg-slate-700" />
                 <span>EHH | Earth for human and humanity</span>
                 <span className="h-[1px] w-8 bg-slate-100" />
               </div>
@@ -328,17 +330,17 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   }
 
   return (
-    <div className={`min-h-screen bg-[#fdfcfb] text-slate-900 selection:bg-slate-900 selection:text-white ${view === "admin" ? "" : "pb-24 md:pb-0 md:pt-20"}`}>
+    <div className={`min-h-screen bg-slate-900 text-white selection:bg-green-500 selection:text-slate-900 ${view === "admin" ? "" : "pb-24 md:pb-0 md:pt-20"}`}>
       {view !== "admin" && (
-        <nav className="fixed top-0 left-0 right-0 h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-100 z-[100] flex items-center shadow-sm">
+        <nav className="fixed top-0 left-0 right-0 h-20 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-800 z-[100] flex items-center shadow-lg">
           <div className="w-full max-w-[1920px] mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-4 cursor-pointer group" onClick={refreshHome}>
-              <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 transition-all">
-                <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
+              <div className="p-2 bg-slate-800 rounded-xl border border-slate-700/50 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)] group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+                <img src="/logo.png" alt="Logo" className="h-8 w-auto filter brightness-0 invert" />
               </div>
             </div>
             
-            <div className="hidden md:flex items-center gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+            <div className="hidden md:flex items-center gap-2 bg-slate-800 p-1.5 rounded-2xl border border-slate-700/50">
               <NavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={20} />} label="Home" />
               <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={20} />} label="Search" />
               <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={20} />} label="Post" />
@@ -351,13 +353,22 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               {user?.role === "ADMIN" && (
                  <button 
                   onClick={() => setView("admin")}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all ${view === 'admin' ? 'bg-red-50 text-white shadow-lg' : 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-100'}`}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all ${view === 'admin' ? 'bg-green-500/20 text-green-500 shadow-lg shadow-green-500/10' : 'bg-slate-800 text-green-500 hover:bg-slate-700 border border-slate-700'}`}
                 >
                   <ShieldAlert size={18} />
                   <span className="hidden lg:block text-sm uppercase font-black tracking-tighter">Admin</span>
                 </button>
               )}
-              <button onClick={logout} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl border border-slate-100 transition-all group">
+              <button 
+                onClick={() => setView('messages')} 
+                className="p-2.5 bg-slate-800 text-slate-400 hover:text-green-500 rounded-xl border border-slate-700/50 transition-all shadow-[0_0_10px_rgba(34,197,94,0.1)] active:scale-95 md:hidden flex items-center justify-center"
+              >
+                <MessageCircle size={20} />
+              </button>
+              <button 
+                onClick={logout} 
+                className="p-2.5 bg-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-500/20 rounded-xl border border-slate-700/50 transition-all group hidden md:flex items-center justify-center"
+              >
                  <LogOut size={20} className="group-hover:-translate-x-0.5 transition-transform" />
               </button>
             </div>
@@ -393,27 +404,31 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             {view === "feed" && (
               <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="hidden lg:block lg:col-span-3 space-y-6">
-                  <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
+                  <div className="bg-slate-800 border border-slate-700/50 rounded-[2.5rem] p-8 shadow-[0_0_50px_rgba(34,197,94,0.05)] sticky top-28">
                     <div className="flex flex-col items-center text-center">
                       <div className="relative mb-6">
-                        <OptimizedImage 
-                          src={user?.avatar || ""} 
-                          width={200}
-                          className="w-24 h-24 rounded-full border-4 border-slate-50 shadow-lg" 
-                        />
-                        <div className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-4 border-white rounded-full" />
+                        <div className="p-1 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
+                           <div className="p-1 bg-slate-800 rounded-full">
+                              <OptimizedImage 
+                                src={user?.avatar || ""} 
+                                width={120}
+                                className="w-24 h-24 rounded-full" 
+                              />
+                           </div>
+                        </div>
+                        <div className="absolute bottom-1 right-2 w-5 h-5 bg-green-500 border-4 border-slate-800 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
                       </div>
-                      <h2 className="text-xl font-black text-slate-900">{user?.name}</h2>
+                      <h2 className="text-xl font-black text-white">{user?.name}</h2>
                       <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-1">{user?.uniqueId}</p>
                       
-                      <div className="grid grid-cols-2 gap-4 w-full mt-8 border-t border-slate-50 pt-8">
+                      <div className="grid grid-cols-2 gap-4 w-full mt-8 border-t border-slate-700/50 pt-8">
                          <div>
-                           <div className="text-lg font-black text-slate-900">{posts.filter(p => p.userId === user?.id).length}</div>
-                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Posts</div>
+                           <div className="text-lg font-black text-white">{posts.filter(p => p.userId === user?.id).length}</div>
+                           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Posts</div>
                          </div>
                          <div>
-                           <div className="text-lg font-black text-slate-900">{posts.length}</div>
-                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tracking</div>
+                           <div className="text-lg font-black text-white">{posts.length}</div>
+                           <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Tracking</div>
                          </div>
                       </div>
                     </div>
@@ -421,19 +436,20 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 </div>
 
                 <div className="col-span-1 lg:col-span-6 space-y-8 pb-12">
+                  <StoriesRow />
                   {loading ? (
                     Array(3).fill(0).map((_, i) => (
-                      <div key={i} className="h-[600px] w-full bg-slate-50 border border-slate-100 rounded-[3rem] animate-pulse" />
+                      <div key={i} className="h-[600px] w-full bg-slate-800 border border-slate-700 rounded-[3rem] animate-pulse" />
                     ))
                   ) : posts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
-                      <div className="p-8 bg-slate-50 rounded-full border border-slate-100">
-                        <Camera size={48} className="text-slate-200" />
+                      <div className="p-8 bg-slate-800 rounded-full border border-slate-700 shadow-[0_0_20px_rgba(34,197,94,0.05)]">
+                        <Camera size={48} className="text-slate-600" />
                       </div>
                       <div className="max-w-xs transition-all">
-                        <h3 className="text-xl font-black text-slate-900 uppercase">No signals yet</h3>
+                        <h3 className="text-xl font-black text-white uppercase">No signals yet</h3>
                         <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2">Initialize the feed by sharing your first asset.</p>
-                        <button onClick={() => setView("upload")} className="mt-10 px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:scale-105 active:scale-95 transition-all">START BROADCAST</button>
+                        <button onClick={() => setView("upload")} className="mt-10 px-10 py-4 bg-green-500 text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:scale-105 active:scale-95 transition-all">START BROADCAST</button>
                       </div>
                     </div>
                   ) : (
@@ -456,26 +472,26 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 </div>
 
                 <div className="hidden lg:block lg:col-span-3 space-y-6">
-                  <div className="bg-white border border-slate-100 rounded-[2.5rem] p-8 shadow-sm sticky top-28">
+                  <div className="bg-slate-800 border border-slate-700/50 rounded-[2.5rem] p-8 shadow-[0_0_50px_rgba(34,197,94,0.05)] sticky top-28">
                     {user?.role === "ADMIN" ? (
                       <>
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                          <TrendingUp size={14} className="text-emerald-500" /> App Stats
+                          <TrendingUp size={14} className="text-green-500" /> App Stats
                         </h3>
                         <div className="space-y-6">
-                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="p-5 bg-slate-900 rounded-2xl border border-slate-700/50">
                             <div className="flex justify-between items-baseline mb-2">
-                              <span className="text-2xl font-black text-slate-900">{posts.length}</span>
-                              <span className="text-[10px] font-bold text-emerald-600">+12%</span>
+                              <span className="text-2xl font-black text-white">{posts.length}</span>
+                              <span className="text-[10px] font-bold text-green-500">+12%</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total Posts</div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Total Posts</div>
                           </div>
-                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="p-5 bg-slate-900 rounded-2xl border border-slate-700/50">
                             <div className="flex justify-between items-baseline mb-2">
-                              <span className="text-2xl font-black text-slate-900">100%</span>
-                              <span className="text-[10px] font-bold text-emerald-600">ACTIVE</span>
+                              <span className="text-2xl font-black text-white">100%</span>
+                              <span className="text-[10px] font-bold text-green-500">ACTIVE</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">App Status</div>
+                            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">App Status</div>
                           </div>
                         </div>
                       </>
@@ -483,22 +499,22 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                       <>
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Protocol Notice</h3>
                         <div className="space-y-6">
-                          <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl">
-                            <h4 className="font-black text-lg leading-tight uppercase tracking-tighter">Safe Network</h4>
-                            <p className="text-[10px] opacity-60 mt-2 font-bold uppercase tracking-widest">All transmissions are end-to-end encrypted and verified.</p>
+                          <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-inner border border-slate-700/50">
+                            <h4 className="font-black text-lg leading-tight uppercase tracking-tighter text-green-500">Safe Network</h4>
+                            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">All transmissions are end-to-end encrypted and verified.</p>
                           </div>
-                          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="p-5 bg-slate-900 rounded-2xl border border-slate-700/50">
                              <div className="flex items-center gap-3 mb-3">
-                                <ImageIcon size={14} className="text-slate-900" />
+                                <ImageIcon size={14} className="text-green-500" />
                                 <div className="text-[10px] text-slate-400 font-black uppercase tracking-widest">EHH Hub</div>
                              </div>
-                             <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase">Join our community and share your images accurately.</p>
+                             <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase">Join our community and share your images accurately.</p>
                           </div>
                         </div>
                       </>
                     )}
-                    <div className="mt-8 pt-8 border-t border-slate-50">
-                      <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest leading-loose">System: v2.4-stable<br/>Provider: EHH Secure<br/>Status: Synchronized</p>
+                    <div className="mt-8 pt-8 border-t border-slate-700/50">
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-loose">System: v2.4-stable<br/>Provider: EHH Secure<br/>Status: <span className="text-green-500">Synchronized</span></p>
                     </div>
                   </div>
                 </div>
@@ -518,11 +534,11 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       </main>
 
       {view !== "admin" && (
-        <nav className="md:hidden fixed bottom-6 left-6 right-6 h-20 bg-white/90 backdrop-blur-3xl border border-slate-200 flex items-center justify-around z-[100] rounded-[2.5rem] shadow-xl">
+        <nav className="md:hidden fixed bottom-6 left-6 right-6 h-20 bg-slate-800/90 backdrop-blur-3xl border border-slate-700/50 flex items-center justify-around z-[100] rounded-[2.5rem] shadow-[0_0_30px_rgba(0,0,0,0.5)]">
           <MobileNavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={24} />} />
           <MobileNavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={24} />} />
           <div className="relative -top-10">
-            <button onClick={() => setView("upload")} className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center shadow-2xl active:scale-90 transition-all">
+            <button onClick={() => setView("upload")} className="w-16 h-16 bg-green-500 text-slate-900 rounded-[2rem] flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.4)] active:scale-90 transition-all hover:bg-green-400">
               <PlusSquare size={28} />
             </button>
           </div>
@@ -540,7 +556,7 @@ function NavButton({ active, onClick, icon, label, badge }: { active: boolean, o
   return (
     <button 
       onClick={onClick} 
-      className={`group relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl transition-all ${active ? "bg-white shadow-sm ring-1 ring-slate-100 text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+      className={`group relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl transition-all ${active ? "bg-slate-700 shadow-sm ring-1 ring-slate-600/50 text-green-500" : "text-slate-400 hover:text-green-500 hover:bg-slate-800/50"}`}
     >
       <span className={`relative z-10 transition-transform ${active ? "scale-110" : "opacity-60 group-hover:opacity-100"}`}>{icon}</span>
       <span className="relative z-10 text-[10px] font-black uppercase tracking-widest hidden lg:block">{label}</span>
@@ -555,7 +571,7 @@ function NavButton({ active, onClick, icon, label, badge }: { active: boolean, o
 
 function MobileNavButton({ active, onClick, icon }: { active: boolean, onClick: () => void, icon: React.ReactNode }) {
   return (
-    <button onClick={onClick} className={`p-4 rounded-full transition-all ${active ? "text-slate-900" : "text-slate-300"}`}>
+    <button onClick={onClick} className={`p-4 rounded-full transition-all ${active ? "text-green-500 scale-110 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "text-slate-400 hover:text-white"}`}>
       {icon}
     </button>
   );

@@ -16,7 +16,7 @@ function AppInner() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1 }}>
       <AuthProvider>
         <AppInner />
         <StatusBar style="auto" />

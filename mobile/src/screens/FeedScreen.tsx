@@ -343,7 +343,7 @@ const PostItem = memo(({ item }: { item: any }) => {
             {new Date(item.createdAt).toLocaleDateString()}
           </Text>
           <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: "600", fontStyle: 'italic' }}>
-            ID: {item.sha256.substring(0, 12)}...
+            ID: {item.id}
           </Text>
         </View>
       </View>

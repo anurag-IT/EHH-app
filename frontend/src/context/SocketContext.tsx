@@ -33,8 +33,10 @@ export const SocketProvider: React.FC<{ user: User | null; children: React.React
       return;
     }
 
-    const newSocket = io(window.location.origin.replace('3000', '3001'), {
-      transports: ['websocket'],
+    // Use the origin directly - Vite proxy in vite.config.ts will handle /socket.io
+    const newSocket = io(window.location.origin, {
+      path: '/socket.io',
+      transports: ['polling', 'websocket'], // Allow both for maximum compatibility
     });
 
     newSocket.on('connect', () => {

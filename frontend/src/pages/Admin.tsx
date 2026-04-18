@@ -42,11 +42,11 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   }, [activeTab]);
 
   return (
-    <div className="flex h-screen bg-[#fdfcfb] text-[#0f172a] overflow-hidden font-sans selection:bg-emerald-100 selection:text-emerald-900">
+    <div className="flex h-screen bg-slate-900 text-white overflow-hidden font-sans selection:bg-emerald-100 selection:text-emerald-900">
       <ToastContainer 
         theme="light" 
-        toastClassName="!bg-white !border !border-[#f1f5f9] !rounded-2xl !shadow-xl"
-        progressClassName="!bg-emerald-500"
+        toastClassName="!bg-slate-800 !border !border-slate-700 !rounded-2xl !shadow-xl"
+        progressClassName="!bg-green-500/200"
         aria-label="Admin Notifications"
       />
       
@@ -54,15 +54,15 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
       <motion.div 
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="hidden lg:flex w-72 bg-white border-r border-[#f1f5f9] flex-col p-6 z-50 shrink-0"
+        className="hidden lg:flex w-72 bg-slate-800 border-r border-slate-700 flex-col p-6 z-50 shrink-0"
       >
         <div className="flex items-center gap-3 mb-10 px-2">
-           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+           <div className="w-10 h-10 bg-green-500/200 rounded-xl flex items-center justify-center shadow-lg shadow-[0_0_20px_rgba(34,197,94,0.3)]">
              <ShieldAlert className="text-white" size={20} />
            </div>
            <div>
              <h1 className="font-bold text-lg tracking-tight">Admin Panel</h1>
-             <p className="text-[10px] text-emerald-500 font-bold tracking-widest uppercase opacity-60">Control Center</p>
+             <p className="text-[10px] text-green-500 font-bold tracking-widest uppercase opacity-60">Control Center</p>
            </div>
         </div>
         
@@ -74,17 +74,17 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
           <SidebarButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")} icon={<List size={18}/>} label="Activity Logs" />
         </nav>
 
-        <div className="mt-auto space-y-4 pt-6 border-t border-[#f1f5f9]">
-          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+        <div className="mt-auto space-y-4 pt-6 border-t border-slate-700">
+          <div className="p-4 bg-green-500/20 rounded-2xl border border-green-500/30">
              <div className="flex items-center gap-2 mb-1">
-                <ShieldAlert size={12} className="text-emerald-500" />
-                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Notice</span>
+                <ShieldAlert size={12} className="text-green-500" />
+                <span className="text-[10px] font-bold text-green-500 uppercase tracking-wider">Notice</span>
              </div>
-             <p className="text-[10px] text-emerald-600 opacity-70 leading-relaxed font-medium">Please be careful when deleting posts or banning users.</p>
+             <p className="text-[10px] text-green-500 opacity-70 leading-relaxed font-medium">Please be careful when deleting posts or banning users.</p>
           </div>
           <button 
             onClick={() => onComplete()}
-            className="w-full h-12 bg-[#f8fafc] hover:bg-[#f1f5f9] rounded-xl border border-[#e2e8f0] flex items-center justify-center gap-2 font-bold text-xs text-[#64748b] transition-all"
+            className="w-full h-12 bg-slate-900 hover:bg-[#f1f5f9] rounded-xl border border-slate-700 flex items-center justify-center gap-2 font-bold text-xs text-slate-400 transition-all"
           >
             <LogOut size={14} />
             Back to App
@@ -95,23 +95,23 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="h-20 border-b border-[#f1f5f9] flex items-center justify-between px-8 shrink-0 bg-white/80 backdrop-blur-md">
+        <header className="h-20 border-b border-slate-700 flex items-center justify-between px-8 shrink-0 bg-slate-800/80 backdrop-blur-md">
            <h2 className="text-xl font-bold tracking-tight">
              {activeTab === "dashboard" ? "Overview" : activeTab === "flags" ? "Reports" : activeTab === "images" ? "Find Similar Images" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
            </h2>
            
            <div className="flex items-center gap-6">
-              <div className="hidden sm:flex items-center gap-2 bg-[#f8fafc] px-3 py-1.5 rounded-lg border border-[#e2e8f0]">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-[#64748b] uppercase tracking-wide">Status: Online</span>
+              <div className="hidden sm:flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
+                <div className="w-2 h-2 bg-green-500/200 rounded-full animate-pulse" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status: Online</span>
               </div>
               <div className="flex items-center gap-3">
                  <div className="text-right hidden sm:block">
                    <div className="text-xs font-bold">Admin User</div>
-                   <div className="text-[10px] text-[#94a3b8] font-medium">Full Access</div>
+                   <div className="text-[10px] text-slate-500 font-medium">Full Access</div>
                  </div>
-                 <div className="w-10 h-10 bg-[#f8fafc] rounded-lg border border-[#e2e8f0] flex items-center justify-center">
-                   <ShieldAlert size={20} className="text-emerald-500" />
+                 <div className="w-10 h-10 bg-slate-900 rounded-lg border border-slate-700 flex items-center justify-center">
+                   <ShieldAlert size={20} className="text-green-500" />
                  </div>
               </div>
            </div>
@@ -127,11 +127,11 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                 exit={{ opacity: 0 }} 
                 className="h-full flex items-center justify-center p-8"
               >
-                 <div className="bg-white border border-red-100 p-10 rounded-[2.5rem] text-center max-w-md shadow-xl">
+                 <div className="bg-slate-800 border border-red-100 p-10 rounded-[2.5rem] text-center max-w-md shadow-xl">
                    <AlertTriangle size={64} className="text-red-500 mx-auto mb-6" />
                    <h2 className="text-2xl font-bold mb-2 tracking-tight">Access Denied</h2>
-                   <p className="text-[#64748b] mb-8 font-medium">{error}</p>
-                   <button onClick={() => onComplete()} className="px-8 py-3 bg-[#f8fafc] hover:bg-[#f1f5f9] rounded-xl border border-[#e2e8f0] font-bold text-xs">Back to App</button>
+                   <p className="text-slate-400 mb-8 font-medium">{error}</p>
+                   <button onClick={() => onComplete()} className="px-8 py-3 bg-slate-900 hover:bg-[#f1f5f9] rounded-xl border border-slate-700 font-bold text-xs">Back to App</button>
                  </div>
               </motion.div>
             )}
@@ -139,17 +139,17 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
             {activeTab === "dashboard" && stats && !error && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} key="dashboard" className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                  <StatCard title="Total Users" value={stats.totalUsers} sub="People on EHH" icon={<Users className="text-emerald-500" />} />
-                  <StatCard title="Active Now" value={stats.activeUsers} sub="Normal status" color="text-emerald-600" icon={<Activity className="text-emerald-500" />} />
+                  <StatCard title="Total Users" value={stats.totalUsers} sub="People on EHH" icon={<Users className="text-green-500" />} />
+                  <StatCard title="Active Now" value={stats.activeUsers} sub="Normal status" color="text-green-500" icon={<Activity className="text-green-500" />} />
                   <StatCard title="Banned" value={stats.bannedUsers} sub="Access blocked" color="text-red-600" icon={<UserX className="text-red-500" />} />
                   <StatCard title="Total Posts" value={stats.totalPosts} sub="Images uploaded" color="text-blue-600" icon={<Database className="text-blue-500" />} />
                 </div>
                 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                  <div className="xl:col-span-2 bg-white rounded-[2rem] p-8 border border-[#f1f5f9] shadow-sm">
+                  <div className="xl:col-span-2 bg-slate-800 rounded-[2rem] p-8 border border-slate-700 shadow-sm">
                     <h3 className="text-lg font-bold mb-8">User Activity</h3>
                     <div className="h-72 w-full">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                          <AreaChart data={[
                            { name: 'Users', val: stats.totalUsers },
                            { name: 'Active', val: stats.activeUsers },
@@ -159,8 +159,8 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                          ]}>
                            <defs>
                              <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                               <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                               <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
+                               <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
                              </linearGradient>
                            </defs>
                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -169,13 +169,13 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                            <Tooltip 
                             contentStyle={{ backgroundColor: "white", borderRadius: "1rem", border: "1px solid #f1f5f9", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}
                             />
-                           <Area type="monotone" dataKey="val" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
+                           <Area type="monotone" dataKey="val" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
                          </AreaChart>
                        </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-[2rem] p-8 border border-[#f1f5f9] shadow-sm space-y-6">
+                  <div className="bg-slate-800 rounded-[2rem] p-8 border border-slate-700 shadow-sm space-y-6">
                      <h3 className="text-lg font-bold">Quick Summary</h3>
                      <div className="space-y-5">
                         <ThreatItem label="Reports Pending" value="12" level="LOW" />
@@ -183,8 +183,8 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                         <ThreatItem label="Bugs Found" value="0" level="NULL" />
                         <ThreatItem label="App Health" value="Healthy" level="HIGH" />
                      </div>
-                     <div className="pt-6 mt-6 border-t border-[#f1f5f9]">
-                        <p className="text-[10px] text-[#94a3b8] font-medium text-center italic tracking-wide">Scanning database for issues...</p>
+                     <div className="pt-6 mt-6 border-t border-slate-700">
+                        <p className="text-[10px] text-slate-500 font-medium text-center italic tracking-wide">Scanning database for issues...</p>
                      </div>
                   </div>
                 </div>
@@ -206,9 +206,9 @@ function SidebarButton({ active, onClick, icon, label }: any) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-emerald-50 text-emerald-600' : 'text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc]'}`}
+      className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-green-500/20 text-green-500' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
     >
-      {active && <motion.div layoutId="side-pill" className="absolute left-0 w-1 h-5 bg-emerald-500 rounded-r-full" />}
+      {active && <motion.div layoutId="side-pill" className="absolute left-0 w-1 h-5 bg-green-500/200 rounded-r-full" />}
       <span className="transition-transform duration-300 group-hover:scale-105">{icon}</span>
       <span className="text-sm font-bold tracking-tight">{label}</span>
       {active && <div className="ml-auto opacity-50"><ChevronRight size={14} /></div>}
@@ -216,16 +216,16 @@ function SidebarButton({ active, onClick, icon, label }: any) {
   );
 }
 
-function StatCard({ title, value, color = "text-[#0f172a]", icon, sub }: any) {
+function StatCard({ title, value, color = "text-white", icon, sub }: any) {
   return (
-    <div className="bg-white p-6 rounded-[2rem] border border-[#f1f5f9] hover:border-emerald-200 transition-all shadow-sm">
+    <div className="bg-slate-800 p-6 rounded-[2rem] border border-slate-700 hover:border-green-500/50 transition-all shadow-sm">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-100">
-           {React.cloneElement(icon, { size: 18, className: "text-emerald-600" })}
+        <div className="p-2.5 bg-green-500/20 rounded-xl border border-green-500/30">
+           {React.cloneElement(icon, { size: 18, className: "text-green-500" })}
         </div>
         <div>
-          <div className="text-[#94a3b8] text-[10px] font-bold uppercase tracking-wider">{title}</div>
-          <div className="text-[10px] text-[#cbd5e1] font-medium">{sub}</div>
+          <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{title}</div>
+          <div className="text-[10px] text-slate-500 font-medium">{sub}</div>
         </div>
       </div>
       <div className={`text-4xl font-bold tracking-tight ${color}`}>{value}</div>
@@ -235,14 +235,14 @@ function StatCard({ title, value, color = "text-[#0f172a]", icon, sub }: any) {
 
 function ThreatItem({ label, value, level }: any) {
   const colors: any = {
-    LOW: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    LOW: "text-green-500 bg-green-500/20 border-green-500/30",
     MID: "text-orange-600 bg-orange-50 border-orange-100",
     HIGH: "text-red-600 bg-red-50 border-red-100",
-    NULL: "text-[#94a3b8] bg-[#f8fafc]"
+    NULL: "text-slate-500 bg-slate-900"
   };
   return (
     <div className="flex items-center justify-between group">
-       <span className="text-xs font-bold text-[#64748b] transition-colors">{label}</span>
+       <span className="text-xs font-bold text-slate-400 transition-colors">{label}</span>
        <div className="flex items-center gap-3">
           <span className="text-xs font-bold">{value}</span>
           <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${colors[level]}`}>{level}</span>
@@ -287,19 +287,19 @@ function UsersManager() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="bg-white rounded-[2rem] border border-[#f1f5f9] shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-[#f1f5f9] flex items-center justify-between">
+      <div className="bg-slate-800 rounded-[2rem] border border-slate-700 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between">
             <h3 className="font-bold text-lg tracking-tight flex items-center gap-3">
-              <Users className="text-emerald-500" size={20} />
+              <Users className="text-green-500" size={20} />
               Platform Users
             </h3>
-            <div className="text-xs font-bold text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-100">
+            <div className="text-xs font-bold text-green-500 bg-green-500/20 px-4 py-1.5 rounded-full border border-green-500/30">
               {users.length} Total
             </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-[#f8fafc] text-[#94a3b8] uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-slate-900 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
               <tr>
                 <th className="px-8 py-4">User</th>
                 <th className="px-8 py-4">Contact</th>
@@ -308,22 +308,22 @@ function UsersManager() {
                 <th className="px-8 py-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f1f5f9]">
+            <tbody className="divide-y divide-slate-700">
               {users.map(u => (
-                <tr key={u.id} className="group hover:bg-[#fdfcfb]">
+                <tr key={u.id} className="group hover:bg-slate-900">
                   <td className="px-8 py-6">
                      <div className="flex items-center gap-3">
-                        <img src={u.avatar} className="w-10 h-10 rounded-xl border border-[#f1f5f9]" />
+                        <img src={u.avatar} className="w-10 h-10 rounded-xl border border-slate-700" />
                         <div>
                           <div className="font-bold text-sm">{u.name}</div>
-                          <div className="text-[10px] text-[#94a3b8] font-medium">ID: {u.uniqueId}</div>
+                          <div className="text-[10px] text-slate-500 font-medium">ID: {u.uniqueId}</div>
                         </div>
                      </div>
                   </td>
-                  <td className="px-8 py-6 text-xs text-[#64748b]">{u.email}</td>
-                  <td className="px-8 py-6 font-bold text-emerald-600">{u._count?.posts || 0}</td>
+                  <td className="px-8 py-6 text-xs text-slate-400">{u.email}</td>
+                  <td className="px-8 py-6 font-bold text-green-500">{u._count?.posts || 0}</td>
                   <td className="px-8 py-6">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${u.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${u.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-red-50 text-red-600'}`}>
                       {u.status}
                     </span>
                   </td>
@@ -348,15 +348,15 @@ function UsersManager() {
 
       <AnimatePresence>
         {banModal && (
-          <div className="fixed inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
             <motion.div 
                initial={{ scale: 0.95, opacity: 0 }} 
                animate={{ scale: 1, opacity: 1 }} 
                exit={{ scale: 0.95, opacity: 0 }}
-               className="bg-white border border-[#f1f5f9] p-10 rounded-[2.5rem] w-full max-w-lg shadow-2xl"
+               className="bg-slate-800 border border-slate-700 p-10 rounded-[2.5rem] w-full max-w-lg shadow-2xl"
             >
               <h3 className="text-2xl font-bold text-red-600 mb-2">Ban User</h3>
-              <p className="text-xs text-[#64748b] mb-8">User: <span className="font-bold text-[#0f172a]">{banModal.name}</span></p>
+              <p className="text-xs text-slate-400 mb-8">User: <span className="font-bold text-white">{banModal.name}</span></p>
               
               <form onSubmit={e => {
                 e.preventDefault();
@@ -365,12 +365,12 @@ function UsersManager() {
                 handleBan(banModal.id, duration, reason);
               }} className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-[#64748b]">Duration</label>
+                  <label className="text-xs font-bold text-slate-400">Duration</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[ {v:1, l:'1 Day'}, {v:7, l:'7 Days'}, {v:30, l:'30 Days'}, {v:-1, l:'Perm'} ].map(opt => (
                       <label key={opt.v} className="cursor-pointer">
                         <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
-                        <div className="p-4 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] text-center peer-checked:bg-red-500 peer-checked:text-white">
+                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-700 text-center peer-checked:bg-red-500 peer-checked:text-white">
                            <div className="text-xs font-bold">{opt.l}</div>
                         </div>
                       </label>
@@ -378,11 +378,11 @@ function UsersManager() {
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-[#64748b]">Reason</label>
-                  <input required type="text" name="reason" placeholder="Why ban this user?" className="w-full bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-4 text-sm" />
+                  <label className="text-xs font-bold text-slate-400">Reason</label>
+                  <input required type="text" name="reason" placeholder="Why ban this user?" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm" />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setBanModal(null)} className="flex-1 bg-[#f8fafc] py-4 rounded-xl font-bold text-xs text-[#64748b]">Cancel</button>
+                  <button type="button" onClick={() => setBanModal(null)} className="flex-1 bg-slate-900 py-4 rounded-xl font-bold text-xs text-slate-400">Cancel</button>
                   <button type="submit" className="flex-[2] bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-500/10">Ban User</button>
                 </div>
               </form>
@@ -466,18 +466,18 @@ function ImageTrace() {
 
   return (
     <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-6xl mx-auto pb-20">
-      <div className="bg-white rounded-[2.5rem] border border-[#f1f5f9] p-8 lg:p-12 shadow-sm">
+      <div className="bg-slate-800 rounded-[2.5rem] border border-slate-700 p-8 lg:p-12 shadow-sm">
         <header className="text-center mb-10">
           <div className="inline-block bg-[#0f172a] text-[#38bdf8] px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 border border-[#1e293b]">
             High-Performance Fast-Trace Pipeline
           </div>
           <h2 className="text-3xl font-bold tracking-tight">Advanced Image Trace System</h2>
-          <p className="text-[#94a3b8] text-xs font-medium mt-3">Using Perceptual Hashing (pHash)</p>
+          <p className="text-slate-500 text-xs font-medium mt-3">Using Perceptual Hashing (pHash)</p>
         </header>
 
         {!matchResult ? (
           <div className="max-w-xl mx-auto">
-            <label className="block bg-[#f8fafc] border-2 border-dashed border-[#e2e8f0] hover:border-emerald-200 p-16 rounded-[2rem] mb-6 cursor-pointer group transition-all">
+            <label className="block bg-slate-900 border-2 border-dashed border-slate-700 hover:border-green-500/50 p-16 rounded-[2rem] mb-6 cursor-pointer group transition-all">
               <input type="file" className="hidden" onChange={(e) => {
                 const f = e.target.files?.[0];
                 if(f) { setFile(f); setPreview(URL.createObjectURL(f)); }
@@ -488,10 +488,10 @@ function ImageTrace() {
                 </div>
               ) : (
                 <div className="text-center space-y-4">
-                   <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto border border-[#f1f5f9] shadow-sm">
-                      <ImageIcon size={28} className="text-emerald-500" />
+                   <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto border border-slate-700 shadow-sm">
+                      <ImageIcon size={28} className="text-green-500" />
                    </div>
-                   <p className="text-[#94a3b8] font-bold text-[10px] uppercase">Upload image to scan</p>
+                   <p className="text-slate-500 font-bold text-[10px] uppercase">Upload image to scan</p>
                 </div>
               )}
             </label>
@@ -499,7 +499,7 @@ function ImageTrace() {
             <button 
               disabled={!file || loading} 
               onClick={scanNetwork} 
-              className="w-full h-16 bg-emerald-500 text-white rounded-2xl font-bold text-sm shadow-lg shadow-emerald-500/10 active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3 overflow-hidden"
+              className="w-full h-16 bg-green-500/200 text-white rounded-2xl font-bold text-sm shadow-lg shadow-[0_0_15px_rgba(34,197,94,0.15)] active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3 overflow-hidden"
             >
               {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
               {loading ? steps[currentStep] : "Initiate Global Scan"}
@@ -510,31 +510,31 @@ function ImageTrace() {
              {/* Side-by-Side Comparison */}
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider px-2">Uploaded Source</h4>
-                  <div className="bg-[#f8fafc] rounded-[2rem] p-4 border border-[#f1f5f9]">
+                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">Uploaded Source</h4>
+                  <div className="bg-slate-900 rounded-[2rem] p-4 border border-slate-700">
                     <img src={preview!} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider px-2">Best Match Encountered</h4>
-                  <div className="bg-emerald-50 rounded-[2rem] p-4 border border-emerald-100 relative">
+                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">Best Match Encountered</h4>
+                  <div className="bg-green-500/20 rounded-[2rem] p-4 border border-green-500/30 relative">
                     {matchResult.bestMatch ? (
                       <>
                         <img src={matchResult.bestMatch.previewUrl} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
-                        <div className="absolute top-8 right-8 bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-lg shadow-xl shadow-emerald-500/20">
+                        <div className="absolute top-8 right-8 bg-green-500/200 text-white px-4 py-2 rounded-xl font-bold text-lg shadow-xl shadow-[0_0_20px_rgba(34,197,94,0.3)]">
                           {matchResult.bestMatch.similarity}
                         </div>
                       </>
                     ) : (
-                      <div className="w-full aspect-square flex items-center justify-center text-[#94a3b8] font-bold text-sm uppercase italic">No Match Found</div>
+                      <div className="w-full aspect-square flex items-center justify-center text-slate-500 font-bold text-sm uppercase italic">No Match Found</div>
                     )}
                   </div>
                 </div>
              </div>
 
              {/* Match Details List */}
-             <div className="bg-[#f8fafc] rounded-[2rem] border border-[#f1f5f9] overflow-hidden">
-                <div className="px-8 py-6 border-b border-[#f1f5f9] flex items-center justify-between">
+             <div className="bg-slate-900 rounded-[2rem] border border-slate-700 overflow-hidden">
+                <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between">
                    <h3 className="font-bold text-lg">Similarity Results ({matchResult.matchCount})</h3>
                    {matchResult.matchCount > 0 && (
                      <button onClick={deleteFamily} className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">
@@ -550,31 +550,31 @@ function ImageTrace() {
                       animate={{ opacity: 1, x: 0 }} 
                       transition={{ delay: idx * 0.1 }}
                       key={m.postId} 
-                      className="bg-white p-6 rounded-2xl border border-[#f1f5f9] flex flex-wrap lg:flex-nowrap items-center gap-6 group hover:border-emerald-200 transition-all"
+                      className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-wrap lg:flex-nowrap items-center gap-6 group hover:border-green-500/50 transition-all"
                     >
-                       <img src={m.previewUrl} className="w-20 h-20 rounded-xl object-cover border border-[#f1f5f9]" />
+                       <img src={m.previewUrl} className="w-20 h-20 rounded-xl object-cover border border-slate-700" />
                        <div className="flex-1 min-w-[200px]">
                           <div className="flex items-center gap-3 mb-2">
-                             <span className="text-sm font-bold text-[#0f172a]">Post #{m.postId}</span>
-                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${m.confidenceLevel === 'HIGH' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : m.confidenceLevel === 'MEDIUM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                             <span className="text-sm font-bold text-white">Post #{m.postId}</span>
+                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${m.confidenceLevel === 'HIGH' ? 'bg-green-500/20 text-green-500 border-green-500/30' : m.confidenceLevel === 'MEDIUM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
                                 {m.confidenceLevel} CONFIDENCE
                              </span>
                           </div>
-                          <div className="flex items-center gap-4 text-[10px] font-bold text-[#94a3b8] uppercase tracking-wide">
-                             <div className="flex items-center gap-1"><Fingerprint size={12} className="text-emerald-500" /> {m.matchType}</div>
-                             <div className="flex items-center gap-1"><Users size={12} className="text-[#64748b]" /> {m.user || "Unknown User"}</div>
+                          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                             <div className="flex items-center gap-1"><Fingerprint size={12} className="text-green-500" /> {m.matchType}</div>
+                             <div className="flex items-center gap-1"><Users size={12} className="text-slate-400" /> {m.user || "Unknown User"}</div>
                           </div>
                        </div>
                        
                        <div className="flex items-center gap-3 ml-auto">
                           <div className="text-right mr-4 hidden md:block">
-                             <div className="text-xs font-bold text-emerald-600">{m.similarity} Similarity</div>
-                             <div className="text-[10px] text-[#cbd5e1] font-medium uppercase mt-0.5">Hybrid Score</div>
+                             <div className="text-xs font-bold text-green-500">{m.similarity} Similarity</div>
+                             <div className="text-[10px] text-slate-500 font-medium uppercase mt-0.5">Hybrid Score</div>
                           </div>
                           <button onClick={() => deleteSingle(m.postId)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all">
                              <Trash2 size={18} />
                           </button>
-                          <button onClick={() => toast.info("Ignoring variant...")} className="p-3 bg-[#f8fafc] text-[#94a3b8] rounded-xl hover:bg-[#0f172a] hover:text-white transition-all">
+                          <button onClick={() => toast.info("Ignoring variant...")} className="p-3 bg-slate-900 text-slate-500 rounded-xl hover:bg-[#0f172a] hover:text-white transition-all">
                              <CheckCircle2 size={18} />
                           </button>
                        </div>
@@ -582,12 +582,12 @@ function ImageTrace() {
                   ))}
                   
                   {matchResult.matchCount === 0 && (
-                    <div className="py-20 text-center text-[#94a3b8] italic text-sm">No significant matches detected across the network.</div>
+                    <div className="py-20 text-center text-slate-500 italic text-sm">No significant matches detected across the network.</div>
                   )}
                 </div>
                 
-                <div className="px-8 py-6 border-t border-[#f1f5f9] flex justify-center">
-                   <button onClick={() => setMatchResult(null)} className="font-bold text-xs text-emerald-600 hover:underline">Clear results and scan new image</button>
+                <div className="px-8 py-6 border-t border-slate-700 flex justify-center">
+                   <button onClick={() => setMatchResult(null)} className="font-bold text-xs text-green-500 hover:underline">Clear results and scan new image</button>
                 </div>
              </div>
           </div>
@@ -606,26 +606,26 @@ function SystemPulse() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="bg-white rounded-[2rem] border border-[#f1f5f9] shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-[#f1f5f9] flex items-center justify-between bg-[#f8fafc]">
+      <div className="bg-slate-800 rounded-[2rem] border border-slate-700 shadow-sm overflow-hidden">
+        <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between bg-slate-900">
             <h3 className="font-bold text-lg flex items-center gap-3">
-              <List className="text-emerald-500" size={20} />
+              <List className="text-green-500" size={20} />
               Recent Activities
             </h3>
         </div>
         <div className="p-6 space-y-3">
           {logs.map((log: any) => (
-            <div key={log.id} className="flex items-start gap-4 p-5 bg-white rounded-2xl border border-[#f1f5f9] hover:border-emerald-100 transition-all">
-               <div className={`p-2 rounded-xl ${log.actionType.includes('DELETE') ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-500'}`}>
+            <div key={log.id} className="flex items-start gap-4 p-5 bg-slate-800 rounded-2xl border border-slate-700 hover:border-green-500/30 transition-all">
+               <div className={`p-2 rounded-xl ${log.actionType.includes('DELETE') ? 'bg-red-50 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
                  {log.actionType.includes('DELETE') ? <Trash2 size={18} /> : <Zap size={18} />}
                </div>
                <div className="flex-1">
                  <div className="flex items-center gap-3 mb-1">
-                    <span className="text-[9px] font-bold text-[#64748b] uppercase">{log.actionType}</span>
-                    <span className="text-[9px] text-[#cbd5e1]">{new Date(log.createdAt).toLocaleString()}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">{log.actionType}</span>
+                    <span className="text-[9px] text-slate-500">{new Date(log.createdAt).toLocaleString()}</span>
                  </div>
                  <div className="text-sm font-medium text-[#475569]">{log.details}</div>
-                 <div className="mt-3 text-[9px] font-bold text-[#94a3b8] uppercase">Admin: {log.adminName}</div>
+                 <div className="mt-3 text-[9px] font-bold text-slate-500 uppercase">Admin: {log.adminName}</div>
                </div>
             </div>
           ))}
@@ -671,32 +671,32 @@ function FlaggedContent() {
            <p className="text-xs font-bold uppercase">Loading Reports...</p>
         </div>
       ) : flags.length === 0 ? (
-        <div className="text-center py-20 border border-[#f1f5f9] rounded-[2rem] bg-white text-[#94a3b8]">
+        <div className="text-center py-20 border border-slate-700 rounded-[2rem] bg-slate-800 text-slate-500">
           <CheckCircle2 size={48} className="mx-auto mb-4 opacity-10" />
           <p className="text-xs font-bold uppercase">No reports to review.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {flags.map((flag) => (
-            <motion.div layout key={flag.id} className="bg-white rounded-[2rem] overflow-hidden border border-[#f1f5f9] shadow-sm flex flex-col">
-              <div className="relative h-56 bg-[#f8fafc]">
+            <motion.div layout key={flag.id} className="bg-slate-800 rounded-[2rem] overflow-hidden border border-slate-700 shadow-sm flex flex-col">
+              <div className="relative h-56 bg-slate-900">
                 {flag.post ? (
                    <img src={(flag.post.imageUrl || "").replace('/upload/', '/upload/f_auto,q_auto,w_600,c_limit/')} className="w-full h-full object-cover" />
                 ) : (
-                   <div className="w-full h-full flex items-center justify-center text-[#cbd5e1] uppercase text-[10px] font-bold">Image Deleted</div>
+                   <div className="w-full h-full flex items-center justify-center text-slate-500 uppercase text-[10px] font-bold">Image Deleted</div>
                 )}
                 {flag.priority === "HIGH" && <span className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-[10px] font-bold rounded-lg uppercase">High Priority</span>}
               </div>
               
               <div className="p-8 flex-1 flex flex-col space-y-4">
                 <div>
-                  <div className="text-[10px] text-[#94a3b8] uppercase mb-2">Reported by: {flag.user?.name || "User"}</div>
-                  <h4 className="font-bold text-[#0f172a] mb-3">Reason: {flag.reason}</h4>
-                  <div className="bg-[#f8fafc] p-4 rounded-xl text-xs italic text-[#64748b]">"{flag.post?.caption || "No caption"}"</div>
+                  <div className="text-[10px] text-slate-500 uppercase mb-2">Reported by: {flag.user?.name || "User"}</div>
+                  <h4 className="font-bold text-white mb-3">Reason: {flag.reason}</h4>
+                  <div className="bg-slate-900 p-4 rounded-xl text-xs italic text-slate-400">"{flag.post?.caption || "No caption"}"</div>
                 </div>
                 
                 <div className="mt-auto grid grid-cols-2 gap-3">
-                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-[#f8fafc] rounded-xl font-bold text-xs border border-[#e2e8f0]">Keep Post</button>
+                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-slate-900 rounded-xl font-bold text-xs border border-slate-700">Keep Post</button>
                   <button onClick={() => resolveFlag(flag.id, "WIPE")} className="py-3 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">Delete Post</button>
                 </div>
               </div>
