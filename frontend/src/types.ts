@@ -56,3 +56,18 @@ export interface Message {
   isRead: boolean;
   createdAt: string;
 }
+
+export interface Story {
+  id: number;
+  userId: number;
+  user: User;
+  imageUrl: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface UserStories {
+  userId: number;
+  user: User;
+  stories: Story[];
+}

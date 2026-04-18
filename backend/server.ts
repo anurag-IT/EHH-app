@@ -260,6 +260,84 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
   }
 });
 
+app.post("/api/stories", upload.single("image"), checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const userId = req.body.userId || req.currentUser.id;
+    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+
+    console.log(`[STORY UPLOAD] User ${userId} uploading story...`);
+    const uploadResult = await uploadImage(req.file.buffer);
+    
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const story = await prisma.story.create({
+      data: {
+        userId: parseInt(userId),
+        imageUrl: uploadResult.secure_url,
+        imagePath: uploadResult.public_id,
+        expiresAt
+      },
+      include: { user: true }
+    });
+
+    console.log(`[STORY SUCCESS] Story ${story.id} created.`);
+    res.json(story);
+  } catch (error: any) {
+    console.error("[STORY ERROR]", error);
+    res.status(500).json({ error: error.message || "Internal story transmission failure" });
+  }
+});
+
+app.get("/api/stories", async (req: any, res: any) => {
+  try {
+    const userId = req.headers["x-user-id"] ? parseInt(req.headers["x-user-id"] as string) : null;
+    const now = new Date();
+
+    let stories;
+    if (userId) {
+       const following = await prisma.userFollow.findMany({
+         where: { followerId: userId },
+         select: { followingId: true }
+       });
+       const followingIds = following.map(f => f.followingId);
+       followingIds.push(userId);
+
+       stories = await prisma.story.findMany({
+         where: {
+           userId: { in: followingIds },
+           expiresAt: { gt: now }
+         },
+         include: { user: { select: { id: true, name: true, avatar: true } } },
+         orderBy: { createdAt: "desc" }
+       });
+    } else {
+       stories = await prisma.story.findMany({
+         where: { expiresAt: { gt: now } },
+         include: { user: { select: { id: true, name: true, avatar: true } } },
+         orderBy: { createdAt: "desc" },
+         take: 30
+       });
+    }
+
+    const grouped = stories.reduce((acc: any, story: any) => {
+      if (!acc[story.userId]) {
+        acc[story.userId] = {
+          userId: story.userId,
+          user: story.user,
+          stories: []
+        };
+      }
+      acc[story.userId].stories.push(story);
+      return acc;
+    }, {});
+
+    res.json(Object.values(grouped));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/posts", upload.array("images", 20), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
@@ -576,6 +654,32 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
     }
 
     res.json({ ...user, posts, isFollowing });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/users/profile", upload.single("avatar"), checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const { name, bio } = req.body;
+    const userId = req.currentUser.id;
+    let avatarUrl = req.currentUser.avatar;
+
+    if (req.file) {
+      const uploadResult = await uploadImage(req.file.buffer);
+      avatarUrl = uploadResult.secure_url;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name || req.currentUser.name,
+        bio: bio || req.currentUser.bio,
+        avatar: avatarUrl
+      }
+    });
+
+    res.json(updatedUser);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

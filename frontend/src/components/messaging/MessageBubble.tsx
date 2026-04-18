@@ -21,8 +21,8 @@ const MessageBubble = React.memo(({ content, isSender, timestamp, isRead }: Mess
         <div className={`
           px-5 py-3.5 rounded-[1.8rem] text-[13px] font-medium leading-relaxed shadow-sm transition-all duration-300
           ${isSender 
-            ? 'bg-green-500 text-slate-900 rounded-br-none shadow-[0_0_15px_rgba(34,197,94,0.2)]' 
-            : 'bg-slate-800 text-white border border-slate-700/50 rounded-bl-none shadow-md'}
+            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-none shadow-[0_4px_15px_rgba(59,130,246,0.2)]' 
+            : 'bg-slate-800 text-white border border-slate-700/50 rounded-bl-none shadow-sm'}
         `}>
           {content}
         </div>

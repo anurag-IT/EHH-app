@@ -32,7 +32,7 @@ api.interceptors.request.use((config) => {
  * USES: f_auto, q_auto, w_auto, dpr_auto
  */
 export const getOptimizedImageUrl = (url: string, width: number | string = "auto") => {
-  if (!url) return "";
+  if (!url || url === "null" || url === "undefined" || url.includes("[object")) return "";
   if (!url.includes("cloudinary.com")) return url;
   
   // Standardize Cloudinary URL to use auto-format, auto-quality and specified width

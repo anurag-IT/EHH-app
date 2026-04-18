@@ -104,6 +104,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [activeChatUser, setActiveChatUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
@@ -199,9 +200,17 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         if (user) fetchUnreadCount(user.id);
       });
     }
+    const handleOpenChat = (e: any) => {
+      setActiveChatUser(e.detail);
+      setView("messages");
+    };
+
+    window.addEventListener('open-chat', handleOpenChat);
+
     return () => {
       socket?.off("receiveMessage");
       socket?.off("notification");
+      window.removeEventListener('open-chat', handleOpenChat);
     };
   }, [socket, user]);
 
@@ -526,7 +535,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             {view === "profile" && user && <ProfilePage user={user} isOwnProfile={true} onLogout={logout} />}
             {view === "userProfile" && targetUserId && <ProfilePage userId={targetUserId} isOwnProfile={false} currentUserId={user?.id} />}
             {view === "notifications" && user && <NotificationPage user={user} onRead={() => fetchUnreadCount(user.id)} />}
-            {view === "messages" && user && <MessagingPage currentUser={user} />}
+            {view === "messages" && user && <MessagingPage currentUser={user} initialUser={activeChatUser} />}
             {view === "lostfound" && <LostFoundPage />}
             {view === "admin" && <Admin onComplete={() => { fetchPosts(true); setView("feed"); }} />}
           </AnimatePresence>

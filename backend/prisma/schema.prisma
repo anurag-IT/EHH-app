@@ -16,6 +16,7 @@ model User {
   email        String    @unique
   uniqueId     String    @unique // EH-XXXXXX
   avatar       String?
+  bio          String? @db.Text
   role         String    @default("USER") // USER | ADMIN
   status       String    @default("ACTIVE") // ACTIVE | BANNED | PERMANENT_BAN
   banUntil     DateTime?
@@ -32,6 +33,7 @@ model User {
   notifications Notification[] @relation("UserNotifications")
   followers    UserFollow[] @relation("FollowedBy")
   following    UserFollow[] @relation("Following")
+  stories      Story[]
 }
 
 model UserFollow {
@@ -181,5 +183,18 @@ model ImageMatch {
   matchType       String   @default("HASH_MATCH")
   confidenceLevel String   @default("LOW")
   createdAt       DateTime @default(now())
+}
+
+model Story {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  imagePath String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
