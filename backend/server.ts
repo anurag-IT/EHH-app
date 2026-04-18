@@ -582,40 +582,42 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
     const followingId = parseInt(req.params.id);
     const followerId = req.currentUser.id;
     if (followerId === followingId) return res.status(400).json({ error: "Cannot follow yourself" });
-    const existing = await prisma.userFollow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
-    if (existing) {
-      await prisma.userFollow.delete({ where: { id: existing.id } });
+      const existing = await prisma.userFollow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
       
-      // Notify for real-time count update
-      const targetSocketId = userSockets.get(followingId);
-      if (targetSocketId) {
-        io.to(targetSocketId).emit("notification", { type: "FOLLOW_UPDATE" });
-      }
-
-      res.json({ following: false });
-    } else {
-      await prisma.userFollow.create({ data: { followerId, followingId } });
-      const sender = await prisma.user.findUnique({ where: { id: followerId } });
-      
-      await prisma.notification.create({
-        data: {
-          userId: followingId, senderId: followerId, senderName: sender?.name,
-          senderAvatar: sender?.avatar, type: "FOLLOW", content: "started following you"
-        }
-      });
-
-      // Real-time notification
-      const targetSocketId = userSockets.get(followingId);
-      if (targetSocketId) {
-        io.to(targetSocketId).emit("notification", { 
-          type: "FOLLOW", 
-          senderName: sender?.name,
-          content: "started following you" 
+      if (existing) {
+        await prisma.userFollow.delete({ where: { id: existing.id } });
+        res.json({ following: false, status: null });
+      } else {
+        const targetUser = await prisma.user.findUnique({ where: { id: followingId } });
+        const requestStatus = targetUser?.isPrivate ? "PENDING" : "ACCEPTED";
+        
+        const follow = await prisma.userFollow.create({ 
+          data: { followerId, followingId, status: requestStatus } 
         });
-      }
 
-      res.json({ following: true });
-    }
+        const sender = await prisma.user.findUnique({ where: { id: followerId } });
+        
+        await prisma.notification.create({
+          data: {
+            userId: followingId, senderId: followerId, senderName: sender?.name,
+            senderAvatar: sender?.avatar, 
+            type: requestStatus === "PENDING" ? "FOLLOW_REQUEST" : "FOLLOW", 
+            requestId: requestStatus === "PENDING" ? follow.id : null,
+            content: requestStatus === "PENDING" ? "requested to follow you" : "started following you"
+          }
+        });
+
+        const targetSocketId = userSockets.get(followingId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit("notification", { 
+            type: requestStatus === "PENDING" ? "FOLLOW_REQUEST" : "FOLLOW", 
+            senderName: sender?.name,
+            content: requestStatus === "PENDING" ? "requested to follow you" : "started following you"
+          });
+        }
+
+        res.json({ following: true, status: requestStatus });
+      }
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -624,7 +626,8 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
 app.get("/api/users/:id/profile", async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
-    const viewerId = req.headers["x-user-id"] ? parseInt(req.headers["x-user-id"] as string) : null;
+    const viewerIdStr = req.headers["x-user-id"];
+    const viewerId = viewerIdStr ? parseInt(viewerIdStr as string) : null;
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -632,8 +635,26 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
         _count: { select: { posts: true, followers: true, following: true } }
       }
     });
-    
-    const posts = await prisma.post.findMany({
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Check relationship
+    let isFollowing = false;
+    let followStatus = null;
+    if (viewerId) {
+       const follow = await prisma.userFollow.findUnique({
+         where: { followerId_followingId: { followerId: viewerId, followingId: id } }
+       });
+       if (follow) {
+         isFollowing = follow.status === "ACCEPTED";
+         followStatus = follow.status;
+       }
+    }
+
+    // Privacy Logic: If private and NOT following, dont show posts
+    const canSeePosts = !user.isPrivate || isFollowing || viewerId === id;
+
+    const posts = canSeePosts ? await prisma.post.findMany({
       where: { userId: id },
       orderBy: { createdAt: "desc" },
       include: { 
@@ -641,7 +662,7 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
         images: { select: { url: true, order: true } },
         _count: { select: { likes: true, comments: true, reposts: true } } 
       }
-    });
+    }) : [];
     
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -653,7 +674,7 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
       isFollowing = !!follow;
     }
 
-    res.json({ ...user, posts, isFollowing });
+    res.json({ ...user, posts, isFollowing, followStatus, isPrivate: user.isPrivate });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -661,7 +682,7 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
 
 app.put("/api/users/profile", upload.single("avatar"), checkUserRestriction, async (req: any, res: any) => {
   try {
-    const { name, bio } = req.body;
+    const { name, bio, isPrivate } = req.body;
     const userId = req.currentUser.id;
     let avatarUrl = req.currentUser.avatar;
 
@@ -674,7 +695,8 @@ app.put("/api/users/profile", upload.single("avatar"), checkUserRestriction, asy
       where: { id: userId },
       data: {
         name: name || req.currentUser.name,
-        bio: bio || req.currentUser.bio,
+        bio: bio !== undefined ? bio : req.currentUser.bio,
+        isPrivate: isPrivate === "true" || isPrivate === true,
         avatar: avatarUrl
       }
     });
@@ -683,6 +705,68 @@ app.put("/api/users/profile", upload.single("avatar"), checkUserRestriction, asy
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Follow Lists
+app.get("/api/users/:id/followers", async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const followers = await prisma.userFollow.findMany({
+      where: { followingId: id, status: "ACCEPTED" },
+      include: { follower: true }
+    });
+    res.json(followers.map(f => f.follower));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/users/:id/following", async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const following = await prisma.userFollow.findMany({
+      where: { followerId: id, status: "ACCEPTED" },
+      include: { following: true }
+    });
+    res.json(following.map(f => f.following));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Request Moderation
+app.post("/api/users/requests/:requestId/accept", checkUserRestriction, async (req: any, res: any) => {
+  try {
+     const requestId = parseInt(req.params.requestId);
+     const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
+     if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+
+     await prisma.userFollow.update({ where: { id: requestId }, data: { status: "ACCEPTED" } });
+     
+     // Notify the follower
+     await prisma.notification.create({
+       data: {
+         userId: request.followerId,
+         senderId: req.currentUser.id,
+         senderName: req.currentUser.name,
+         senderAvatar: req.currentUser.avatar,
+         type: "FOLLOW_ACCEPTED",
+         content: "accepted your follow request"
+       }
+     });
+
+     res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const requestId = parseInt(req.params.requestId);
+    const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
+    if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+    await prisma.userFollow.delete({ where: { id: requestId } });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 app.get("/api/messages/conversations/:userId", async (req: any, res: any) => {
@@ -770,11 +854,23 @@ app.post("/api/messages/send-v2", checkUserRestriction, async (req: any, res: an
   try {
     const { receiverId, content } = req.body;
     const senderId = req.currentUser.id;
+    const rid = parseInt(receiverId);
+
+    // Privacy check
+    const receiver = await prisma.user.findUnique({ where: { id: rid } });
+    if (receiver?.isPrivate && senderId !== rid) {
+       const follow = await prisma.userFollow.findUnique({
+          where: { followerId_followingId: { followerId: senderId, followingId: rid } }
+       });
+       if (!follow || follow.status !== "ACCEPTED") {
+          return res.status(403).json({ error: "Private transmission: Follow link required." });
+       }
+    }
     
     const message = await prisma.message.create({
       data: { 
         senderId, 
-        receiverId: parseInt(receiverId), 
+        receiverId: rid, 
         content: content, 
         messageText: content 
       }

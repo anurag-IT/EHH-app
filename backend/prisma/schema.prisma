@@ -17,6 +17,7 @@ model User {
   uniqueId     String    @unique // EH-XXXXXX
   avatar       String?
   bio          String? @db.Text
+  isPrivate    Boolean   @default(false)
   role         String    @default("USER") // USER | ADMIN
   status       String    @default("ACTIVE") // ACTIVE | BANNED | PERMANENT_BAN
   banUntil     DateTime?
@@ -42,6 +43,7 @@ model UserFollow {
   follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
   followingId Int
   following   User     @relation("FollowedBy", fields: [followingId], references: [id], onDelete: Cascade)
+  status      String   @default("ACCEPTED") // PENDING | ACCEPTED
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
@@ -164,8 +166,9 @@ model Notification {
   senderId    Int?
   senderName  String?
   senderAvatar String?
-  type        String   // "LIKE", "COMMENT", "SYSTEM"
+  type        String   // "LIKE", "COMMENT", "SYSTEM", "FOLLOW_REQUEST"
   postId      Int?
+  requestId   Int?
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())

@@ -8,6 +8,9 @@ export interface User {
   status: "ACTIVE" | "BANNED" | "PERMANENT_BAN";
   banReason?: string;
   banUntil?: string;
+  bio?: string;
+  isPrivate?: boolean;
+  followStatus?: 'PENDING' | 'ACCEPTED' | null;
   _count?: {
     posts: number;
     followers: number;
