@@ -106,7 +106,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
     formData.append("name", editName);
     formData.append("bio", editBio);
     formData.append("isPrivate", editIsPrivate.toString());
-    if (editAvatar) formData.append("avatar", editAvatar);
+    if (editAvatar) formData.append("images", editAvatar);
 
     try {
       const res = await api.put("/api/users/profile", formData);

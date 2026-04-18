@@ -38,7 +38,7 @@ export default function StoriesRow() {
 
     setUploading(true);
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("images", file);
     formData.append("userId", currentUser.id.toString());
 
     try {

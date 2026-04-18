@@ -165,9 +165,8 @@ app.get("/api/posts", async (req: any, res: any) => {
     if (cached) return res.json(cached);
 
     const selectFields: any = {
-      id: true, imageUrl: true, caption: true, location: true, createdAt: true, userId: true,
+      id: true, imageUrl: true, imageUrls: true, caption: true, location: true, createdAt: true, userId: true,
       user: { select: { name: true, avatar: true, uniqueId: true } },
-      images: { select: { url: true, order: true } },
       _count: { select: { likes: true, comments: true, reposts: true } }
     };
 
@@ -190,12 +189,7 @@ app.get("/api/posts", async (req: any, res: any) => {
     }
 
     const formattedPosts = posts.map((post: any) => ({
-      id: post.id,
-      imageUrl: post.imageUrl,
-      caption: post.caption,
-      location: post.location,
-      createdAt: post.createdAt,
-      user: post.user,
+      ...post,
       likesCount: post._count.likes,
       commentsCount: post._count.comments,
       repostsCount: post._count.reposts,
@@ -260,13 +254,14 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
   }
 });
 
-app.post("/api/stories", upload.single("image"), checkUserRestriction, async (req: any, res: any) => {
+app.post("/api/stories", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
     const userId = req.body.userId || req.currentUser.id;
-    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+    const files = req.files as any[];
+    if (!files || files.length === 0) return res.status(400).json({ error: "No image transmission detected" });
 
-    console.log(`[STORY UPLOAD] User ${userId} uploading story...`);
-    const uploadResult = await uploadImage(req.file.buffer);
+    console.log(`[STORY UPLOAD] User ${userId} broadcasting signal...`);
+    const uploadResult = await uploadImage(files[0].buffer);
     
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
@@ -661,7 +656,6 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
       orderBy: { createdAt: "desc" },
       include: { 
         user: true, 
-        images: { select: { url: true, order: true } },
         _count: { select: { likes: true, comments: true, reposts: true } } 
       }
     }) : [];
@@ -671,14 +665,15 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
   }
 });
 
-app.put("/api/users/profile", upload.single("avatar"), checkUserRestriction, async (req: any, res: any) => {
+app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { name, bio, isPrivate } = req.body;
     const userId = req.currentUser.id;
+    const files = req.files as any[];
     let avatarUrl = req.currentUser.avatar;
 
-    if (req.file) {
-      const uploadResult = await uploadImage(req.file.buffer);
+    if (files && files.length > 0) {
+      const uploadResult = await uploadImage(files[0].buffer);
       avatarUrl = uploadResult.secure_url;
     }
 
@@ -883,10 +878,11 @@ app.post("/api/messages/send-v2", checkUserRestriction, async (req: any, res: an
   }
 });
 
-app.post("/admin/scan", upload.single("image"), checkAdminMode, async (req: any, res: any) => {
+app.post("/admin/scan", upload.array("images", 1), checkAdminMode, async (req: any, res: any) => {
   try {
-    if (!req.file) return res.status(400).json({ error: "No image provided" });
-    const { phash } = await extractFeaturesFromBuffer(req.file.buffer);
+    const files = req.files as any[];
+    if (!files || files.length === 0) return res.status(400).json({ error: "No scan source detected" });
+    const { phash } = await extractFeaturesFromBuffer(files[0].buffer);
     
     console.log(`\n[ADMIN SCAN RECEIVED] Extracted pHash for incoming scan image: ${phash}`);
 
@@ -947,7 +943,6 @@ app.get("/api/posts/search", async (req: any, res: any) => {
       },
       include: { 
         user: true, 
-        images: { select: { url: true, order: true } },
         _count: { select: { likes: true, comments: true, reposts: true } } 
       },
       take: 20

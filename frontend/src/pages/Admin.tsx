@@ -419,7 +419,7 @@ function ImageTrace() {
     }, 1200);
 
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("images", file);
 
     try {
       const res = await api.post("/admin/scan", formData, { headers: getHeaders() });
