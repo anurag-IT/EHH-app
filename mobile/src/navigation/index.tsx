@@ -4,7 +4,15 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useAuth } from "../context/AuthContext";
 import { colors } from "../theme";
-import { Home, PlusSquare, User, ShieldAlert, Search } from "lucide-react-native";
+import { 
+  Home, 
+  PlusSquare, 
+  User, 
+  Search, 
+  MessageCircle, 
+  Bell,
+  CheckCircle2
+} from "lucide-react-native";
 
 import LoginScreen from "../screens/LoginScreen";
 import FeedScreen from "../screens/FeedScreen";
@@ -13,6 +21,12 @@ import ProfileScreen from "../screens/ProfileScreen";
 import AdminScreen from "../screens/AdminScreen";
 import SearchScreen from "../screens/SearchScreen";
 import SplashScreen from "../screens/SplashScreen";
+import StoryCreatorScreen from "../screens/StoryCreatorScreen";
+import MessagingScreen from "../screens/MessagingScreen";
+import ChatScreen from "../screens/ChatScreen";
+import UserProfileScreen from "../screens/UserProfileScreen";
+import NotificationsScreen from "../screens/NotificationsScreen";
+import PostDetailScreen from "../screens/PostDetailScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,9 +59,9 @@ function MainTabs() {
           const iconSize = focused ? 28 : 24;
           if (route.name === "Feed") return <Home color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
           if (route.name === "Search") return <Search color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
-          if (route.name === "Upload") return <PlusSquare color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
+          if (route.name === "Upload") return <PlusSquare color={focused ? colors.primary : colors.textMuted} size={32} />;
+          if (route.name === "Messages") return <MessageCircle color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
           if (route.name === "Profile") return <User color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
-          if (route.name === "Admin") return <ShieldAlert color={focused ? colors.primary : colors.textMuted} size={iconSize} />;
           return null;
         },
       })}
@@ -55,10 +69,8 @@ function MainTabs() {
       <Tab.Screen name="Feed" component={FeedScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Upload" component={UploadScreen} />
+      <Tab.Screen name="Messages" component={MessagingScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
-      {user?.role === "ADMIN" && (
-        <Tab.Screen name="Admin" component={AdminScreen} />
-      )}
     </Tab.Navigator>
   );
 }
@@ -75,9 +87,6 @@ export default function RootNavigation() {
   const { user, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
-  // Show splash screen while restoring auth from AsyncStorage.
-  // SplashScreen internally waits for BOTH its animation AND authLoading=false
-  // before calling onAuthReady — preventing any login screen flash on refresh.
   if (!splashDone) {
     return (
       <SplashScreen
@@ -89,7 +98,23 @@ export default function RootNavigation() {
 
   return (
     <NavigationContainer>
-      {user ? <MainTabs /> : <AuthStack />}
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Main" component={user ? MainTabs : AuthStack} />
+        {user && (
+          <>
+            <Stack.Screen 
+              name="StoryCreator" 
+              component={StoryCreatorScreen} 
+              options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} 
+            />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="UserProfile" component={UserProfileScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="PostDetail" component={PostDetailScreen} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
+          </>
+        )}
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

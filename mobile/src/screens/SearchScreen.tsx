@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -8,26 +8,46 @@ import {
   SafeAreaView, 
   StatusBar,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  StyleSheet
 } from "react-native";
 import { globalStyles, colors } from "../theme";
-import { Search, Image as ImageIcon, Scan, CheckCircle2 } from "lucide-react-native";
+import { Search, Image as ImageIcon, Scan, CheckCircle2, User, Users } from "lucide-react-native";
 import { Image } from "expo-image";
 import api, { getOptimizedImageUrl } from "../api";
+import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"people" | "posts">("people");
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigation = useNavigation<any>();
+
+  // Debounced search logic
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (query.length >= 2 || query.length === 0) {
+        handleSearch();
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, tab]);
 
   const handleSearch = async () => {
-    if (!query) return;
     setLoading(true);
     try {
-      const res = await api.get(`/api/posts/search?q=${query}`);
-      setResults(res.data);
+      if (tab === "people") {
+        // If query is empty, it will return suggested/random users (backend should handle q=a or similar)
+        const res = await api.get(`/api/users/search?q=${query || 'a'}`);
+        setResults(res.data);
+      } else {
+        const res = await api.get(`/api/posts/search?q=${query}`);
+        setResults(res.data);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,136 +55,96 @@ export default function SearchScreen() {
     }
   };
 
-  const renderPost = React.useCallback(({ item }: { item: any }) => (
-    <TouchableOpacity style={{ 
-      width: (width - 48) / 2, 
-      aspectRatio: 1, 
-      marginBottom: 16, 
-      borderRadius: 20, 
-      overflow: "hidden",
-      backgroundColor: colors.white,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 5,
-      elevation: 2
-    }}>
+  const renderPost = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={styles.postCard}
+      onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
+    >
       <Image 
-        source={{ uri: getOptimizedImageUrl(item.imageUrl, 400) }} 
+        source={{ uri: getOptimizedImageUrl(item.imageUrl || (item.imageUrls && item.imageUrls[0]), 400) }} 
         style={{ width: "100%", height: "100%" }} 
         contentFit="cover"
         transition={300}
-        cachePolicy="disk"
       />
-      <View style={{ 
-        position: "absolute", 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        paddingHorizontal: 10,
-        paddingVertical: 8, 
-        backgroundColor: "rgba(255, 255, 255, 0.9)"
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ color: colors.text, fontSize: 10, fontWeight: "900" }} numberOfLines={1}>@{item.user.name}</Text>
-          <CheckCircle2 size={8} color={colors.accent} />
-        </View>
+    </TouchableOpacity>
+  ), []);
+
+  const renderUser = useCallback(({ item }: { item: any }) => (
+    <TouchableOpacity 
+      style={styles.userCard}
+      onPress={() => navigation.navigate("UserProfile", { userId: item.id })}
+    >
+      <Image 
+        source={{ uri: item.avatar }} 
+        style={styles.userAvatar} 
+      />
+      <View style={{ flex: 1, marginLeft: 15 }}>
+        <Text style={styles.userName}>{item.name}</Text>
+        <Text style={styles.userUniqueId}>{item.uniqueId}</Text>
       </View>
+      <TouchableOpacity style={styles.followBtn}>
+        <Text style={styles.followBtnText}>View</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   ), []);
 
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <StatusBar barStyle="dark-content" />
-      <View style={{ flex: 1, padding: 20 }}>
+      <View style={{ flex: 1, paddingHorizontal: 20 }}>
         {/* Header */}
-        <View style={{ marginBottom: 24 }}>
-          <Text style={[globalStyles.title, { marginBottom: 0, color: colors.primary }]}>Discovery</Text>
-          <Text style={[globalStyles.subtitle, { color: colors.textMuted }]}>Global Asset Intelligence</Text>
+        <View style={{ marginTop: 20, marginBottom: 20 }}>
+          <Text style={[globalStyles.title, { marginBottom: 0, color: colors.primary }]}>Network Explorer</Text>
+          <Text style={{ fontSize: 12, fontWeight: '800', color: colors.textMuted, letterSpacing: 1 }}>INDEXING GLOBAL SIGNALS</Text>
         </View>
 
         {/* Search Bar */}
-        <View style={{ 
-          flexDirection: "row", 
-          alignItems: "center", 
-          backgroundColor: colors.white, 
-          borderRadius: 24, 
-          paddingHorizontal: 20,
-          borderWidth: 1,
-          borderColor: colors.border,
-          marginBottom: 24,
-          shadowColor: colors.primary,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.03,
-          shadowRadius: 15,
-          elevation: 5
-        }}>
-          <Search size={22} color={colors.primary} />
+        <View style={styles.searchBar}>
+          <Search size={20} color={colors.primary} />
           <TextInput
-            style={{ 
-              flex: 1, 
-              height: 64, 
-              color: colors.text, 
-              paddingHorizontal: 16,
-              fontWeight: "600",
-              fontSize: 16
-            }}
-            placeholder="Search network buffer..."
+            style={styles.searchInput}
+            placeholder={tab === "people" ? "Identify individuals..." : "Trace signal keywords..."}
             placeholderTextColor={colors.textMuted}
             value={query}
             onChangeText={setQuery}
-            onSubmitEditing={handleSearch}
           />
-          {loading && <ActivityIndicator color={colors.primary} />}
+          {loading && <ActivityIndicator color={colors.primary} size="small" />}
         </View>
 
-        {/* Empty State */}
-        {!query && results.length === 0 && (
-           <View style={{ 
-             flex: 1,
-             justifyContent: 'center',
-             alignItems: "center", 
-             padding: 40,
-           }}>
-             <View style={{ 
-               width: 100, 
-               height: 100, 
-               borderRadius: 50, 
-               backgroundColor: colors.slate50, 
-               alignItems: 'center', 
-               justifyContent: 'center',
-               marginBottom: 24,
-               borderWidth: 1,
-               borderColor: colors.border
-             }}>
-               <Scan size={42} color={colors.slate100} />
-             </View>
-             <Text style={{ color: colors.text, fontSize: 18, fontWeight: "900", textAlign: "center", textTransform: 'uppercase', letterSpacing: 1 }}>Ready to Scan</Text>
-             <Text style={{ color: colors.textMuted, textAlign: "center", fontSize: 14, marginTop: 12, lineHeight: 22 }}>
-               Input identifiers or keywords to cross-reference the global tracking network.
-             </Text>
-           </View>
-        )}
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            onPress={() => setTab("people")}
+            style={[styles.tab, tab === "people" && styles.activeTab]}
+          >
+            <Users size={18} color={tab === "people" ? "white" : colors.textMuted} />
+            <Text style={[styles.tabText, tab === "people" && styles.activeTabText]}>People</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={() => setTab("posts")}
+            style={[styles.tab, tab === "posts" && styles.activeTab]}
+          >
+            <ImageIcon size={18} color={tab === "posts" ? "white" : colors.textMuted} />
+            <Text style={[styles.tabText, tab === "posts" && styles.activeTabText]}>Posts</Text>
+          </TouchableOpacity>
+        </View>
 
         <FlatList
           data={results}
-          numColumns={2}
-          columnWrapperStyle={{ justifyContent: "space-between" }}
+          key={tab} // Forces re-render when switching tabs
+          numColumns={tab === "posts" ? 2 : 1}
+          columnWrapperStyle={tab === "posts" ? { justifyContent: "space-between" } : null}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={renderPost}
+          renderItem={tab === "posts" ? renderPost : renderUser}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={6}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={true}
           ListHeaderComponent={results.length > 0 ? (
-             <View style={{ marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={14} color={colors.accent} />
-                <Text style={{ fontSize: 12, fontWeight: "900", letterSpacing: 1, color: colors.text }}>
-                   {results.length} CLONES IDENTIFIED
-                </Text>
+            <Text style={styles.resultsLabel}>{results.length} ENTITIES SCANNING COMPLETE</Text>
+          ) : null}
+          ListEmptyComponent={!loading ? (
+             <View style={styles.emptyContainer}>
+                <Scan size={48} color={colors.slate100} />
+                <Text style={styles.emptyTitle}>NO SIGNALS DETECTED</Text>
+                <Text style={styles.emptySub}>Calibration search for broader indexing.</Text>
              </View>
           ) : null}
         />
@@ -172,3 +152,51 @@ export default function SearchScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  searchBar: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    backgroundColor: colors.white, 
+    borderRadius: 20, 
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 20
+  },
+  searchInput: { flex: 1, height: 56, color: colors.text, paddingHorizontal: 12, fontWeight: "600" },
+  tabContainer: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+  tab: { 
+    flex: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    gap: 8, 
+    height: 48, 
+    borderRadius: 15, 
+    backgroundColor: colors.slate50 
+  },
+  activeTab: { backgroundColor: colors.primary },
+  tabText: { fontWeight: '800', fontSize: 13, color: colors.textMuted },
+  activeTabText: { color: 'white' },
+  postCard: { width: (width - 50) / 2, aspectRatio: 1, marginBottom: 10, borderRadius: 15, overflow: 'hidden' },
+  userCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 15, 
+    backgroundColor: 'white', 
+    borderRadius: 20, 
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  userAvatar: { width: 50, height: 50, borderRadius: 25 },
+  userName: { fontWeight: '900', color: colors.text, fontSize: 16 },
+  userUniqueId: { color: colors.textMuted, fontSize: 11, fontWeight: '700' },
+  followBtn: { backgroundColor: colors.slate50, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
+  followBtnText: { fontWeight: '800', fontSize: 12 },
+  resultsLabel: { fontSize: 10, fontWeight: '900', color: colors.textMuted, marginBottom: 15, letterSpacing: 2 },
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, marginTop: 40 },
+  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '900', marginTop: 20 },
+  emptySub: { color: colors.textMuted, textAlign: 'center', marginTop: 10 }
+});

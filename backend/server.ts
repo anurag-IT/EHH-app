@@ -70,6 +70,8 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
 
   try {
     const id = parseInt(userId as string);
+    if (isNaN(id)) return res.status(401).json({ error: "Invalid user session" });
+    
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -140,6 +142,87 @@ app.post("/api/users/login", async (req: any, res: any) => {
   }
 });
 
+app.get("/api/users/search", async (req: any, res: any) => {
+  try {
+    const query = req.query.q as string;
+    if (!query) return res.json([]);
+    const users = await prisma.user.findMany({
+      where: { 
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { uniqueId: { contains: query, mode: "insensitive" } }
+        ] 
+      },
+      take: 10
+    });
+    res.json(users);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const { name, bio, isPrivate } = req.body;
+    const userId = req.currentUser.id;
+    const files = req.files as any[];
+    let avatarUrl = req.currentUser.avatar;
+
+    if (files && files.length > 0) {
+      const uploadResult = await uploadImage(files[0].buffer);
+      avatarUrl = uploadResult.secure_url;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name || req.currentUser.name,
+        bio: bio !== undefined ? bio : req.currentUser.bio,
+        isPrivate: isPrivate === "true" || isPrivate === true,
+        avatar: avatarUrl
+      }
+    });
+
+    res.json(updatedUser);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/users/requests/:requestId/accept", checkUserRestriction, async (req: any, res: any) => {
+  try {
+     const requestId = parseInt(req.params.requestId);
+     const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
+     if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+
+     await prisma.userFollow.update({ where: { id: requestId }, data: { status: "ACCEPTED" } });
+     
+     // Notify the follower
+     await prisma.notification.create({
+       data: {
+         userId: request.followerId,
+         senderId: req.currentUser.id,
+         senderName: req.currentUser.name,
+         senderAvatar: req.currentUser.avatar,
+         type: "FOLLOW_ACCEPTED",
+         content: "accepted your follow request"
+       }
+     });
+
+     res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const requestId = parseInt(req.params.requestId);
+    const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
+    if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+    await prisma.userFollow.delete({ where: { id: requestId } });
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 app.get("/api/users/:id", async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
@@ -190,6 +273,7 @@ app.get("/api/posts", async (req: any, res: any) => {
 
     const formattedPosts = posts.map((post: any) => ({
       ...post,
+      imageUrls: post.imageUrls || [],
       likesCount: post._count.likes,
       commentsCount: post._count.comments,
       repostsCount: post._count.reposts,
@@ -257,11 +341,20 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
 app.post("/api/stories", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
     const userId = req.body.userId || req.currentUser.id;
+    const { caption, textColor, bgColor, stickers } = req.body;
     const files = req.files as any[];
-    if (!files || files.length === 0) return res.status(400).json({ error: "No image transmission detected" });
 
-    console.log(`[STORY UPLOAD] User ${userId} broadcasting signal...`);
-    const uploadResult = await uploadImage(files[0].buffer);
+    let imageUrl = "";
+    let imagePath = "";
+
+    if (files && files.length > 0) {
+      console.log(`[STORY UPLOAD] User ${userId} broadcasting visual signal...`);
+      const uploadResult = await uploadImage(files[0].buffer);
+      imageUrl = uploadResult.secure_url;
+      imagePath = uploadResult.public_id;
+    } else if (!bgColor) {
+      return res.status(400).json({ error: "Visual asset or background parameters required" });
+    }
     
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
@@ -269,53 +362,70 @@ app.post("/api/stories", upload.array("images", 1), checkUserRestriction, async 
     const story = await prisma.story.create({
       data: {
         userId: parseInt(userId),
-        imageUrl: uploadResult.secure_url,
-        imagePath: uploadResult.public_id,
+        imageUrl: imageUrl,
+        imagePath: imagePath,
+        caption,
+        textColor,
+        bgColor,
+        stickers: stickers ? JSON.parse(stickers) : null,
         expiresAt
       },
       include: { user: true }
     });
 
-    console.log(`[STORY SUCCESS] Story ${story.id} created.`);
+    console.log(`[STORY SUCCESS] Story ${story.id} indexed.`);
     res.json(story);
   } catch (error: any) {
     console.error("[STORY ERROR]", error);
-    res.status(500).json({ error: error.message || "Internal story transmission failure" });
+    res.status(500).json({ error: error.message || "Internal story indexing failure" });
   }
 });
 
 app.get("/api/stories", async (req: any, res: any) => {
   try {
-    const userId = req.headers["x-user-id"] ? parseInt(req.headers["x-user-id"] as string) : null;
+    const xUserId = req.headers["x-user-id"];
+    const currentUserId = xUserId ? parseInt(xUserId as string) : null;
     const now = new Date();
 
     let stories;
-    if (userId) {
-       const following = await prisma.userFollow.findMany({
-         where: { followerId: userId },
-         select: { followingId: true }
-       });
-       const followingIds = following.map(f => f.followingId);
-       followingIds.push(userId);
+    const includeQuery: any = {
+      user: { select: { id: true, name: true, avatar: true } },
+      _count: { select: { reactions: true, views: true, replies: true } }
+    };
 
-       stories = await prisma.story.findMany({
-         where: {
-           userId: { in: followingIds },
-           expiresAt: { gt: now }
-         },
-         include: { user: { select: { id: true, name: true, avatar: true } } },
-         orderBy: { createdAt: "desc" }
-       });
+    if (currentUserId) {
+      includeQuery.reactions = { where: { userId: currentUserId }, select: { emoji: true } };
+      
+      const following = await prisma.userFollow.findMany({
+        where: { followerId: currentUserId },
+        select: { followingId: true }
+      });
+      const followingIds = following.map((f: any) => f.followingId);
+      followingIds.push(currentUserId);
+
+      stories = await prisma.story.findMany({
+        where: { userId: { in: followingIds }, expiresAt: { gt: now } },
+        include: includeQuery,
+        orderBy: { createdAt: "desc" }
+      });
     } else {
-       stories = await prisma.story.findMany({
-         where: { expiresAt: { gt: now } },
-         include: { user: { select: { id: true, name: true, avatar: true } } },
-         orderBy: { createdAt: "desc" },
-         take: 30
-       });
+      stories = await prisma.story.findMany({
+        where: { expiresAt: { gt: now } },
+        include: includeQuery,
+        orderBy: { createdAt: "desc" },
+        take: 50
+      });
     }
 
-    const grouped = stories.reduce((acc: any, story: any) => {
+    const formattedStories = stories.map((s: any) => ({
+      ...s,
+      myReaction: s.reactions?.[0]?.emoji || null,
+      reactionsCount: s._count.reactions,
+      viewsCount: s._count.views,
+      repliesCount: s._count.replies
+    }));
+
+    const grouped = formattedStories.reduce((acc: any, story: any) => {
       if (!acc[story.userId]) {
         acc[story.userId] = {
           userId: story.userId,
@@ -328,6 +438,109 @@ app.get("/api/stories", async (req: any, res: any) => {
     }, {});
 
     res.json(Object.values(grouped));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/stories/:id/view", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const storyId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+    await prisma.storyView.upsert({
+      where: { storyId_userId: { storyId, userId } },
+      update: { viewedAt: new Date() },
+      create: { storyId, userId }
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/stories/:id/react", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const storyId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+    const { emoji } = req.body;
+
+    const existing = await prisma.storyReaction.findUnique({
+      where: { storyId_userId: { storyId, userId } }
+    });
+
+    if (existing && existing.emoji === emoji) {
+      await prisma.storyReaction.delete({ where: { id: existing.id } });
+      return res.json({ success: true, reacted: false });
+    }
+
+    await prisma.storyReaction.upsert({
+      where: { storyId_userId: { storyId, userId } },
+      update: { emoji },
+      create: { storyId, userId, emoji }
+    });
+    
+    res.json({ success: true, reacted: true, emoji });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/stories/:id/reply", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const storyId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+    const { message } = req.body;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) return res.status(404).json({ error: "Story not found" });
+
+    const reply = await prisma.storyReply.create({
+      data: { storyId, userId, message }
+    });
+
+    // Create DM Message
+    await prisma.message.create({
+      data: {
+        senderId: userId,
+        receiverId: story.userId,
+        content: `Replied to your story: "${message}"`,
+        messageText: message
+      }
+    });
+
+    res.json(reply);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/stories/:id/viewers", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const storyId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) return res.status(404).json({ error: "Story not found" });
+    if (story.userId !== userId) return res.status(403).json({ error: "Unauthorized access to telemetry" });
+
+    const viewers = await prisma.storyView.findMany({
+      where: { storyId },
+      include: { 
+        user: { select: { id: true, name: true, avatar: true, uniqueId: true } },
+      }
+    });
+
+    const reactions = await prisma.storyReaction.findMany({
+      where: { storyId }
+    });
+
+    const formattedViewers = viewers.map((v: any) => ({
+      ...v.user,
+      viewedAt: v.viewedAt,
+      reaction: reactions.find((r: any) => r.userId === v.userId)?.emoji || null
+    }));
+
+    res.json(formattedViewers);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -665,33 +878,6 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
   }
 });
 
-app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
-  try {
-    const { name, bio, isPrivate } = req.body;
-    const userId = req.currentUser.id;
-    const files = req.files as any[];
-    let avatarUrl = req.currentUser.avatar;
-
-    if (files && files.length > 0) {
-      const uploadResult = await uploadImage(files[0].buffer);
-      avatarUrl = uploadResult.secure_url;
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        name: name || req.currentUser.name,
-        bio: bio !== undefined ? bio : req.currentUser.bio,
-        isPrivate: isPrivate === "true" || isPrivate === true,
-        avatar: avatarUrl
-      }
-    });
-
-    res.json(updatedUser);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Follow Lists
 app.get("/api/users/:id/followers", async (req: any, res: any) => {
@@ -701,7 +887,7 @@ app.get("/api/users/:id/followers", async (req: any, res: any) => {
       where: { followingId: id, status: "ACCEPTED" },
       include: { follower: true }
     });
-    res.json(followers.map(f => f.follower));
+    res.json(followers.map((f: any) => f.follower));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -714,46 +900,13 @@ app.get("/api/users/:id/following", async (req: any, res: any) => {
       where: { followerId: id, status: "ACCEPTED" },
       include: { following: true }
     });
-    res.json(following.map(f => f.following));
+    res.json(following.map((f: any) => f.following));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // Request Moderation
-app.post("/api/users/requests/:requestId/accept", checkUserRestriction, async (req: any, res: any) => {
-  try {
-     const requestId = parseInt(req.params.requestId);
-     const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
-     if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
-
-     await prisma.userFollow.update({ where: { id: requestId }, data: { status: "ACCEPTED" } });
-     
-     // Notify the follower
-     await prisma.notification.create({
-       data: {
-         userId: request.followerId,
-         senderId: req.currentUser.id,
-         senderName: req.currentUser.name,
-         senderAvatar: req.currentUser.avatar,
-         type: "FOLLOW_ACCEPTED",
-         content: "accepted your follow request"
-       }
-     });
-
-     res.json({ success: true });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
-
-app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (req: any, res: any) => {
-  try {
-    const requestId = parseInt(req.params.requestId);
-    const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
-    if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
-    await prisma.userFollow.delete({ where: { id: requestId } });
-    res.json({ success: true });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
-});
 
 app.get("/api/messages/conversations/:userId", async (req: any, res: any) => {
   try {
@@ -911,24 +1064,6 @@ app.post("/admin/scan", upload.array("images", 1), checkAdminMode, async (req: a
   }
 });
 
-app.get("/api/users/search", async (req: any, res: any) => {
-  try {
-    const query = req.query.q as string;
-    if (!query) return res.json([]);
-    const users = await prisma.user.findMany({
-      where: { 
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { uniqueId: { contains: query, mode: "insensitive" } }
-        ] 
-      },
-      take: 10
-    });
-    res.json(users);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 app.get("/api/posts/search", async (req: any, res: any) => {
   try {

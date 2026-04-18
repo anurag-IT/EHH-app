@@ -270,7 +270,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="mb-6 p-4 bg-slate-900 rounded-[2rem] border border-slate-700 shadow-[0_0_20px_rgba(34,197,94,0.2)]"
               >
-                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto filter brightness-0 invert" />
+                <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
               </motion.div>
               <h1 className="text-4xl font-black text-white mb-1 tracking-tighter uppercase">EHH</h1>
               <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for human and humanity</p>
@@ -345,7 +345,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
           <div className="w-full max-w-[1920px] mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-4 cursor-pointer group" onClick={refreshHome}>
               <div className="p-2 bg-slate-800 rounded-xl border border-slate-700/50 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)] group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                <img src="/logo.png" alt="Logo" className="h-8 w-auto filter brightness-0 invert" />
+                <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
               </div>
             </div>
             
@@ -362,7 +362,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               {user?.role === "ADMIN" && (
                  <button 
                   onClick={() => setView("admin")}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all ${view === 'admin' ? 'bg-green-500/20 text-green-500 shadow-lg shadow-green-500/10' : 'bg-slate-800 text-green-500 hover:bg-slate-700 border border-slate-700'}`}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all bg-slate-800 text-green-500 hover:bg-slate-700 border border-slate-700"
                 >
                   <ShieldAlert size={18} />
                   <span className="hidden lg:block text-sm uppercase font-black tracking-tighter">Admin</span>

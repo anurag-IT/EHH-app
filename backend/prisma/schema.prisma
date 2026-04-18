@@ -180,15 +180,52 @@ model ImageMatch {
 }
 
 model Story {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  imageUrl  String
-  imagePath String
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-
+  id           Int            @id @default(autoincrement())
+  userId       Int
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageUrl     String
+  imagePath    String
+  caption      String?        // text overlay on story
+  textColor    String?        // hex color for text overlay
+  bgColor      String?        // solid background color (for text-only stories)
+  stickers     Json?          // array of {type, content, x, y, scale} objects
+  createdAt    DateTime       @default(now())
+  expiresAt    DateTime
+  reactions    StoryReaction[]
+  views        StoryView[]
+  replies      StoryReply[]
   @@index([userId])
   @@index([expiresAt])
+}
+
+model StoryReaction {
+  id        Int      @id @default(autoincrement())
+  storyId   Int
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String   // e.g. "❤️", "😂", "😮", "😢", "🔥", "👏"
+  createdAt DateTime @default(now())
+  @@unique([storyId, userId])  // one reaction per user per story
+}
+
+model StoryView {
+  id        Int      @id @default(autoincrement())
+  storyId   Int
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime @default(now())
+  @@unique([storyId, userId])
+}
+
+model StoryReply {
+  id        Int      @id @default(autoincrement())
+  storyId   Int
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
 }
 

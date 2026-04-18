@@ -13,9 +13,11 @@ import {
   Alert,
   DeviceEventEmitter,
   Modal,
-  StyleSheet
+  StyleSheet,
+  ActivityIndicator
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import { globalStyles, colors } from "../theme";
 import api, { getOptimizedImageUrl } from "../api";
 import { Image } from "expo-image";
@@ -30,8 +32,12 @@ import {
   CheckCircle2,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  Send
 } from "lucide-react-native";
+import StoriesRow from "../components/StoriesRow";
+import { useAuth } from "../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
@@ -122,6 +128,7 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [nextCursor, setNextCursor] = useState<number | null>(null);
   const [viewerIndex, setViewerIndex] = useState<{ post: any, index: number } | null>(null);
+  const navigation = useNavigation<any>();
 
   const fetchPosts = async (cursor?: number) => {
     try {
@@ -144,13 +151,36 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={globalStyles.safeArea}>
       <StatusBar barStyle="dark-content" />
+      <View style={{ 
+        flexDirection: "row", 
+        justifyContent: "space-between", 
+        alignItems: "center", 
+        paddingHorizontal: 20, 
+        paddingVertical: 12,
+        backgroundColor: "white",
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border
+      }}>
+        <View>
+          <Text style={{ fontSize: 26, fontWeight: "900", color: colors.primary, letterSpacing: -1.5 }}>EHH</Text>
+        </View>
+        <View style={{ flexDirection: "row", gap: 20 }}>
+          <TouchableOpacity onPress={() => navigation.navigate("Notifications")}>
+            <Bell color={colors.text} size={24} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("Messages")}>
+            <Send color={colors.text} size={24} />
+          </TouchableOpacity>
+        </View>
+      </View>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => <PostItem item={item} onOpenViewer={(idx) => setViewerIndex({ post: item, index: idx })} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchPosts} />}
         onEndReached={() => nextCursor && fetchPosts(nextCursor)}
-        contentContainerStyle={{ padding: 16 }}
+        ListHeaderComponent={<StoriesRow />}
+        contentContainerStyle={{ paddingBottom: 100 }}
       />
 
       {/* Full Screen Viewer Modal */}
@@ -195,6 +225,10 @@ export default function FeedScreen() {
 const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: number) => void }) => {
   const [liked, setLiked] = useState(item.isLiked);
   const [likesCount, setLikesCount] = useState(item.likesCount);
+  const [isFollowing, setIsFollowing] = useState(item.user.isFollowing || false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const navigation = useNavigation<any>();
+  const { user: currentUser } = useAuth();
 
   const toggleLike = async () => {
     const prevLiked = liked;
@@ -207,16 +241,56 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
     }
   };
 
+  const handleFollow = async () => {
+    setFollowingLoading(true);
+    const prevState = isFollowing;
+    setIsFollowing(!prevState);
+    try {
+      await api.post(`/api/users/${item.user.id}/follow`);
+    } catch (e) {
+      setIsFollowing(prevState);
+      Alert.alert("Link Failure", "Unable to synchronize follows.");
+    } finally {
+      setFollowingLoading(false);
+    }
+  };
+
   const imagesArr = item.imageUrls && item.imageUrls.length > 0 ? item.imageUrls : [item.imageUrl];
 
   return (
     <View style={[globalStyles.card, { padding: 0, overflow: "hidden", marginBottom: 20, borderRadius: 24, backgroundColor: colors.surface }]}>
-      <View style={{ flexDirection: "row", alignItems: "center", padding: 16 }}>
-        <Image source={{ uri: item.user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-        <View style={{ marginLeft: 12 }}>
-          <Text style={{ fontWeight: "900", color: colors.text }}>{item.user.name}</Text>
-          {item.location && <Text style={{ fontSize: 10, color: colors.textMuted }}>{item.location}</Text>}
-        </View>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16 }}>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate("UserProfile", { userId: item.user.id })}
+          style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+        >
+          <Image source={{ uri: item.user.avatar }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={{ fontWeight: "900", color: colors.text }}>{item.user.name}</Text>
+            {item.location && <Text style={{ fontSize: 10, color: colors.textMuted }}>{item.location}</Text>}
+          </View>
+        </TouchableOpacity>
+
+        {currentUser?.id !== item.user.id && (
+          <TouchableOpacity 
+            onPress={handleFollow}
+            disabled={followingLoading}
+            style={{ 
+              backgroundColor: isFollowing ? colors.slate50 : colors.primary, 
+              paddingHorizontal: 16, 
+              paddingVertical: 8, 
+              borderRadius: 12 
+            }}
+          >
+            {followingLoading ? (
+               <ActivityIndicator size="small" color={isFollowing ? colors.primary : "white"} />
+            ) : (
+               <Text style={{ color: isFollowing ? colors.text : "white", fontWeight: "900", fontSize: 12 }}>
+                 {isFollowing ? "FOLLOWING" : "FOLLOW"}
+               </Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Grid Content */}
@@ -225,12 +299,14 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
       <View style={{ padding: 20 }}>
         <View style={{ flexDirection: "row", gap: 16, marginBottom: 12 }}>
           <TouchableOpacity onPress={toggleLike}><Heart size={26} color={liked ? "#EF4444" : colors.text} fill={liked ? "#EF4444" : "transparent"} /></TouchableOpacity>
-          <TouchableOpacity><MessageCircle size={26} color={colors.text} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("PostDetail", { postId: item.id })}><MessageCircle size={26} color={colors.text} /></TouchableOpacity>
           <TouchableOpacity><Repeat2 size={26} color={colors.text} /></TouchableOpacity>
         </View>
         <Text style={{ fontSize: 13, fontWeight: '700', marginBottom: 8 }}>{likesCount} Interactions</Text>
         <Text style={{ color: colors.text }}>
-          <Text style={{ fontWeight: "900" }}>{item.user.name} </Text>
+          <TouchableOpacity onPress={() => navigation.navigate("UserProfile", { userId: item.user.id })}>
+            <Text style={{ fontWeight: "900" }}>{item.user.name} </Text>
+          </TouchableOpacity>
           {item.caption}
         </Text>
       </View>

@@ -8,7 +8,8 @@ import {
   MoreVertical,
   ShieldCheck,
   Circle,
-  Clock
+  Clock,
+  ChevronLeft
 } from "lucide-react";
 import { Virtuoso, VirtuosoHandle } from "react-virtuoso";
 import { motion, AnimatePresence } from "motion/react";
@@ -16,6 +17,7 @@ import { User, Message } from "../types";
 import MessageBubble from "./messaging/MessageBubble";
 import ChatInput from "./messaging/ChatInput";
 import { useSocket } from "../context/SocketContext";
+import OptimizedImage from "./common/OptimizedImage";
 
 interface MessagingPageProps {
   currentUser: User;

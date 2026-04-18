@@ -18,8 +18,9 @@ export const useSocket = () => {
   return context;
 };
 
-// Update this with your backend IP for mobile testing
-const BACKEND_URL = 'http://localhost:3001'; 
+import { DEV_API_URL } from '../api';
+
+const BACKEND_URL = DEV_API_URL; 
 
 export const SocketProvider: React.FC<{ userId: number | undefined; children: React.ReactNode }> = ({ userId, children }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
