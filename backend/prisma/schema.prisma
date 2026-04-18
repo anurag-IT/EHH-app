@@ -55,6 +55,8 @@ model Post {
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   imagePath       String
   imageUrl        String?
+  imagePaths      String[]        @default([])
+  imageUrls       String[]        @default([])
   caption         String?
   phash           String?
   parentId        Int?            // For repost tracking
@@ -65,7 +67,6 @@ model Post {
   flags           FlaggedContent[]
   likes           Like[]
   comments        Comment[]
-  images          PostImage[]
 
   @@index([userId])
   @@index([createdAt])
@@ -73,17 +74,7 @@ model Post {
   @@index([parentId])
 }
 
-model PostImage {
-  id        Int      @id @default(autoincrement())
-  postId    Int
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  url       String
-  path      String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
 
-  @@index([postId])
-}
 
 model Like {
   id        Int      @id @default(autoincrement())

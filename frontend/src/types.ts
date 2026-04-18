@@ -38,7 +38,9 @@ export interface Post {
   parentId: number | null;
   parent?: Post;
   comments?: Comment[];
-  images?: Array<{ url: string; order: number }>;
+  imagesCount?: number;
+  imageUrls: string[];
+  imagePaths: string[];
   createdAt: string;
   isLiked?: boolean;
   likesCount?: number;

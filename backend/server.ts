@@ -338,11 +338,13 @@ app.get("/api/stories", async (req: any, res: any) => {
   }
 });
 
-app.post("/api/posts", upload.array("images", 20), checkUserRestriction, async (req: any, res: any) => {
+app.post("/api/posts", upload.array("images", 10), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
     const userId = req.body.userId || req.currentUser.id;
     const files = req.files as any[];
+
+    console.log(`[POST UPLOAD] Received ${files?.length || 0} images for user ${userId}`);
 
     if ((!files || files.length === 0) && !parentId) {
       return res.status(400).json({ error: "At least one image is required" });
@@ -351,27 +353,29 @@ app.post("/api/posts", upload.array("images", 20), checkUserRestriction, async (
     let mainImageUrl = "";
     let mainImagePath = "";
     let mainPhash = null;
-    let postImages: any[] = [];
+    let imageUrls: string[] = [];
+    let imagePaths: string[] = [];
 
     if (parentId) {
-      const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) }, include: { images: true } });
+      const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
       mainImageUrl = parent.imageUrl || "";
       mainImagePath = parent.imagePath;
       mainPhash = parent.phash;
-      postImages = parent.images.map((img: any) => ({ url: img.url, path: img.path, order: img.order }));
+      imageUrls = parent.imageUrls;
+      imagePaths = parent.imagePaths;
     } else {
-      // Parallel upload all images
+      // Parallel upload all images to Cloudinary
       const uploadPromises = files.map(file => uploadImage(file.buffer));
       const results = await Promise.all(uploadPromises);
       
       mainImageUrl = results[0].secure_url;
       mainImagePath = results[0].public_id;
-      postImages = results.map((res, i) => ({
-        url: res.secure_url,
-        path: res.public_id,
-        order: i
-      }));
+      
+      imageUrls = results.map(r => r.secure_url);
+      imagePaths = results.map(r => r.public_id);
+
+      console.log(`[SUCCESS] Post contains ${imageUrls.length} assets.`);
     }
 
     const post = await prisma.post.create({
@@ -381,15 +385,13 @@ app.post("/api/posts", upload.array("images", 20), checkUserRestriction, async (
         location: location || null,
         imagePath: mainImagePath,
         imageUrl: mainImageUrl,
+        imageUrls,
+        imagePaths,
         phash: mainPhash,
-        parentId: parentId ? parseInt(parentId) : null,
-        images: {
-          create: postImages
-        }
+        parentId: parentId ? parseInt(parentId) : null
       },
       include: { 
-        user: { select: { name: true } },
-        images: true
+        user: { select: { name: true } }
       }
     });
     
@@ -663,17 +665,6 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
         _count: { select: { likes: true, comments: true, reposts: true } } 
       }
     }) : [];
-    
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    let isFollowing = false;
-    if (viewerId && viewerId !== id) {
-      const follow = await prisma.userFollow.findUnique({
-        where: { followerId_followingId: { followerId: viewerId, followingId: id } }
-      });
-      isFollowing = !!follow;
-    }
-
     res.json({ ...user, posts, isFollowing, followStatus, isPrivate: user.isPrivate });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
