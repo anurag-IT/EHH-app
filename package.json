@@ -12,7 +12,8 @@
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev:mobile": "npm run start --workspace=mobile",
     "dev": "concurrently -n \"BACKEND,FRONTEND,MOBILE\" -c \"blue,magenta,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:mobile\"",
-    "start:all": "npm run dev"
+    "start:all": "npm run dev",
+    "build": "npm install && npm run build --workspace=frontend"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
