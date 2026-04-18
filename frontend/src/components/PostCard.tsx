@@ -8,12 +8,14 @@ import {
   X, 
   ShieldAlert, 
   MapPin, 
-  CheckCircle2, 
+  CheckCircle2,
   Download, 
   Trash2,
   MoreVertical,
   Send,
-  Bookmark 
+  Bookmark,
+  ChevronLeft,
+  ChevronRight 
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "react-toastify";
@@ -43,6 +45,8 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const isSyncing = useRef(false);
   const [isReposting, setIsReposting] = useState(false);
   const [repostsCount, setRepostsCount] = useState(post.repostsCount || 0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const postImages = post.images && post.images.length > 0 ? post.images.sort((a,b) => a.order - b.order) : [{ url: post.imageUrl || "", order: 0 }];
 
   const currentUserStr = localStorage.getItem("social_user");
   const currentUser: User = currentUserStr ? JSON.parse(currentUserStr) : ({} as User);
@@ -237,12 +241,54 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         style={{ minHeight: "300px", maxHeight: "60vh" }}
         onDoubleClick={handleDoubleTap}
       >
-        <OptimizedImage 
-          src={post.imageUrl || ""} 
-          width={800}
-          className="w-full h-auto max-h-full object-contain"
-          referrerPolicy="no-referrer"
-        />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentImageIndex}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="w-full h-full flex items-center justify-center"
+          >
+            <OptimizedImage 
+              src={postImages[currentImageIndex].url} 
+              width={800}
+              className="w-full h-auto max-h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Carousel Controls */}
+        {postImages.length > 1 && (
+          <>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(prev => Math.max(0, prev - 1)); }}
+              disabled={currentImageIndex === 0}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/60 text-white rounded-full transition-all disabled:opacity-0 z-10"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(prev => Math.min(postImages.length - 1, prev + 1)); }}
+              disabled={currentImageIndex === postImages.length - 1}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-black/30 hover:bg-black/60 text-white rounded-full transition-all disabled:opacity-0 z-10"
+            >
+              <ChevronRight size={20} />
+            </button>
+            
+            {/* Dots */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+              {postImages.map((_, idx) => (
+                <div 
+                  key={idx} 
+                  className={`w-1.5 h-1.5 rounded-full transition-all ${idx === currentImageIndex ? 'bg-blue-500 scale-125' : 'bg-white/40'}`} 
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 via-transparent to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity" />
         
         <AnimatePresence>

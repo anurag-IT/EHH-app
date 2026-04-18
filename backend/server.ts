@@ -167,6 +167,7 @@ app.get("/api/posts", async (req: any, res: any) => {
     const selectFields: any = {
       id: true, imageUrl: true, caption: true, location: true, createdAt: true, userId: true,
       user: { select: { name: true, avatar: true, uniqueId: true } },
+      images: { select: { url: true, order: true } },
       _count: { select: { likes: true, comments: true, reposts: true } }
     };
 
@@ -550,8 +551,17 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
-        _count: { select: { posts: true, followers: true, following: true } },
-        posts: { orderBy: { createdAt: "desc" }, include: { user: true, _count: { select: { likes: true, comments: true, reposts: true } } } }
+        _count: { select: { posts: true, followers: true, following: true } }
+      }
+    });
+    
+    const posts = await prisma.post.findMany({
+      where: { userId: id },
+      orderBy: { createdAt: "desc" },
+      include: { 
+        user: true, 
+        images: { select: { url: true, order: true } },
+        _count: { select: { likes: true, comments: true, reposts: true } } 
       }
     });
     
@@ -565,7 +575,7 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
       isFollowing = !!follow;
     }
 
-    res.json({ ...user, isFollowing });
+    res.json({ ...user, posts, isFollowing });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -738,8 +748,17 @@ app.get("/api/posts/search", async (req: any, res: any) => {
     const query = req.query.q as string;
     if (!query) return res.json([]);
     const posts = await prisma.post.findMany({
-      where: { OR: [{ caption: { contains: query, mode: "insensitive" } }, { location: { contains: query, mode: "insensitive" } }] },
-      include: { user: true, _count: { select: { likes: true, comments: true, reposts: true } } },
+      where: { 
+        OR: [
+          { caption: { contains: query, mode: "insensitive" } }, 
+          { location: { contains: query, mode: "insensitive" } }
+        ] 
+      },
+      include: { 
+        user: true, 
+        images: { select: { url: true, order: true } },
+        _count: { select: { likes: true, comments: true, reposts: true } } 
+      },
       take: 20
     });
     res.json(posts);
