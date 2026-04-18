@@ -35,6 +35,9 @@ model User {
   followers    UserFollow[] @relation("FollowedBy")
   following    UserFollow[] @relation("Following")
   stories      Story[]
+  storyReactions StoryReaction[]
+  storyViews     StoryView[]
+  storyReplies   StoryReply[]
 }
 
 model UserFollow {
