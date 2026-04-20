@@ -739,6 +739,40 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
   }
 });
 
+app.post("/api/posts/:id/repost", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const postId = parseInt(req.params.id);
+    const userId = req.currentUser.id;
+    
+    const post = await prisma.post.findUnique({ where: { id: postId } });
+    if (!post) {
+       return res.status(404).json({ error: "Post not found" });
+    }
+
+    const newPost = await prisma.post.create({
+      data: {
+         userId: userId,
+         caption: post.caption,
+         location: post.location,
+         imagePath: post.imagePath,
+         imageUrl: post.imageUrl,
+         imageUrls: post.imageUrls || [],
+         imagePaths: post.imagePaths || [],
+         phash: post.phash,
+         parentId: postId
+      },
+      include: {
+        user: { select: { id: true, name: true, avatar: true } }
+      }
+    });
+
+    res.json(newPost);
+  } catch (error: any) {
+    console.error("[REPOST ERROR]", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/notifications/:userId", async (req: any, res: any) => {
   try {
     const userId = parseInt(req.params.userId);

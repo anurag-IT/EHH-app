@@ -227,6 +227,7 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
   const [likesCount, setLikesCount] = useState(item.likesCount);
   const [isFollowing, setIsFollowing] = useState(item.user.isFollowing || false);
   const [followingLoading, setFollowingLoading] = useState(false);
+  const [reposting, setReposting] = useState(false);
   const navigation = useNavigation<any>();
   const { user: currentUser } = useAuth();
 
@@ -252,6 +253,19 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
       Alert.alert("Link Failure", "Unable to synchronize follows.");
     } finally {
       setFollowingLoading(false);
+    }
+  };
+
+  const handleRepost = async () => {
+    if (reposting) return;
+    setReposting(true);
+    try {
+      await api.post(`/api/posts/${item.id}/repost`);
+      Alert.alert("Success", "Successfully reposted!");
+    } catch {
+      Alert.alert("Error", "Could not complete repost.");
+    } finally {
+      setReposting(false);
     }
   };
 
@@ -300,7 +314,9 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
         <View style={{ flexDirection: "row", gap: 16, marginBottom: 12 }}>
           <TouchableOpacity onPress={toggleLike}><Heart size={26} color={liked ? "#EF4444" : colors.text} fill={liked ? "#EF4444" : "transparent"} /></TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("PostDetail", { postId: item.id })}><MessageCircle size={26} color={colors.text} /></TouchableOpacity>
-          <TouchableOpacity><Repeat2 size={26} color={colors.text} /></TouchableOpacity>
+          <TouchableOpacity onPress={handleRepost} disabled={reposting}>
+             <Repeat2 size={26} color={colors.text} opacity={reposting ? 0.5 : 1} />
+          </TouchableOpacity>
         </View>
         <Text style={{ fontSize: 13, fontWeight: '700', marginBottom: 8 }}>{likesCount} Interactions</Text>
         <Text style={{ color: colors.text }}>

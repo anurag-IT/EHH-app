@@ -14,7 +14,8 @@ import {
   Bookmark,
   ChevronLeft,
   ChevronRight,
-  Maximize2
+  Maximize2,
+  Repeat2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "react-toastify";
@@ -173,6 +174,20 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     }
   };
 
+  const handleRepost = useCallback(async () => {
+    if (isBanned || isReposting) return;
+    setIsReposting(true);
+    try {
+      const res = await api.post(`/api/posts/${post.id}/repost`);
+      toast.success("Successfully reposted!");
+      if (onRepost) onRepost();
+    } catch {
+      toast.error("Could not complete repost. Try again.");
+    } finally {
+      setIsReposting(false);
+    }
+  }, [post.id, isBanned, isReposting, onRepost]);
+
   const handleFollow = async () => {
     if (isBanned || currentUser.id === post.userId) return;
     try {
@@ -238,6 +253,13 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
             </button>
             <button onClick={() => setShowComments(true)} className="text-white hover:text-slate-400">
               <MessageCircle size={26} strokeWidth={2} />
+            </button>
+            <button 
+              onClick={handleRepost} 
+              disabled={isReposting} 
+              className={`${isReposting ? "opacity-50" : "text-white hover:text-amber-400 transition-colors"}`}
+            >
+              <Repeat2 size={26} strokeWidth={2} />
             </button>
             <button className="text-white hover:text-slate-400"><Send size={24} /></button>
           </div>

@@ -41,6 +41,8 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     return () => clearTimeout(timer);
   }, [src, width, fallbackSrc]);
 
+  const objectFitClass = className.includes('object-contain') ? 'object-contain' : 'object-cover';
+
   return (
     <div className={`relative bg-slate-900/60 rounded-inherit overflow-hidden animate-in fade-in duration-500 ${className}`}>
       {currentSrc && (
@@ -54,7 +56,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
             setCurrentSrc(fallbackSrc); 
             setLoaded(true); 
           }}
-          className={`w-full h-full object-cover transition-all duration-300 ${loaded ? "opacity-100 scale-100" : "opacity-0 scale-110"}`}
+          className={`w-full h-full ${objectFitClass} transition-all duration-300 ${loaded ? "opacity-100 scale-100" : "opacity-0 scale-110"}`}
           {...props}
         />
       )}
