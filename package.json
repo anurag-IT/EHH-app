@@ -13,13 +13,14 @@
     "dev:mobile": "npm run start --workspace=mobile",
     "dev": "concurrently -n \"BACKEND,FRONTEND,MOBILE\" -c \"blue,magenta,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:mobile\"",
     "start:all": "npm run dev",
-    "build": "npm install && npm run build --workspace=frontend"
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^22.0.0",
     "concurrently": "^9.2.1"
   }
 }
