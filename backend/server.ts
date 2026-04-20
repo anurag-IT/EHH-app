@@ -293,12 +293,26 @@ app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res: any) =>
   if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
   const userId = req.currentUser.id;
   const userRole = req.currentUser.role;
+  console.log(`[ADMIN DELETE] Request to delete post ${id} by user ${userId} (Role: ${userRole})`);
   try {
     const post = await prisma.post.findUnique({ where: { id } });
     if (!post) return res.status(404).json({ error: "Post not found" });
     if (post.userId !== userId && userRole !== "ADMIN") return res.status(403).json({ error: "You can only delete your own posts." });
-    await prisma.post.delete({ where: { id } });
-    res.json({ message: "Post deleted" });
+    // Manual cleanup for relations to bypass all possible foreign key blocks
+    await prisma.like.deleteMany({ where: { postId: id } });
+    await prisma.comment.deleteMany({ where: { postId: id } });
+    await prisma.flaggedContent.deleteMany({ where: { postId: id } });
+    await prisma.post.deleteMany({ where: { parentId: id } });
+    // Cleanup similarity matches
+    await prisma.imageMatch.deleteMany({ where: { OR: [{ imageId: id }, { matchedImageId: id }] } });
+
+    // Use deleteMany even for single ID to be more robust against Prisma relation cache issues
+    const del = await prisma.post.deleteMany({ where: { id } });
+    
+    console.log(`[STATUS] Deleted ${del.count} post and its branches.`);
+    // Important: Clear cache so the feed reflects the deletion immediately
+    cache.clear();
+    res.json({ success: true, message: "Post and branches erased successfully" });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1142,12 +1156,22 @@ app.delete("/admin/delete/:id", checkAdminMode, async (req: any, res: any) => {
     const matches = await getSimilarityResults({ phash: post.phash });
     const matchIds = matches.map((m: any) => m.post.id);
 
-    // Make sure we encompass the origin post just in case it didn't pass its own filter for some reason (it should)
+    // Make sure we encompass the origin post just in case it didn't pass its own filter
     if (!matchIds.includes(targetPostId)) matchIds.push(targetPostId);
     
+    // Manual cleanup for relations to bypass possible foreign key blocks for the entire family
+    await prisma.like.deleteMany({ where: { postId: { in: matchIds } } });
+    await prisma.comment.deleteMany({ where: { postId: { in: matchIds } } });
+    await prisma.flaggedContent.deleteMany({ where: { postId: { in: matchIds } } });
+    await prisma.post.deleteMany({ where: { parentId: { in: matchIds } } });
+    await prisma.imageMatch.deleteMany({ where: { OR: [{ imageId: { in: matchIds } }, { matchedImageId: { in: matchIds } }] } });
+
     const deleteResult = await prisma.post.deleteMany({
       where: { id: { in: matchIds } }
     });
+
+    // Important: Clear cache so the feed reflects the deletion immediately
+    cache.clear();
 
     await prisma.adminLog.create({
       data: {

@@ -26,7 +26,7 @@ import OptimizedImage from "./common/OptimizedImage";
 interface PostCardProps {
   post: Post;
   onRepost: () => void | Promise<void>;
-  onDelete: () => void | Promise<void>;
+  onDelete: (deletedIds: number[]) => void;
 }
 
 /**
@@ -132,6 +132,8 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const isSyncing = useRef(false);
   const [isReposting, setIsReposting] = useState(false);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
+  const [showAdminDelete, setShowAdminDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const postImages = post.imageUrls && post.imageUrls.length > 0 ? post.imageUrls.map(url => ({ url })) : [{ url: post.imageUrl || "" }];
 
@@ -178,7 +180,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     if (isBanned || isReposting) return;
     setIsReposting(true);
     try {
-      const res = await api.post(`/api/posts/${post.id}/repost`);
+      const res = await api.post(`/api/posts/${post.id}/repost`, {});
       toast.success("Successfully reposted!");
       if (onRepost) onRepost();
     } catch {
@@ -194,6 +196,42 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       const res = await api.post(`/api/users/${post.userId}/follow`);
       setFollowing(res.data.following);
     } catch { }
+  };
+  
+  const handleAdminDeleteSingle = async () => {
+    if (!confirm("Delete this specific post?")) return;
+    setIsDeleting(true);
+    console.log("DEBUG: Admin single delete initiated for post:", post.id);
+    try {
+      const res = await api.delete(`/api/posts/${post.id}`);
+      console.log("DEBUG: Delete response:", res.data);
+      toast.success("Network signal erased successfully.");
+      if (onDelete) onDelete([post.id]);
+    } catch (err: any) {
+      console.error("[DELETE ERROR]", err);
+      toast.error(err.response?.data?.error || "Error deleting post.");
+    } finally {
+      setIsDeleting(false);
+      setShowAdminDelete(false);
+    }
+  };
+
+  const handleAdminDeleteFamily = async () => {
+    if (!confirm("CRITICAL: Delete ALL similar images across the network? This cannot be undone.")) return;
+    setIsDeleting(true);
+    console.log("DEBUG: Admin family delete initiated for post:", post.id);
+    try {
+      const res = await api.delete(`/admin/delete/${post.id}`);
+      console.log("DEBUG: Family delete response:", res.data);
+      toast.success(`Nuked ${res.data.count} similar images from the network.`);
+      if (onDelete) onDelete(res.data.deletedIds || [post.id]);
+    } catch (err: any) {
+      console.error("[FAMILY DELETE ERROR]", err);
+      toast.error(err.response?.data?.error || "Error during global delete.");
+    } finally {
+      setIsDeleting(false);
+      setShowAdminDelete(false);
+    }
   };
 
   return (
@@ -228,7 +266,48 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
             {post.location && <div className="text-[10px] text-slate-400">{post.location}</div>}
           </div>
         </div>
-        <button onClick={() => setShowReport(true)} className="p-2 text-slate-400"><MoreVertical size={20} /></button>
+        <div className="flex items-center gap-1">
+          {currentUser.role === 'ADMIN' && (
+            <div className="relative">
+              <button 
+                onClick={() => setShowAdminDelete(!showAdminDelete)} 
+                className="p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                title="Admin Delete"
+              >
+                <Trash2 size={18} />
+              </button>
+              
+              <AnimatePresence>
+                {showAdminDelete && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                    className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl z-[150] overflow-hidden p-1.5"
+                  >
+                    <button 
+                      onClick={handleAdminDeleteSingle}
+                      disabled={isDeleting}
+                      className="w-full text-left px-4 py-3 text-xs font-bold text-slate-300 hover:bg-slate-700/50 hover:text-white rounded-xl transition-all flex items-center gap-3 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} className="text-red-500" />
+                      Delete This Post
+                    </button>
+                    <button 
+                      onClick={handleAdminDeleteFamily}
+                      disabled={isDeleting}
+                      className="w-full text-left px-4 py-3 text-xs font-black text-red-100 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all flex items-center gap-3 border border-red-500/20 mt-1 disabled:opacity-50"
+                    >
+                      <ShieldAlert size={14} className="text-red-500" />
+                      Delete Entire Related
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+          <button onClick={() => setShowReport(true)} className="p-2 text-slate-400"><MoreVertical size={20} /></button>
+        </div>
       </div>
 
       {/* Media Grid Content */}
@@ -291,7 +370,12 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
              <button onClick={() => setViewingIndex(null)} className="absolute top-6 right-6 p-3 bg-slate-800 text-white rounded-full z-[3001]"><X size={24} /></button>
              
              <div className="relative w-full h-full flex items-center justify-center p-4">
-                <OptimizedImage src={postImages[viewingIndex].url} width={1200} className="max-w-full max-h-full object-contain shadow-2xl" />
+                <img
+                  src={postImages[viewingIndex].url}
+                  alt="Full view"
+                  className="max-w-full max-h-full object-contain shadow-2xl rounded-xl"
+                  style={{ maxHeight: 'calc(100vh - 80px)', maxWidth: '100%' }}
+                />
                 
                 {postImages.length > 1 && (
                   <>

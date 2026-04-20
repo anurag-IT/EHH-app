@@ -48,7 +48,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           
           <div className="flex items-center gap-3">
              <div className="h-[2px] w-8 bg-emerald-400 opacity-60"></div>
-             <p className="text-[11px] font-bold uppercase text-slate-400 tracking-[0.3em]">Network Protocol</p>
+             <p className="text-[11px] font-bold uppercase text-slate-400 tracking-[0.3em]">Earth for Human and Humanity</p>
              <div className="h-[2px] w-8 bg-emerald-400 opacity-60"></div>
           </div>
         </motion.div>
@@ -60,7 +60,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         transition={{ delay: 1, duration: 0.5 }}
         className="absolute bottom-12 flex flex-col items-center"
       >
-        <p className="text-[10px] font-bold text-slate-300 tracking-[0.25em] uppercase">Identity Archive V2.4-STABLE</p>
+        <p className="text-[10px] font-bold text-slate-300 tracking-[0.25em] uppercase">Climate change::The world wide problem.. </p>
       </motion.div>
     </div>
   );

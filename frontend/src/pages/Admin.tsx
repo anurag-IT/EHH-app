@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { 
   LayoutDashboard, Users, UserX, Image as ImageIcon, 
@@ -150,7 +150,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                     <h3 className="text-lg font-bold mb-8">User Activity</h3>
                     <div className="h-72 w-full">
                        <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                         <AreaChart data={[
+                         <BarChart data={[
                            { name: 'Users', val: stats.totalUsers },
                            { name: 'Active', val: stats.activeUsers },
                            { name: 'Banned', val: stats.bannedUsers },
@@ -159,18 +159,19 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                          ]}>
                            <defs>
                              <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
-                               <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                               <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
+                               <stop offset="95%" stopColor="#22c55e" stopOpacity={0.2}/>
                              </linearGradient>
                            </defs>
-                           <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} axisLine={false} tickLine={false} dy={10} />
                            <YAxis stroke="#94a3b8" fontSize={10} axisLine={false} tickLine={false} dx={-10} />
                            <Tooltip 
-                            contentStyle={{ backgroundColor: "white", borderRadius: "1rem", border: "1px solid #f1f5f9", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}
-                            />
-                           <Area type="monotone" dataKey="val" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
-                         </AreaChart>
+                            contentStyle={{ backgroundColor: "#1e293b", borderRadius: "1rem", border: "1px solid #334155", color: "#fff", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}
+                            itemStyle={{ color: "#22c55e" }}
+                           />
+                           <Bar dataKey="val" fill="url(#colorVal)" radius={[4, 4, 0, 0]} />
+                         </BarChart>
                        </ResponsiveContainer>
                     </div>
                   </div>

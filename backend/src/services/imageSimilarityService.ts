@@ -38,22 +38,23 @@ export const getSimilarityResults = async (
 
   let candidates = allPosts.map((p: any) => {
     const pDist = hammingDistance(targetData.phash as string, p.phash);
-    // Convert hamming distance (0-256 bits) to a percentage score
-    const hashScore = Math.max(0, 100 * (1 - pDist / 256));
+    // Convert hamming distance (0-64 bits typically) to a percentage score
+    const maxBits = (targetData.phash as string).length * 4;
+    const hashScore = Math.max(0, 100 * (1 - pDist / maxBits));
     
     console.log(`[DEBUG MATCH] Post ID: ${p.id} | pDist: ${pDist} | hashScore: ${hashScore}%`);
     
     return { post: p, hashScore };
   });
 
-  // Keep matches above 65% similarity
+  // Keep matches above 80% similarity (reduces false positives)
   const finalResults = candidates
-    .filter((c: any) => c.hashScore > 65)
+    .filter((c: any) => c.hashScore >= 80)
     .sort((a: any, b: any) => b.hashScore - a.hashScore)
     .map((c: any) => {
       let confidenceLevel = "LOW";
-      if (c.hashScore >= 85) confidenceLevel = "HIGH";
-      else if (c.hashScore >= 70) confidenceLevel = "MEDIUM";
+      if (c.hashScore >= 95) confidenceLevel = "HIGH";
+      else if (c.hashScore >= 85) confidenceLevel = "MEDIUM";
 
       return {
         post: c.post,
@@ -84,8 +85,8 @@ export const findMatchesAndLog = async (
 
 async function logMatch(imageId: number, matchedImageId: number, score: number, type: string) {
   let confidence = "LOW";
-  if (score >= 85) confidence = "HIGH";
-  else if (score >= 70) confidence = "MEDIUM";
+  if (score >= 95) confidence = "HIGH";
+  else if (score >= 85) confidence = "MEDIUM";
 
   console.log(`  -> Match: Post ${imageId} <-> ${matchedImageId} | Score: ${score.toFixed(1)} | Type: ${type} | Confidence: ${confidence}`);
   

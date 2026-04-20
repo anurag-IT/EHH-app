@@ -63,7 +63,7 @@ model Post {
   caption         String?
   phash           String?
   parentId        Int?            // For repost tracking
-  parent          Post?           @relation("Reposts", fields: [parentId], references: [id])
+  parent          Post?           @relation("Reposts", fields: [parentId], references: [id], onDelete: Cascade)
   reposts         Post[]          @relation("Reposts")
   createdAt       DateTime        @default(now())
   location        String?

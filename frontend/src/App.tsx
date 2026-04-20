@@ -464,7 +464,12 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   ) : (
                     <>
                       {posts.map((post) => (
-                        <PostCard key={post.id} post={post} onRepost={() => fetchPosts(true)} onDelete={() => fetchPosts(true)} />
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          onRepost={() => fetchPosts(true)} 
+                          onDelete={(ids) => setPosts(prev => prev.filter(p => !ids.includes(p.id)))} 
+                        />
                       ))}
                       
                       {/* Infinite Scroll Sentinel */}
