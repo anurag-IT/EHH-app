@@ -128,7 +128,8 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const [isLiking, setIsLiking] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [following, setFollowing] = useState(false);
+  const [following, setFollowing] = useState(post.isFollowing || false);
+  const [followStatus, setFollowStatus] = useState<'PENDING' | 'ACCEPTED' | null>(post.followStatus || null);
   const isSyncing = useRef(false);
   const [isReposting, setIsReposting] = useState(false);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
@@ -195,6 +196,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     try {
       const res = await api.post(`/api/users/${post.userId}/follow`);
       setFollowing(res.data.following);
+      setFollowStatus(res.data.status);
     } catch { }
   };
   
@@ -258,8 +260,15 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
               </span>
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
               {currentUser.id !== post.userId && (
-                <button onClick={handleFollow} className="text-[12px] font-bold text-blue-500 hover:text-white ml-2">
-                  {following ? 'Following' : 'Follow'}
+                <button 
+                  onClick={handleFollow} 
+                  className={`text-[12px] font-black uppercase tracking-tighter px-3 py-1 rounded-full transition-all duration-300 ${
+                    followStatus === 'PENDING' ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
+                    following ? "bg-slate-800 text-slate-400 border border-slate-700" : 
+                    "bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-slate-900"
+                  } ml-2`}
+                >
+                  {followStatus === 'PENDING' ? 'Requested' : following ? 'Following' : 'Follow'}
                 </button>
               )}
             </div>

@@ -42,6 +42,8 @@ export interface Post {
   imagePaths: string[];
   createdAt: string;
   isLiked?: boolean;
+  isFollowing?: boolean;
+  followStatus?: 'PENDING' | 'ACCEPTED' | null;
   likesCount?: number;
   commentsCount?: number;
   repostsCount?: number;

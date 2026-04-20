@@ -271,14 +271,24 @@ app.get("/api/posts", async (req: any, res: any) => {
       nextCursor = nextItem.id;
     }
 
-    const formattedPosts = posts.map((post: any) => ({
-      ...post,
-      imageUrls: post.imageUrls || [],
-      likesCount: post._count.likes,
-      commentsCount: post._count.comments,
-      repostsCount: post._count.reposts,
-      isLiked: isValidUser && post.likes ? post.likes.length > 0 : false
-    }));
+    const followedAuthors = isValidUser ? (await prisma.userFollow.findMany({
+      where: { followerId: currentUserId, followingId: { in: posts.map((p: any) => p.userId) } },
+      select: { followingId: true, status: true }
+    })) : [];
+
+    const formattedPosts = posts.map((post: any) => {
+      const follow = followedAuthors.find((f: any) => f.followingId === post.userId);
+      return {
+        ...post,
+        imageUrls: post.imageUrls || [],
+        likesCount: post._count.likes,
+        commentsCount: post._count.comments,
+        repostsCount: post._count.reposts,
+        isLiked: isValidUser && post.likes ? post.likes.length > 0 : false,
+        isFollowing: !!follow && follow.status === 'ACCEPTED',
+        followStatus: follow?.status || null
+      };
+    });
 
     const responseData = { posts: formattedPosts, nextCursor };
     setCachedData(cacheKey, responseData);
