@@ -25,7 +25,7 @@ import OptimizedImage from "./common/OptimizedImage";
 
 interface PostCardProps {
   post: Post;
-  onRepost: () => void | Promise<void>;
+  onRepost: (newPost: Post) => void;
   onDelete: (deletedIds: number[]) => void;
 }
 
@@ -183,7 +183,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     try {
       const res = await api.post(`/api/posts/${post.id}/repost`, {});
       toast.success("Successfully reposted!");
-      if (onRepost) onRepost();
+      if (onRepost) onRepost(res.data);
     } catch {
       toast.error("Could not complete repost. Try again.");
     } finally {

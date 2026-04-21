@@ -467,7 +467,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                         <PostCard 
                           key={post.id} 
                           post={post} 
-                          onRepost={() => fetchPosts(true)} 
+                          onRepost={(newPost) => setPosts(prev => [newPost, ...prev])} 
                           onDelete={(ids) => setPosts(prev => prev.filter(p => !ids.includes(p.id)))} 
                         />
                       ))}
@@ -536,7 +536,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             )}
 
             {view === "search" && <SearchPage />}
-            {view === "upload" && user && <UploadPage onComplete={() => { fetchPosts(true); setView("feed"); }} userId={user.id} />}
+            {view === "upload" && user && <UploadPage onComplete={(newPost) => { if (newPost) setPosts(prev => [newPost, ...prev]); setView("feed"); }} userId={user.id} />}
             {view === "profile" && user && <ProfilePage user={user} isOwnProfile={true} onLogout={logout} />}
             {view === "userProfile" && targetUserId && <ProfilePage userId={targetUserId} isOwnProfile={false} currentUserId={user?.id} />}
             {view === "notifications" && user && <NotificationPage user={user} onRead={() => fetchUnreadCount(user.id)} />}

@@ -50,6 +50,9 @@ model UserFollow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@index([followerId, status])
 }
 
 model Post {
@@ -120,10 +123,8 @@ model Message {
   isAnonymous Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  @@index([senderId])
-  @@index([receiverId])
-  @@index([createdAt])
-  @@index([receiverId, isRead])
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, senderId, createdAt])
 }
 
 model FlaggedContent {
@@ -199,6 +200,7 @@ model Story {
   replies      StoryReply[]
   @@index([userId])
   @@index([expiresAt])
+  @@index([userId, expiresAt])
 }
 
 model StoryReaction {

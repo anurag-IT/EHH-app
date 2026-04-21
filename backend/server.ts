@@ -4,6 +4,7 @@ import cors from "cors";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
@@ -34,12 +35,27 @@ app.use(cors({
 app.use(express.json());
 app.use(compression() as any);
 
+// --- Rate Limiting ---
+// General API limiter — 200 requests per minute per IP
+const generalLimiter = rateLimit({ windowMs: 60_000, max: 200, standardHeaders: true, legacyHeaders: false });
+app.use("/api", generalLimiter);
+
+// Auth limiter — 10 attempts per 15 minutes (prevent brute force)
+const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 10 });
+
+// Upload limiter — 20 uploads per 10 minutes per IP
+const uploadLimiter = rateLimit({ windowMs: 10 * 60_000, max: 20 });
+
 // --- Real-time Tracking ---
 const userSockets = new Map<number, string>(); // userId -> socketId
 
 // --- Simple Cache Implementation ---
 const cache = new Map<string, { data: any, timestamp: number }>();
 const CACHE_TTL = 30000; // 30 seconds
+
+// Performance optimization: Throttle lastSeen updates and cache user sessions
+const lastSeenThrottle = new Map<number, number>();
+const userSessionCache = new Map<number, { user: any, cachedAt: number }>();
 
 const getCachedData = (key: string) => {
   const cached = cache.get(key);
@@ -72,16 +88,28 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
     const id = parseInt(userId as string);
     if (isNaN(id)) return res.status(401).json({ error: "Invalid user session" });
     
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    // 1. User Session Cache (30s TTL) to avoid DB hitting on every request
+    let cached = userSessionCache.get(id);
+    let user = cached && (Date.now() - cached.cachedAt < 30000) ? cached.user : null;
 
-    // Update real-time presence (last seen)
-    prisma.user.update({ where: { id }, data: { lastSeen: new Date() } }).catch(() => {});
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return res.status(404).json({ error: "User not found" });
+      userSessionCache.set(id, { user, cachedAt: Date.now() });
+    }
+
+    // 2. Throttle lastSeen update to once per minute
+    const lastSeen = lastSeenThrottle.get(id);
+    if (!lastSeen || (Date.now() - lastSeen > 60000)) {
+       prisma.user.update({ where: { id }, data: { lastSeen: new Date() } }).catch(() => {});
+       lastSeenThrottle.set(id, Date.now());
+    }
 
     if (user.status === "BANNED" && user.banUntil && new Date() > user.banUntil) {
        await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE", isRestricted: false, banUntil: null } });
        user.status = "ACTIVE";
        user.isRestricted = false;
+       userSessionCache.delete(id); // Invalidate cache after status change
     }
 
     if (user.status === "BANNED" || user.status === "PERMANENT_BAN" || user.isRestricted) {
@@ -110,7 +138,7 @@ const checkAdminMode = async (req: express.Request, res: express.Response, next:
   }
 };
 
-app.post("/api/users/register", async (req: any, res: any) => {
+app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
   try {
     let { name, email } = req.body;
     if (!name || !email) return res.status(400).json({ error: "Name and Email are required" });
@@ -129,7 +157,7 @@ app.post("/api/users/register", async (req: any, res: any) => {
   }
 });
 
-app.post("/api/users/login", async (req: any, res: any) => {
+app.post("/api/users/login", authLimiter, async (req: any, res: any) => {
   try {
     let { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
@@ -182,7 +210,13 @@ app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, a
         avatar: avatarUrl
       }
     });
-
+    userSessionCache.delete(userId);
+    // Clear profile caches for all viewers
+    for (const key of cache.keys()) {
+      if (key.startsWith(`profile_${userId}_`)) {
+        cache.delete(key);
+      }
+    }
     res.json(updatedUser);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -362,7 +396,7 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
   }
 });
 
-app.post("/api/stories", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
+app.post("/api/stories", uploadLimiter, upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
     const userId = req.body.userId || req.currentUser.id;
     const { caption, textColor, bgColor, stickers } = req.body;
@@ -570,7 +604,7 @@ app.get("/api/stories/:id/viewers", checkUserRestriction, async (req: any, res: 
   }
 });
 
-app.post("/api/posts", upload.array("images", 10), checkUserRestriction, async (req: any, res: any) => {
+app.post("/api/posts", uploadLimiter, upload.array("images", 10), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
     const userId = req.body.userId || req.currentUser.id;
@@ -705,6 +739,7 @@ app.post("/admin/users/:id/ban", checkAdminMode, async (req: any, res: any) => {
       where: { id },
       data: { status, banUntil, banReason: reason, isRestricted: true, banCount: { increment: 1 } }
     });
+    userSessionCache.delete(id);
     await prisma.adminLog.create({
       data: { actionType: "ban_user", adminName: req.adminUser.name, targetId: user.uniqueId, details: `Ban duration: ${durationDays} days. Reason: ${reason}` }
     });
@@ -721,6 +756,7 @@ app.post("/admin/users/:id/unban", checkAdminMode, async (req: any, res: any) =>
       where: { id },
       data: { status: "ACTIVE", banUntil: null, isRestricted: false, banReason: null }
     });
+    userSessionCache.delete(id);
     await prisma.adminLog.create({
       data: { actionType: "unban_user", adminName: req.adminUser.name, targetId: user.uniqueId, details: "User manually unbanned" }
     });
@@ -896,6 +932,11 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
     const id = parseInt(req.params.id);
     const viewerIdStr = req.headers["x-user-id"];
     const viewerId = viewerIdStr ? parseInt(viewerIdStr as string) : null;
+    
+    // Performance optimization: Check cache
+    const cacheKey = `profile_${id}_${viewerId || "guest"}`;
+    const cachedData = getCachedData(cacheKey);
+    if (cachedData) return res.json(cachedData);
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -925,12 +966,64 @@ app.get("/api/users/:id/profile", async (req: any, res: any) => {
     const posts = canSeePosts ? await prisma.post.findMany({
       where: { userId: id },
       orderBy: { createdAt: "desc" },
+      take: 12, // Only load initial batch for speed
       include: { 
         user: true, 
         _count: { select: { likes: true, comments: true, reposts: true } } 
       }
     }) : [];
-    res.json({ ...user, posts, isFollowing, followStatus, isPrivate: user.isPrivate });
+
+    const responseData = { ...user, posts, isFollowing, followStatus, isPrivate: user.isPrivate };
+    setCachedData(cacheKey, responseData);
+    res.json(responseData);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/users/:id/posts", async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    const limit = parseInt(req.query.limit as string) || 12;
+    const cursor = req.query.cursor ? parseInt(req.query.cursor as string) : undefined;
+    const viewerIdStr = req.headers["x-user-id"];
+    const viewerId = viewerIdStr ? parseInt(viewerIdStr as string) : null;
+
+    // Security/Privacy Check
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    let isFollowing = false;
+    if (viewerId) {
+      const follow = await prisma.userFollow.findUnique({
+        where: { followerId_followingId: { followerId: viewerId, followingId: id } }
+      });
+      if (follow) isFollowing = follow.status === "ACCEPTED";
+    }
+
+    if (user.isPrivate && !isFollowing && viewerId !== id) {
+       return res.json({ posts: [], nextCursor: null });
+    }
+
+    const posts = await prisma.post.findMany({
+      take: limit + 1,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
+      where: { userId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: true,
+        _count: { select: { likes: true, comments: true, reposts: true } }
+      }
+    });
+
+    let nextCursor = null;
+    if (posts.length > limit) {
+      const nextItem = posts.pop();
+      nextCursor = nextItem.id;
+    }
+
+    res.json({ posts, nextCursor });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -970,11 +1063,19 @@ app.get("/api/messages/conversations/:userId", async (req: any, res: any) => {
   try {
     const userId = parseInt(req.params.userId);
     
-    // Efficiently get conversations with last message
+    // Performance optimization: 
+    // 1. Limit message scan to latest 200 (covers most active conversations)
+    // 2. Only select required fields to minimize memory/payload
     const rawConversations = await prisma.message.findMany({
       where: { OR: [{ senderId: userId }, { receiverId: userId }] },
       orderBy: { createdAt: "desc" },
-      include: { sender: true, receiver: true }
+      take: 200,
+      select: {
+        id: true, senderId: true, receiverId: true, content: true, 
+        messageText: true, createdAt: true, isRead: true,
+        sender: { select: { id: true, name: true, avatar: true, uniqueId: true, lastSeen: true } },
+        receiver: { select: { id: true, name: true, avatar: true, uniqueId: true, lastSeen: true } }
+      }
     });
 
     const conversationsMap = new Map();
@@ -992,7 +1093,7 @@ app.get("/api/messages/conversations/:userId", async (req: any, res: any) => {
     });
 
     conversationsMap.forEach((u, id) => {
-      const isOnline = Date.now() - new Date(u.lastSeen).getTime() < 60000; // Online if active in last 1 min
+      const isOnline = Date.now() - new Date(u.lastSeen).getTime() < 60000;
       conversationsMap.set(id, { ...u, isOnline });
     });
 

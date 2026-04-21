@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+import { User, Post } from "../types";
+
 interface UploadPageProps {
-  onComplete: () => void;
+  onComplete: (newPost?: Post) => void;
   userId: number;
 }
 
@@ -65,8 +67,8 @@ export default function UploadPage({ onComplete, userId }: UploadPageProps) {
       formData.append("caption", caption);
       formData.append("location", location);
 
-      await api.post("/api/posts", formData);
-      onComplete();
+      const res = await api.post("/api/posts", formData);
+      onComplete(res.data.post || res.data);
     } catch (err: any) {
       const msg = err.response?.data?.error || "Upload failed.";
       alert(msg);

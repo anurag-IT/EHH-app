@@ -9,8 +9,26 @@ export default defineConfig(({mode}) => {
       react(),
       tailwindcss(),
     ],
+    optimizeDeps: { 
+      include: ['react', 'react-dom', '@tanstack/react-query'] 
+    },
     build: {
       chunkSizeWarningLimit: 1000,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-motion': ['motion'],
+            'vendor-ui': ['lucide-react', 'react-toastify'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-socket': ['socket.io-client'],
+            'vendor-charts': ['recharts'],
+          }
+        }
+      },
+      target: 'es2020',
+      minify: 'esbuild',
+      sourcemap: false,
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
