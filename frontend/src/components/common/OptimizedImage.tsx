@@ -24,7 +24,8 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setError(false);
     setLoaded(false);
     
-    const optimized = getOptimizedImageUrl(src, width);
+    const safeSrc = src && (src.startsWith('http://') || src.startsWith('https://')) ? src : fallbackSrc;
+    const optimized = getOptimizedImageUrl(safeSrc, width);
     if (!optimized) {
       setCurrentSrc(fallbackSrc);
       setLoaded(true);
