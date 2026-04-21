@@ -14,8 +14,7 @@ import {
 } from "lucide-react";
 
 const getHeaders = () => {
-  const user = JSON.parse(localStorage.getItem("social_user") || "{}");
-  return { "x-user-id": user.id };
+  return { "x-admin-key": import.meta.env.VITE_ADMIN_KEY };
 };
 
 export default function Admin({ onComplete }: { onComplete: () => void }) {

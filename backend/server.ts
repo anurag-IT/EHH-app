@@ -192,7 +192,7 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
   }
 };
 
-const checkAdminMode = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const checkAdminMode = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Please login" });
@@ -202,19 +202,26 @@ const checkAdminMode = async (req: express.Request, res: express.Response, next:
 
   try {
     if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET missing");
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number, role: string };
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number, role: string, name?: string };
 
     if (decoded.role !== "ADMIN") return res.status(403).json({ error: "Admin access is needed." });
-
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    if (!user || user.role !== "ADMIN") return res.status(403).json({ error: "Admin access is needed." });
     
-    (req as any).adminUser = user;
+    // Do not hit DB: use data from JWT
+    (req as any).adminUser = { id: decoded.userId, role: decoded.role, name: decoded.name || "Admin" };
     next();
   } catch (error: any) {
     res.status(401).json({ error: "Invalid admin session" });
   }
 };
+
+const adminKeyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const key = req.headers['x-admin-key'];
+  if (!key || key !== process.env.ADMIN_SECRET_KEY) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  next();
+};
+app.use('/admin', adminKeyMiddleware);
 
 app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
   try {
