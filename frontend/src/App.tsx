@@ -110,6 +110,20 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
+
+  // Auto-refresh on version mismatch to clear stale mobile cache
+  useEffect(() => {
+    const currentBuild = import.meta.env.VITE_BUILD_TIME;
+    const lastBuild = localStorage.getItem("last_build_time");
+    
+    if (currentBuild && lastBuild && currentBuild !== lastBuild) {
+       console.log("New version detected. Clearing cache and refreshing...");
+       localStorage.setItem("last_build_time", currentBuild);
+       window.location.reload();
+    } else if (currentBuild && !lastBuild) {
+       localStorage.setItem("last_build_time", currentBuild);
+    }
+  }, []);
   
   // Pagination State
   const [cursor, setCursor] = useState<number | null>(null);
@@ -528,7 +542,11 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                       </>
                     )}
                     <div className="mt-8 pt-8 border-t border-slate-700/50">
-                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-loose">System: v2.4-stable<br/>Provider: EHH Secure<br/>Status: <span className="text-green-500">Synchronized</span></p>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest leading-loose">
+                        System: v2.5-optimized<br/>
+                        Build: {import.meta.env.VITE_BUILD_TIME || "Stale Cache"}<br/>
+                        Status: <span className="text-green-500">Synchronized</span>
+                      </p>
                     </div>
                   </div>
                 </div>
