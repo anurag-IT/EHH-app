@@ -1,4 +1,7 @@
+import "dotenv/config";
 import express from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import compression from "compression";
 import cors from "cors";
 import path from "path";
@@ -40,7 +43,14 @@ app.use(compression() as any);
 const generalLimiter = rateLimit({ windowMs: 60_000, max: 200, standardHeaders: true, legacyHeaders: false });
 app.use("/api", generalLimiter);
 
-// Auth limiter — 10 attempts per 15 minutes (prevent brute force)
+// Auth/Login limiter — 20 attempts per 15 minutes
+const loginLimiter = rateLimit({ 
+  windowMs: 15 * 60_000, 
+  max: 20,
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 10 });
 
 // Upload limiter — 20 uploads per 10 minutes per IP
@@ -71,6 +81,36 @@ const setCachedData = (key: string, data: any) => {
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+const getUserIdFromRequest = (req: express.Request): number | null => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.split(" ")[1];
+      if (!process.env.JWT_SECRET) return null;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number };
+      return decoded.userId;
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
+const getUserIdFromRequest = (req: express.Request): number | null => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.split(" ")[1];
+      if (!process.env.JWT_SECRET) return null;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number };
+      return decoded.userId;
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+};
+
 function generateUniqueId() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "EH-";
@@ -81,11 +121,18 @@ function generateUniqueId() {
 }
 
 const checkUserRestriction = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const userId = req.headers["x-user-id"] || req.body.userId;
-  if (!userId) return res.status(401).json({ error: "Please login to continue" });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Please login to continue" });
+  }
+
+  const token = authHeader.split(" ")[1];
 
   try {
-    const id = parseInt(userId as string);
+    if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET missing");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number, role: string };
+    const id = decoded.userId;
+
     if (isNaN(id)) return res.status(401).json({ error: "Invalid user session" });
     
     // 1. User Session Cache (30s TTL) to avoid DB hitting on every request
@@ -116,40 +163,76 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
       return res.status(403).json({ error: "Your account is currently blocked." });
     }
     
-    (req as any).currentUser = user;
+    (req as any).user = user;
     next();
   } catch (error: any) {
-    res.status(500).json({ error: "Server sync fail" });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: "Token expired. Please login again." });
+    }
+    res.status(401).json({ error: "Invalid or missing token session" });
   }
 };
 
 const checkAdminMode = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const userId = req.headers["x-user-id"];
-  if (!userId) return res.status(401).json({ error: "Please login" });
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Please login" });
+  }
+
+  const token = authHeader.split(" ")[1];
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: parseInt(userId as string) } });
+    if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET missing");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number, role: string };
+
+    if (decoded.role !== "ADMIN") return res.status(403).json({ error: "Admin access is needed." });
+
+    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
     if (!user || user.role !== "ADMIN") return res.status(403).json({ error: "Admin access is needed." });
     
     (req as any).adminUser = user;
     next();
   } catch (error: any) {
-    res.status(500).json({ error: "Server error" });
+    res.status(401).json({ error: "Invalid admin session" });
   }
 };
 
 app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
   try {
-    let { name, email } = req.body;
-    if (!name || !email) return res.status(400).json({ error: "Name and Email are required" });
+    let { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
 
     email = email.trim().toLowerCase();
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) return res.status(400).json({ error: "An account with this email already exists." });
 
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(password, salt);
+
     const uniqueId = generateUniqueId();
     const user = await prisma.user.create({
-      data: { name: name.trim(), email, uniqueId, avatar: `https://i.pravatar.cc/150?u=${email}` },
+      data: { 
+        name: name.trim(), 
+        email, 
+        password: passwordHash,
+        uniqueId, 
+        avatar: `https://i.pravatar.cc/150?u=${email}` 
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        uniqueId: true,
+        avatar: true,
+        role: true,
+        status: true
+      }
     });
     res.json(user);
   } catch (error: any) {
@@ -157,16 +240,47 @@ app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
   }
 });
 
-app.post("/api/users/login", authLimiter, async (req: any, res: any) => {
+app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
   try {
-    let { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
+    let { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+    
     email = email.trim().toLowerCase();
-    const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
-    if (!user) return res.status(404).json({ error: "No account found with this email. Please sign up." });
-    res.json(user);
+    const user = await prisma.user.findFirst({ 
+      where: { email: { equals: email, mode: 'insensitive' } } 
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({ error: "Reset password required" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined in environment");
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({
+      token,
+      user: userWithoutPassword
+    });
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error("[LOGIN ERROR]", error);
+    res.status(500).json({ error: "Authentication system failure" });
   }
 });
 
@@ -192,9 +306,9 @@ app.get("/api/users/search", async (req: any, res: any) => {
 app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { name, bio, isPrivate } = req.body;
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     const files = req.files as any[];
-    let avatarUrl = req.currentUser.avatar;
+    let avatarUrl = req.user.avatar;
 
     if (files && files.length > 0) {
       const uploadResult = await uploadImage(files[0].buffer);
@@ -204,8 +318,8 @@ app.put("/api/users/profile", upload.array("images", 1), checkUserRestriction, a
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        name: name || req.currentUser.name,
-        bio: bio !== undefined ? bio : req.currentUser.bio,
+        name: name || req.user.name,
+        bio: bio !== undefined ? bio : req.user.bio,
         isPrivate: isPrivate === "true" || isPrivate === true,
         avatar: avatarUrl
       }
@@ -227,7 +341,7 @@ app.post("/api/users/requests/:requestId/accept", checkUserRestriction, async (r
   try {
      const requestId = parseInt(req.params.requestId);
      const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
-     if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+     if (!request || request.followingId !== req.user.id) return res.status(403).json({ error: "Access denied" });
 
      await prisma.userFollow.update({ where: { id: requestId }, data: { status: "ACCEPTED" } });
      
@@ -235,9 +349,9 @@ app.post("/api/users/requests/:requestId/accept", checkUserRestriction, async (r
      await prisma.notification.create({
        data: {
          userId: request.followerId,
-         senderId: req.currentUser.id,
-         senderName: req.currentUser.name,
-         senderAvatar: req.currentUser.avatar,
+         senderId: req.user.id,
+         senderName: req.user.name,
+         senderAvatar: req.user.avatar,
          type: "FOLLOW_ACCEPTED",
          content: "accepted your follow request"
        }
@@ -251,7 +365,7 @@ app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (r
   try {
     const requestId = parseInt(req.params.requestId);
     const request = await prisma.userFollow.findUnique({ where: { id: requestId } });
-    if (!request || request.followingId !== req.currentUser.id) return res.status(403).json({ error: "Access denied" });
+    if (!request || request.followingId !== req.user.id) return res.status(403).json({ error: "Access denied" });
     await prisma.userFollow.delete({ where: { id: requestId } });
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -272,9 +386,8 @@ app.get("/api/posts", async (req: any, res: any) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
     const cursor = req.query.cursor ? parseInt(req.query.cursor as string) : undefined;
-    const xUserId = req.headers["x-user-id"];
-    const currentUserId = xUserId ? parseInt(xUserId as string) : null;
-    const isValidUser = currentUserId && !isNaN(currentUserId);
+    const currentUserId = getUserIdFromRequest(req);
+    const isValidUser = currentUserId !== null;
 
     // Cache key based on query params and user
     const cacheKey = `posts_${limit}_${cursor || 'start'}_${currentUserId || 'guest'}`;
@@ -335,8 +448,8 @@ app.get("/api/posts", async (req: any, res: any) => {
 app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res: any) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
-  const userId = req.currentUser.id;
-  const userRole = req.currentUser.role;
+  const userId = req.user.id;
+  const userRole = req.user.role;
   console.log(`[ADMIN DELETE] Request to delete post ${id} by user ${userId} (Role: ${userRole})`);
   try {
     const post = await prisma.post.findUnique({ where: { id } });
@@ -366,7 +479,7 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
   try {
     const { text } = req.body;
     const postId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     if (!text) return res.status(400).json({ error: "Comment text is required" });
     const comment = await prisma.comment.create({
       data: { text, postId, userId },
@@ -398,7 +511,7 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
 
 app.post("/api/stories", uploadLimiter, upload.array("images", 1), checkUserRestriction, async (req: any, res: any) => {
   try {
-    const userId = req.body.userId || req.currentUser.id;
+    const userId = req.body.userId || req.user.id;
     const { caption, textColor, bgColor, stickers } = req.body;
     const files = req.files as any[];
 
@@ -441,8 +554,7 @@ app.post("/api/stories", uploadLimiter, upload.array("images", 1), checkUserRest
 
 app.get("/api/stories", async (req: any, res: any) => {
   try {
-    const xUserId = req.headers["x-user-id"];
-    const currentUserId = xUserId ? parseInt(xUserId as string) : null;
+    const currentUserId = getUserIdFromRequest(req);
     const now = new Date();
 
     let stories;
@@ -504,7 +616,7 @@ app.get("/api/stories", async (req: any, res: any) => {
 app.post("/api/stories/:id/view", checkUserRestriction, async (req: any, res: any) => {
   try {
     const storyId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     await prisma.storyView.upsert({
       where: { storyId_userId: { storyId, userId } },
       update: { viewedAt: new Date() },
@@ -519,7 +631,7 @@ app.post("/api/stories/:id/view", checkUserRestriction, async (req: any, res: an
 app.post("/api/stories/:id/react", checkUserRestriction, async (req: any, res: any) => {
   try {
     const storyId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     const { emoji } = req.body;
 
     const existing = await prisma.storyReaction.findUnique({
@@ -546,7 +658,7 @@ app.post("/api/stories/:id/react", checkUserRestriction, async (req: any, res: a
 app.post("/api/stories/:id/reply", checkUserRestriction, async (req: any, res: any) => {
   try {
     const storyId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     const { message } = req.body;
 
     const story = await prisma.story.findUnique({ where: { id: storyId } });
@@ -575,7 +687,7 @@ app.post("/api/stories/:id/reply", checkUserRestriction, async (req: any, res: a
 app.get("/api/stories/:id/viewers", checkUserRestriction, async (req: any, res: any) => {
   try {
     const storyId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
 
     const story = await prisma.story.findUnique({ where: { id: storyId } });
     if (!story) return res.status(404).json({ error: "Story not found" });
@@ -607,7 +719,7 @@ app.get("/api/stories/:id/viewers", checkUserRestriction, async (req: any, res: 
 app.post("/api/posts", uploadLimiter, upload.array("images", 10), checkUserRestriction, async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
-    const userId = req.body.userId || req.currentUser.id;
+    const userId = req.body.userId || req.user.id;
     const files = req.files as any[];
 
     console.log(`[POST UPLOAD] Received ${files?.length || 0} images for user ${userId}`);
@@ -769,7 +881,7 @@ app.post("/admin/users/:id/unban", checkAdminMode, async (req: any, res: any) =>
 app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any) => {
   try {
     const postId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     let liked = true;
     try {
       const like = await prisma.like.create({
@@ -802,7 +914,7 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
 app.post("/api/posts/:id/repost", checkUserRestriction, async (req: any, res: any) => {
   try {
     const postId = parseInt(req.params.id);
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
     
     const post = await prisma.post.findUnique({ where: { id: postId } });
     if (!post) {
@@ -869,7 +981,7 @@ app.post("/api/posts/:id/report", checkUserRestriction, async (req: any, res: an
   try {
     const postId = parseInt(req.params.id);
     const { reason } = req.body;
-    const userId = req.currentUser.id;
+    const userId = req.user.id;
 
     const flag = await prisma.flaggedContent.create({
       data: { postId, userId, reason, status: "PENDING", priority: "MEDIUM" }
@@ -884,7 +996,7 @@ app.post("/api/posts/:id/report", checkUserRestriction, async (req: any, res: an
 app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: any) => {
   try {
     const followingId = parseInt(req.params.id);
-    const followerId = req.currentUser.id;
+    const followerId = req.user.id;
     if (followerId === followingId) return res.status(400).json({ error: "Cannot follow yourself" });
       const existing = await prisma.userFollow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
       
@@ -930,8 +1042,7 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
 app.get("/api/users/:id/profile", async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
-    const viewerIdStr = req.headers["x-user-id"];
-    const viewerId = viewerIdStr ? parseInt(viewerIdStr as string) : null;
+    const viewerId = getUserIdFromRequest(req);
     
     // Performance optimization: Check cache
     const cacheKey = `profile_${id}_${viewerId || "guest"}`;
@@ -986,8 +1097,7 @@ app.get("/api/users/:id/posts", async (req: any, res: any) => {
     const id = parseInt(req.params.id);
     const limit = parseInt(req.query.limit as string) || 12;
     const cursor = req.query.cursor ? parseInt(req.query.cursor as string) : undefined;
-    const viewerIdStr = req.headers["x-user-id"];
-    const viewerId = viewerIdStr ? parseInt(viewerIdStr as string) : null;
+    const viewerId = getUserIdFromRequest(req);
 
     // Security/Privacy Check
     const user = await prisma.user.findUnique({ where: { id } });
@@ -1133,7 +1243,7 @@ app.get("/api/messages/chat/:u1/:u2", async (req: any, res: any) => {
 app.post("/api/messages/send", checkUserRestriction, async (req: any, res: any) => {
   try {
     const { uniqueId, messageText } = req.body;
-    const senderId = req.currentUser.id;
+    const senderId = req.user.id;
     const receiver = await prisma.user.findUnique({ where: { uniqueId } });
     if (!receiver) return res.status(404).json({ error: "Receiver not found" });
     const message = await prisma.message.create({
@@ -1151,7 +1261,7 @@ app.post("/api/messages/send", checkUserRestriction, async (req: any, res: any) 
 app.post("/api/messages/send-v2", checkUserRestriction, async (req: any, res: any) => {
   try {
     const { receiverId, content } = req.body;
-    const senderId = req.currentUser.id;
+    const senderId = req.user.id;
     const rid = parseInt(receiverId);
 
     // Privacy check
