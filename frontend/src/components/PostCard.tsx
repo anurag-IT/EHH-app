@@ -315,7 +315,16 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
               </AnimatePresence>
             </div>
           )}
-          <button onClick={() => setShowReport(true)} className="p-2 text-slate-400"><MoreVertical size={20} /></button>
+        <button onClick={() => setShowReport(true)} className="p-2 text-slate-400"><MoreVertical size={20} /></button>
+        </div>
+      </div>
+
+      {/* Professional Description Area (Upper Side) */}
+      <div className="px-4 pb-3">
+        <div className="flex flex-col gap-1">
+          <p className="text-[14px] leading-relaxed text-slate-200 whitespace-pre-wrap font-medium tracking-tight">
+            {post.caption}
+          </p>
         </div>
       </div>
 
@@ -356,10 +365,6 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
         <div className="space-y-1">
           <div className="text-sm font-black text-white">{likeCount.toLocaleString()} Likes</div>
-          <div className="flex gap-2 text-sm">
-             <span className="font-black text-white">@{post.user.name}</span>
-             <p className="text-slate-300 line-clamp-3">{post.caption}</p>
-          </div>
           {postComments.length > 0 && (
             <button onClick={() => setShowComments(true)} className="text-xs text-slate-500 font-bold uppercase tracking-widest pt-2">View Signals ({postComments.length})</button>
           )}
