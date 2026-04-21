@@ -60,26 +60,34 @@ export default function App() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        const saved = localStorage.getItem("social_user");
-        if (saved) {
-          const parsedUser = JSON.parse(saved);
+        const token = localStorage.getItem("ehh_token");
+        const savedUser = localStorage.getItem("ehh_user");
+        
+        if (token && savedUser) {
+          const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
           
           // Silently validate the session in the background
-          api.get(`/api/users/${parsedUser.id}/profile`).then((res) => {
+          api.get(`/api/users/profile`).then((res) => {
             if (res.data && res.data.id) {
-              setUser(res.data);
-              localStorage.setItem("social_user", JSON.stringify(res.data));
+              const minimalUser = {
+                id: res.data.id,
+                name: res.data.name,
+                avatar: res.data.avatar,
+                role: res.data.role
+              };
+              setUser(res.data); // Full user for state
+              localStorage.setItem("ehh_user", JSON.stringify(minimalUser));
             }
           }).catch(() => {
             setUser(null);
-            localStorage.removeItem("social_user");
+            localStorage.removeItem("ehh_token");
+            localStorage.removeItem("ehh_user");
           });
         }
       } catch (err) {
         console.error("Failed to restore session:", err);
       } finally {
-        // Show splash screen for at least 2.2 seconds for branding
         setTimeout(() => setIsInitialized(true), 2200);
       }
     };
@@ -106,6 +114,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeChatUser, setActiveChatUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -231,20 +240,48 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authLoading) return;
+
+    if (!email || !password || (authMode === "register" && !name)) {
+      toast.error("Please fill all required fields");
+      return;
+    }
     
     setAuthLoading(true);
     try {
       const endpoint = authMode === "register" ? "/api/users/register" : "/api/users/login";
       const res = await api.post(endpoint, { 
         name: name.trim(), 
-        email: email.trim().toLowerCase() 
+        email: email.trim().toLowerCase(),
+        password: password
       });
-      setUser(res.data);
-      localStorage.setItem("social_user", JSON.stringify(res.data));
+
+      // Backend returns { token, user } or { resetRequired, message }
+      if (res.data.resetRequired) {
+        toast.info("Security update required: Please reset your password.");
+        // Redirect to reset flow if available, or just show message for now
+        return;
+      }
+
+      const { token, user: userData } = res.data;
+      
+      const minimalUser = {
+        id: userData.id,
+        name: userData.name,
+        avatar: userData.avatar,
+        role: userData.role
+      };
+
+      setUser(userData);
+      localStorage.setItem("ehh_token", token);
+      localStorage.setItem("ehh_user", JSON.stringify(minimalUser));
+      
+      setEmail("");
+      setPassword("");
+      setName("");
       setView("feed");
-      toast.success(`Welcome back, ${res.data.name}`);
+      toast.success(`Welcome, ${userData.name}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Login failed. Please check your details.");
+      toast.error(err.response?.data?.error || "Authentication failed. Check your credentials.");
     } finally {
       setAuthLoading(false);
     }
@@ -252,9 +289,10 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("social_user");
+    localStorage.removeItem("ehh_token");
+    localStorage.removeItem("ehh_user");
     setView("auth");
-    toast.info("Logged out.");
+    toast.info("Session terminated.");
   };
 
   const refreshHome = () => {
@@ -313,6 +351,18 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
                   placeholder="EHH@gmail.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Security Password</label>
+                <input 
+                  type="password" 
+                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
+                  placeholder="••••••••"
                 />
               </div>
               

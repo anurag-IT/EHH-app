@@ -15,17 +15,30 @@ const api = axios.create({
   },
 });
 
-// Automatically inject user ID header
+// Automatically inject JWT token
 api.interceptors.request.use((config) => {
-  const saved = localStorage.getItem("social_user");
-  if (saved) {
-    const user = JSON.parse(saved);
-    if (user.id) {
-      config.headers["x-user-id"] = user.id;
-    }
+  const token = localStorage.getItem("ehh_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// Handle unauthorized responses globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem("ehh_token");
+      localStorage.removeItem("ehh_user");
+      // Optional: window.location.href = "/"; // Force full reload/redirect to clear state
+      // However, we'll let App.tsx handle the UI transition by setting user to null if possible
+      // or we can force a reload to be safe:
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Formats a Cloudinary URL with optimization parameters.
