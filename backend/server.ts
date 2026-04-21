@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import compression from "compression";
 import cors from "cors";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
@@ -20,22 +22,39 @@ import { Server } from "socket.io";
 const prisma = new PrismaClient() as any;
 const app = express();
 const httpServer = createServer(app);
+
+// --- CORS Whitelist ---
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3001',
+  process.env.FRONTEND_URL
+].filter(Boolean) as string[];
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"]
   }
 });
 const PORT = Number(process.env.PORT) || 3001;
 
-app.use(cors({ 
+// --- Security Middleware ---
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false // disabled — frontend served from same origin
+}));
+
+app.use(cors({
   origin: (origin: any, callback: any) => {
-    if(!origin) return callback(null, true);
-    return callback(null, true); 
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('CORS policy violation'));
   },
-  credentials: true 
-})); 
-app.use(express.json());
+  credentials: true
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(mongoSanitize()); // strips $ and . from req.body to prevent injection
 app.use(compression() as any);
 
 // --- Rate Limiting ---
@@ -1481,10 +1500,9 @@ app.use((req: any, res: any, next: any) => {
 });
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("[CRITICAL ERROR]", err);
-  res.status(err.status || 500).json({ 
-    error: "Internal protocol failure.",
-    details: process.env.NODE_ENV === "development" ? err.message : undefined 
+  console.error("[ERROR]", err.message);
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === "production" ? "Something went wrong" : err.message
   });
 });
 
