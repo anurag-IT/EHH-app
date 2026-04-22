@@ -22,6 +22,8 @@ model User {
   password     String?   @db.Text
   resetOtp     String?   @db.Text
   resetOtpExpiry DateTime?
+  resetOtpAttempts  Int       @default(0)
+  resetOtpLockedAt  DateTime?
   status       String    @default("ACTIVE") // ACTIVE | BANNED | PERMANENT_BAN
   banUntil     DateTime?
   banCount     Int       @default(0)

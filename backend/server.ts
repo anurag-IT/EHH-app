@@ -10,7 +10,9 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
-import nodemailer from "nodemailer";
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
@@ -72,6 +74,13 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 10 });
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60_000, // 1 hour window
+  max: 3, // max 3 OTP emails per IP per hour
+  message: { error: "Too many reset requests. Please try again in 1 hour." },
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Upload limiter — 20 uploads per 10 minutes per IP
 const uploadLimiter = rateLimit({ windowMs: 10 * 60_000, max: 20 });
@@ -297,18 +306,8 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
   }
 });
 
-// Configure NodeMailer transporter (will use Ethereal or Gmail)
-const getTransporter = () => {
-  return nodemailer.createTransport({
-    service: 'gmail', // Standard fallback, easily overridable
-    auth: {
-      user: process.env.SMTP_EMAIL || 'test@example.com',
-      pass: process.env.SMTP_PASSWORD || 'password123'
-    }
-  });
-};
 
-app.post("/api/users/forgot-password", async (req: any, res: any) => {
+app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, res: any) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
@@ -328,37 +327,37 @@ app.post("/api/users/forgot-password", async (req: any, res: any) => {
     const salt = await bcrypt.genSalt(10);
     const hashedOtp = await bcrypt.hash(otp, salt);
 
-    // Save to DB (15 minute expiration)
+    // Save to DB (15 minute expiration) and reset tracking limits
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetOtp: hashedOtp,
-        resetOtpExpiry: new Date(Date.now() + 15 * 60 * 1000)
+        resetOtpExpiry: new Date(Date.now() + 15 * 60 * 1000),
+        resetOtpAttempts: 0,
+        resetOtpLockedAt: null
       }
     });
 
     // Send the email OR log to console if no SMTP is configured
-    if (!process.env.SMTP_EMAIL || process.env.SMTP_EMAIL === 'test@example.com') {
-      console.log(`\n\n[DEV MODE] OTP generated for ${user.email} is: ${otp}\n\n`);
-    } else {
-      const transporter = getTransporter();
-      await transporter.sendMail({
-        from: '"EHH Application" <' + process.env.SMTP_EMAIL + '>',
+    if (process.env.RESEND_API_KEY) {
+      await resend.emails.send({
+        from: 'EHH App <noreply@yourdomain.com>', // Use your verified domain
         to: user.email,
-        subject: "Your EHH Password Reset Code",
-        text: `Your OTP is: ${otp}\n\nThis code will expire in 15 minutes.`,
+        subject: 'Your EHH Password Reset Code',
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-            <h2 style="color: #4F46E5;">Earth for Human and Humanity</h2>
-            <p>We received a request to reset your password.</p>
-            <div style="background-color: #F3F4F6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; font-size: 14px; color: #6B7280; text-transform: uppercase; font-weight: bold;">Your One-Time Password</p>
-              <h1 style="margin: 10px 0 0; font-size: 32px; letter-spacing: 4px; color: #111827;">${otp}</h1>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #4F46E5;">EHH — Password Reset</h2>
+            <p>Your one-time password reset code is:</p>
+            <div style="background: #F3F4F6; padding: 24px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <h1 style="font-size: 36px; letter-spacing: 8px; color: #111827; margin: 0;">${otp}</h1>
             </div>
-            <p>This code will expire in 15 minutes.</p>
+            <p style="color: #6B7280;">This code expires in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+            <p style="color: #6B7280; font-size: 12px;">If you didn't request this, ignore this email.</p>
           </div>
         `
       });
+    } else {
+      console.log(`\n\n[DEV MODE] OTP generated for ${user.email} is: ${otp}\n\n`);
     }
 
     res.status(200).json({ message: "If that email exists, an OTP has been sent." });
@@ -381,8 +380,35 @@ app.post("/api/users/verify-otp", async (req: any, res: any) => {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
+    // Check if OTP is locked (5 failed attempts = 30 min lockout)
+    if (user.resetOtpLockedAt && new Date() < new Date(user.resetOtpLockedAt.getTime() + 30 * 60 * 1000)) {
+      return res.status(429).json({ error: "Too many failed attempts. Try again in 30 minutes." });
+    }
+
     const isValidOtp = await bcrypt.compare(otp, user.resetOtp);
-    if (!isValidOtp) return res.status(400).json({ error: "Invalid OTP" });
+    if (!isValidOtp) {
+      const newAttempts = (user.resetOtpAttempts || 0) + 1;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetOtpAttempts: newAttempts,
+          resetOtpLockedAt: newAttempts >= 5 ? new Date() : null
+        }
+      });
+      const remaining = 5 - newAttempts;
+      return res.status(400).json({ 
+        error: remaining > 0 ? `Invalid OTP. ${remaining} attempts remaining.` : "Account locked. Try again in 30 minutes." 
+      });
+    }
+
+    // Reset attempt counter on successful verify
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetOtpAttempts: 0,
+        resetOtpLockedAt: null
+      }
+    });
 
     res.status(200).json({ message: "OTP Verified" });
   } catch (error: any) {
@@ -415,10 +441,26 @@ app.post("/api/users/reset-password", async (req: any, res: any) => {
       return res.status(400).json({ error: "OTP has expired" });
     }
 
+    // Check if OTP is locked (5 failed attempts = 30 min lockout)
+    if (user.resetOtpLockedAt && new Date() < new Date(user.resetOtpLockedAt.getTime() + 30 * 60 * 1000)) {
+      return res.status(429).json({ error: "Too many failed attempts. Try again in 30 minutes." });
+    }
+
     // Validate OTP
     const isValidOtp = await bcrypt.compare(otp, user.resetOtp);
     if (!isValidOtp) {
-      return res.status(400).json({ error: "Invalid OTP" });
+      const newAttempts = (user.resetOtpAttempts || 0) + 1;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetOtpAttempts: newAttempts,
+          resetOtpLockedAt: newAttempts >= 5 ? new Date() : null
+        }
+      });
+      const remaining = 5 - newAttempts;
+      return res.status(400).json({ 
+        error: remaining > 0 ? `Invalid OTP. ${remaining} attempts remaining.` : "Account locked. Try again in 30 minutes." 
+      });
     }
 
     // Hash the new password
