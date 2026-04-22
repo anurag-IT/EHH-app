@@ -12,7 +12,7 @@ import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
@@ -339,7 +339,7 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
     });
 
     // Send the email OR log to console if no SMTP is configured
-    if (process.env.RESEND_API_KEY) {
+    if (resend) {
       await resend.emails.send({
         from: 'EHH App <noreply@yourdomain.com>', // Use your verified domain
         to: user.email,
