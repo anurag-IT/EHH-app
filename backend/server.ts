@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
+import nodemailer from "nodemailer";
 
 import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
@@ -293,6 +294,151 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
   } catch (error: any) {
     console.error("[LOGIN ERROR]", error);
     res.status(500).json({ error: "Authentication system failure" });
+  }
+});
+
+// Configure NodeMailer transporter (will use Ethereal or Gmail)
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    service: 'gmail', // Standard fallback, easily overridable
+    auth: {
+      user: process.env.SMTP_EMAIL || 'test@example.com',
+      pass: process.env.SMTP_PASSWORD || 'password123'
+    }
+  });
+};
+
+app.post("/api/users/forgot-password", async (req: any, res: any) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+    });
+
+    if (!user) {
+      // Security: return 200 even if not found to prevent email scanning
+      return res.status(200).json({ message: "If that email exists, an OTP has been sent." });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const salt = await bcrypt.genSalt(10);
+    const hashedOtp = await bcrypt.hash(otp, salt);
+
+    // Save to DB (15 minute expiration)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetOtp: hashedOtp,
+        resetOtpExpiry: new Date(Date.now() + 15 * 60 * 1000)
+      }
+    });
+
+    // Send the email OR log to console if no SMTP is configured
+    if (!process.env.SMTP_EMAIL || process.env.SMTP_EMAIL === 'test@example.com') {
+      console.log(`\n\n[DEV MODE] OTP generated for ${user.email} is: ${otp}\n\n`);
+    } else {
+      const transporter = getTransporter();
+      await transporter.sendMail({
+        from: '"EHH Application" <' + process.env.SMTP_EMAIL + '>',
+        to: user.email,
+        subject: "Your EHH Password Reset Code",
+        text: `Your OTP is: ${otp}\n\nThis code will expire in 15 minutes.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+            <h2 style="color: #4F46E5;">Earth for Human and Humanity</h2>
+            <p>We received a request to reset your password.</p>
+            <div style="background-color: #F3F4F6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 0; font-size: 14px; color: #6B7280; text-transform: uppercase; font-weight: bold;">Your One-Time Password</p>
+              <h1 style="margin: 10px 0 0; font-size: 32px; letter-spacing: 4px; color: #111827;">${otp}</h1>
+            </div>
+            <p>This code will expire in 15 minutes.</p>
+          </div>
+        `
+      });
+    }
+
+    res.status(200).json({ message: "If that email exists, an OTP has been sent." });
+  } catch (error: any) {
+    console.error("[FORGOT PASSWORD ERROR]", error);
+    res.status(500).json({ error: "Failed to process reset request" });
+  }
+});
+
+app.post("/api/users/verify-otp", async (req: any, res: any) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
+
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' } }
+    });
+
+    if (!user || !user.resetOtp || !user.resetOtpExpiry || new Date() > user.resetOtpExpiry) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    const isValidOtp = await bcrypt.compare(otp, user.resetOtp);
+    if (!isValidOtp) return res.status(400).json({ error: "Invalid OTP" });
+
+    res.status(200).json({ message: "OTP Verified" });
+  } catch (error: any) {
+    res.status(500).json({ error: "Verification failed" });
+  }
+});
+
+app.post("/api/users/reset-password", async (req: any, res: any) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: "Email, OTP, and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+    });
+
+    if (!user || !user.resetOtp || !user.resetOtpExpiry) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    // Check expiration
+    if (new Date() > user.resetOtpExpiry) {
+      return res.status(400).json({ error: "OTP has expired" });
+    }
+
+    // Validate OTP
+    const isValidOtp = await bcrypt.compare(otp, user.resetOtp);
+    if (!isValidOtp) {
+      return res.status(400).json({ error: "Invalid OTP" });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(newPassword, salt);
+
+    // Update the password and clear the OTP fields
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: passwordHash,
+        resetOtp: null,
+        resetOtpExpiry: null
+      }
+    });
+
+    res.status(200).json({ message: "Password reset successfully. You can now log in." });
+  } catch (error: any) {
+    console.error("[RESET PASSWORD ERROR]", error);
+    res.status(500).json({ error: "Failed to reset password" });
   }
 });
 

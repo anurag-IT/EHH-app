@@ -111,11 +111,12 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages" | "notifications">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | "reset" | "new_password">("login");
   const [activeChatUser, setActiveChatUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [otp, setOtp] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
@@ -248,6 +249,50 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     
     setAuthLoading(true);
     try {
+      if (authMode === "forgot") {
+        await api.post("/api/users/forgot-password", { email: email.trim().toLowerCase() });
+        toast.info("An OTP has been dispatched checking our records.");
+        setAuthMode("reset");
+        return;
+      }
+      
+      if (authMode === "reset") {
+        await api.post("/api/users/verify-otp", { 
+          email: email.trim().toLowerCase(),
+          otp 
+        });
+        toast.success("OTP Verified. You may now enter your new password.");
+        setAuthMode("new_password");
+        return;
+      }
+
+      if (authMode === "new_password") {
+        await api.post("/api/users/reset-password", { 
+          email: email.trim().toLowerCase(),
+          otp,
+          newPassword: password
+        });
+        toast.success("Password reset successful. Logging you in automatically...");
+        
+        // Auto-login to give a smooth experience
+        const res = await api.post("/api/users/login", {
+          email: email.trim().toLowerCase(),
+          password
+        });
+        
+        const { token, user: userData } = res.data;
+        const minimalUser = { id: userData.id, name: userData.name, avatar: userData.avatar, role: userData.role };
+        setUser(userData);
+        localStorage.setItem("ehh_token", token);
+        localStorage.setItem("ehh_user", JSON.stringify(minimalUser));
+        
+        setAuthMode("login");
+        setOtp("");
+        setPassword("");
+        setView("feed");
+        return;
+      }
+
       const endpoint = authMode === "register" ? "/api/users/register" : "/api/users/login";
       const res = await api.post(endpoint, { 
         name: name.trim(), 
@@ -342,29 +387,51 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   />
                 </div>
               )}
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Email Address</label>
-                <input 
-                  type="email" 
-                  required 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
-                  placeholder="EHH@gmail.com"
-                />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Security Password</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
-                  placeholder="••••••••"
-                />
-              </div>
+              {(authMode === "login" || authMode === "register" || authMode === "forgot") && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Email Address</label>
+                  <input 
+                    type="email" 
+                    required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
+                    placeholder="EHH@gmail.com"
+                  />
+                </div>
+              )}
+
+              {authMode === "reset" && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Enter OTP Code from Email</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-green-400 outline-none tracking-[0.5em] text-center text-xl shadow-inner focus:border-green-500/50"
+                    placeholder="123456"
+                    maxLength={6}
+                  />
+                </div>
+              )}
+
+              {(authMode === "login" || authMode === "register" || authMode === "new_password") && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">
+                    {authMode === "new_password" ? "Your New Password" : "Security Password"}
+                  </label>
+                  <input 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
+                    placeholder="••••••••"
+                  />
+                </div>
+              )}
               
               <button 
                 disabled={authLoading}
@@ -375,7 +442,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                     <div className="w-6 h-6 border-4 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
                   ) : (
                     <>
-                      {authMode === "login" ? "Login" : "SignUp"}
+                      {authMode === "login" ? "Login" : authMode === "register" ? "SignUp" : authMode === "forgot" ? "Send Code" : authMode === "reset" ? "Verify Code" : "Update & Login"}
                       <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
@@ -383,13 +450,23 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               </button>
             </form>
             
-            <div className="mt-12 flex flex-col items-center">
+            <div className="mt-12 flex flex-col items-center gap-4">
               <button 
                 onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
                 className="text-sm text-slate-400 hover:text-green-500 font-bold transition-all"
               >
-                {authMode === "login" ? "New to EHH? Signup" : "Already EHH member? Login"}
+                {authMode === "login" || authMode === "forgot" || authMode === "reset" ? "New to EHH? Signup" : "Already EHH member? Login"}
               </button>
+
+              {(authMode === "login" || authMode === "register") && (
+                <button 
+                  onClick={() => setAuthMode("forgot")}
+                  className="text-xs text-red-400 hover:text-red-300 transition-all font-bold tracking-wider uppercase"
+                >
+                  Forgot your password?
+                </button>
+              )}
+
               <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
                 <span className="h-[1px] w-8 bg-slate-700" />
                 <span>EHH | Earth for human and humanity</span>
