@@ -115,20 +115,6 @@ const getUserIdFromRequest = (req: express.Request): number | null => {
   return null;
 };
 
-const getUserIdFromRequest = (req: express.Request): number | null => {
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    try {
-      const token = authHeader.split(" ")[1];
-      if (!process.env.JWT_SECRET) return null;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET) as { userId: number };
-      return decoded.userId;
-    } catch (e) {
-      return null;
-    }
-  }
-  return null;
-};
 
 function generateUniqueId() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
