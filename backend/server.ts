@@ -440,21 +440,25 @@ app.post("/api/users/reset-password", async (req: any, res: any) => {
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters long" });
+      return res.status(400).json({ error: "Password must be at least 6 characters long." });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
     const user = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+      where: { email: normalizedEmail }
     });
 
-    if (!user || !user.resetOtp || !user.resetOtpExpiry) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
+    if (!user) {
+      return res.status(400).json({ error: "User not found." });
+    }
+
+    if (!user.resetOtp || !user.resetOtpExpiry) {
+      return res.status(400).json({ error: "No active reset request found for this email." });
     }
 
     // Check expiration
     if (new Date() > user.resetOtpExpiry) {
-      return res.status(400).json({ error: "OTP has expired" });
+      return res.status(400).json({ error: "OTP has expired. Please request a new one." });
     }
 
     // Check if OTP is locked (5 failed attempts = 30 min lockout)
@@ -462,8 +466,8 @@ app.post("/api/users/reset-password", async (req: any, res: any) => {
       return res.status(429).json({ error: "Too many failed attempts. Try again in 30 minutes." });
     }
 
-    // Validate OTP
-    const isValidOtp = await bcrypt.compare(otp, user.resetOtp);
+    // Validate OTP - ensuring otp is treated as string for bcrypt
+    const isValidOtp = await bcrypt.compare(otp.toString(), user.resetOtp);
     if (!isValidOtp) {
       const newAttempts = (user.resetOtpAttempts || 0) + 1;
       await prisma.user.update({
