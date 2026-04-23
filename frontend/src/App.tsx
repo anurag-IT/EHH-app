@@ -322,7 +322,8 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         id: userData.id,
         name: userData.name,
         avatar: userData.avatar,
-        role: userData.role
+        role: userData.role,
+        status: userData.status
       };
 
       setUser(userData);

@@ -13,8 +13,8 @@ export default function LostFoundPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
-  const userStr = localStorage.getItem("social_user");
-  const isBanned = userStr ? JSON.parse(userStr).status !== "ACTIVE" : true;
+  const userStr = localStorage.getItem("ehh_user");
+  const isBanned = userStr ? (JSON.parse(userStr).status === "BANNED" || JSON.parse(userStr).status === "PERMANENT_BAN") : false;
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();

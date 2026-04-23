@@ -27,8 +27,8 @@ export default function UploadPage({ onComplete, userId }: UploadPageProps) {
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const userStr = localStorage.getItem("social_user");
-  const isBanned = userStr ? JSON.parse(userStr).status !== "ACTIVE" : true;
+  const userStr = localStorage.getItem("ehh_user");
+  const isBanned = userStr ? (JSON.parse(userStr).status === "BANNED" || JSON.parse(userStr).status === "PERMANENT_BAN") : false;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);

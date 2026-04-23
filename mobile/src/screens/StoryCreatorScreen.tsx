@@ -15,9 +15,8 @@ import {
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import ViewShot from "react-native-view-shot";
-import { GestureHandlerRootView, PanGestureHandler, PinchGestureHandler, State } from "react-native-gesture-handler";
+import { GestureHandlerRootView, GestureDetector, Gesture } from "react-native-gesture-handler";
 import Animated, { 
-  useAnimatedGestureHandler, 
   useAnimatedStyle, 
   useSharedValue, 
   withSpring 
@@ -49,23 +48,27 @@ const DraggableItem = ({ children, initialX = 0, initialY = 0 }: any) => {
   const x = useSharedValue(initialX);
   const y = useSharedValue(initialY);
   const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const context = useSharedValue({ x: 0, y: 0 });
 
-  const panHandler = useAnimatedGestureHandler({
-    onStart: (_, ctx: any) => {
-      ctx.startX = x.value;
-      ctx.startY = y.value;
-    },
-    onActive: (event, ctx: any) => {
-      x.value = ctx.startX + event.translationX;
-      y.value = ctx.startY + event.translationY;
-    },
-  });
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      context.value = { x: x.value, y: y.value };
+    })
+    .onUpdate((event) => {
+      x.value = context.value.x + event.translationX;
+      y.value = context.value.y + event.translationY;
+    });
 
-  const pinchHandler = useAnimatedGestureHandler({
-    onActive: (event) => {
-      scale.value = event.scale;
-    },
-  });
+  const pinchGesture = Gesture.Pinch()
+    .onUpdate((event) => {
+      scale.value = savedScale.value * event.scale;
+    })
+    .onEnd(() => {
+      savedScale.value = scale.value;
+    });
+
+  const composed = Gesture.Simultaneous(panGesture, pinchGesture);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -77,15 +80,11 @@ const DraggableItem = ({ children, initialX = 0, initialY = 0 }: any) => {
   }));
 
   return (
-    <PanGestureHandler onGestureEvent={panHandler}>
-      <Animated.View>
-        <PinchGestureHandler onGestureEvent={pinchHandler}>
-          <Animated.View style={animatedStyle}>
-            {children}
-          </Animated.View>
-        </PinchGestureHandler>
+    <GestureDetector gesture={composed}>
+      <Animated.View style={animatedStyle}>
+        {children}
       </Animated.View>
-    </PanGestureHandler>
+    </GestureDetector>
   );
 };
 

@@ -138,9 +138,9 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
   const postImages = post.imageUrls && post.imageUrls.length > 0 ? post.imageUrls.map(url => ({ url })) : [{ url: post.imageUrl || "" }];
 
-  const currentUserStr = localStorage.getItem("social_user");
-  const currentUser: User = currentUserStr ? JSON.parse(currentUserStr) : ({} as User);
-  const isBanned = currentUser.status !== "ACTIVE";
+  const currentUserStr = localStorage.getItem("ehh_user");
+  const currentUser: any = currentUserStr ? JSON.parse(currentUserStr) : {};
+  const isBanned = currentUser.status === "BANNED" || currentUser.status === "PERMANENT_BAN";
 
   const handleLike = useCallback(async () => {
     if (isBanned || isSyncing.current) return;

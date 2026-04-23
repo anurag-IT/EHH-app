@@ -14,7 +14,7 @@ export default function StoriesRow() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentUserStr = localStorage.getItem("social_user");
+  const currentUserStr = localStorage.getItem("ehh_user");
   const currentUser: User = currentUserStr ? JSON.parse(currentUserStr) : ({} as User);
 
   const fetchStories = async () => {
