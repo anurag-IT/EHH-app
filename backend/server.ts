@@ -275,7 +275,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     
     email = email.trim().toLowerCase();
     const user = await prisma.user.findFirst({ 
-      where: { email: { equals: email, mode: 'insensitive' } } 
+      where: { email } 
     });
 
     if (!user) {
@@ -323,7 +323,7 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
 
     const normalizedEmail = email.trim().toLowerCase();
     const user = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+      where: { email: normalizedEmail }
     });
 
     if (!user) {
@@ -389,7 +389,7 @@ app.post("/api/users/verify-otp", async (req: any, res: any) => {
     if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
 
     const user = await prisma.user.findFirst({
-      where: { email: { equals: email.trim().toLowerCase(), mode: 'insensitive' } }
+      where: { email: email.trim().toLowerCase() }
     });
 
     if (!user || !user.resetOtp || !user.resetOtpExpiry || new Date() > user.resetOtpExpiry) {
