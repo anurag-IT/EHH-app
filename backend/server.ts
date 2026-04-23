@@ -1684,6 +1684,23 @@ app.get("/api/emergency-db-fix", async (req: any, res: any) => {
   }
 });
 
+app.get("/api/make-me-admin", async (req: any, res: any) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const updatedUser = await prisma.user.update({
+      where: { email: email.toString().toLowerCase() },
+      data: { role: 'ADMIN' }
+    });
+
+    res.json({ message: `User ${updatedUser.email} promoted to ADMIN successfully.` });
+  } catch (error: any) {
+    console.error("[PROMOTION FAILED]", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/db-test", async (req: any, res: any) => {
   try {
     const users = await prisma.user.findMany({ take: 5 });
