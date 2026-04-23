@@ -33,8 +33,9 @@ export const SocketProvider: React.FC<{ user: User | null; children: React.React
       return;
     }
 
-    // Use the origin directly - Vite proxy in vite.config.ts will handle /socket.io
-    const newSocket = io(window.location.origin, {
+    // Use the backend API URL instead of window.location.origin
+    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    const newSocket = io(socketUrl, {
       path: '/socket.io',
       transports: ['polling', 'websocket'],
       reconnectionAttempts: 5,
