@@ -279,7 +279,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     });
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
     }
 
     if (!user.password) {
@@ -291,7 +291,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "WRONG_PASSWORD" });
     }
 
     if (!process.env.JWT_SECRET) {
@@ -1218,8 +1218,6 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
     const followingId = parseInt(req.params.id);
     const followerId = req.user.id;
     if (followerId === followingId) return res.status(400).json({ error: "Cannot follow yourself" });
-      const existing = await prisma.userFollow.findUnique({ where: { followerId_followingId: { followerId, followingId } } });
-      
       if (existing) {
         await prisma.userFollow.delete({ where: { id: existing.id } });
         res.json({ following: false, status: null });

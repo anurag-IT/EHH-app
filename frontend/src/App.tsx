@@ -341,7 +341,14 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         setAuthMode("forgot");
         setPassword("");
       } else {
-        toast.error(err.response?.data?.error || "Authentication failed. Check your credentials.");
+        const errorMsg = err.response?.data?.error;
+        if (errorMsg === "USER_NOT_FOUND") {
+          toast.error("You are not registered yet to EHH. Please click the New to EHH button and register your account!");
+        } else if (errorMsg === "WRONG_PASSWORD") {
+          toast.error("Password not match or password is wrong, try again.");
+        } else {
+          toast.error(errorMsg || "Authentication failed. Check your credentials.");
+        }
       }
     } finally {
       setAuthLoading(false);
