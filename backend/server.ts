@@ -31,7 +31,9 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3001',
   process.env.FRONTEND_URL,
-  process.env.FRONTEND_URL?.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : null
+  process.env.ALLOWED_ORIGINS,
+  process.env.FRONTEND_URL?.endsWith('/') ? process.env.FRONTEND_URL.slice(0, -1) : null,
+  process.env.ALLOWED_ORIGINS?.endsWith('/') ? process.env.ALLOWED_ORIGINS.slice(0, -1) : null
 ].filter(Boolean) as string[];
 
 const io = new Server(httpServer, {
