@@ -52,7 +52,8 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
     callback(new Error('CORS policy violation'));
   },
-  credentials: true
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key']
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -213,6 +214,7 @@ const checkAdminMode = (req: express.Request, res: express.Response, next: expre
 const adminKeyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const key = req.headers['x-admin-key'];
   if (!key || key !== process.env.ADMIN_SECRET_KEY) {
+    console.warn(`[ADMIN ACCESS DENIED] Received key: ${key}, Expected: ${process.env.ADMIN_SECRET_KEY}`);
     return res.status(403).json({ error: 'Access denied' });
   }
   next();

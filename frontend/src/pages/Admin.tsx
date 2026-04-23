@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 
 const getHeaders = () => {
-  return { "x-admin-key": import.meta.env.VITE_ADMIN_KEY };
+  const key = import.meta.env.VITE_ADMIN_KEY;
+  console.log("DEBUG: Sending admin request with key:", key ? "PRESENT" : "MISSING");
+  return { "x-admin-key": key };
 };
 
 export default function Admin({ onComplete }: { onComplete: () => void }) {
