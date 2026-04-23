@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node dist/server.js",
-    "build": "prisma generate && tsc && node copy-prisma.js",
+    "build": "prisma generate && tsc && node copy-prisma.js && prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy"
   },
