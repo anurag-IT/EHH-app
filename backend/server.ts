@@ -1631,6 +1631,7 @@ app.get("/api/health-check", async (req: any, res: any) => {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ 
       status: "OK", 
+      version: "1.0.5",
       database: "CONNECTED",
       env: {
         hasDbUrl: !!process.env.DATABASE_URL,
