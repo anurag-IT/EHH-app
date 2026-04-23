@@ -242,8 +242,17 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     e.preventDefault();
     if (authLoading) return;
 
-    if (!email || !password || (authMode === "register" && !name)) {
-      toast.error("Please fill all required fields");
+    const requiresPassword = authMode === "login" || authMode === "register" || authMode === "new_password";
+    if (!email && authMode !== "reset" && authMode !== "new_password") {
+      toast.error("Email is required");
+      return;
+    }
+    if (requiresPassword && !password) {
+      toast.error("Password is required");
+      return;
+    }
+    if (authMode === "register" && !name) {
+      toast.error("Name is required");
       return;
     }
     
@@ -326,7 +335,13 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       setView("feed");
       toast.success(`Welcome, ${userData.name}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Authentication failed. Check your credentials.");
+      if (err.response?.data?.resetRequired) {
+        toast.info("Security update required: Use Forgot Password to set a new one.");
+        setAuthMode("forgot");
+        setPassword("");
+      } else {
+        toast.error(err.response?.data?.error || "Authentication failed. Check your credentials.");
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -424,12 +439,32 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   </label>
                   <input 
                     type="password" 
-                    required 
+                    required={authMode === "login" || authMode === "register" || authMode === "new_password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
                     placeholder="••••••••"
                   />
+                  {authMode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode("forgot"); setPassword(""); }}
+                      className="text-xs text-right w-full text-indigo-400 hover:text-indigo-300 mt-1 pr-1"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+              )}
+              
+              {(authMode === "forgot" || authMode === "reset" || authMode === "new_password") && (
+                <div className="flex gap-2 justify-center mb-4">
+                  {["forgot", "reset", "new_password"].map((step, i) => (
+                    <div key={step} className={`h-1.5 w-8 rounded-full transition-all ${
+                      authMode === step ? "bg-indigo-500" : 
+                      ["forgot","reset","new_password"].indexOf(authMode) > i ? "bg-green-500" : "bg-slate-700"
+                    }`} />
+                  ))}
                 </div>
               )}
               
@@ -448,6 +483,16 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   )}
                 </span>
               </button>
+
+              {(authMode === "forgot" || authMode === "reset" || authMode === "new_password") && (
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode("login"); setOtp(""); setPassword(""); }}
+                  className="text-xs text-slate-500 hover:text-slate-300 mt-2 w-full text-center"
+                >
+                  ← Back to Login
+                </button>
+              )}
             </form>
             
             <div className="mt-12 flex flex-col items-center gap-4">
@@ -457,15 +502,6 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               >
                 {authMode === "login" || authMode === "forgot" || authMode === "reset" ? "New to EHH? Signup" : "Already EHH member? Login"}
               </button>
-
-              {(authMode === "login" || authMode === "register") && (
-                <button 
-                  onClick={() => setAuthMode("forgot")}
-                  className="text-xs text-red-400 hover:text-red-300 transition-all font-bold tracking-wider uppercase"
-                >
-                  Forgot your password?
-                </button>
-              )}
 
               <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
                 <span className="h-[1px] w-8 bg-slate-700" />

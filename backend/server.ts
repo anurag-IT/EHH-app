@@ -258,7 +258,8 @@ app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
     });
     res.json(user);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error("[REGISTER ERROR]", error);
+    res.status(400).json({ error: error.message || "Registration failed" });
   }
 });
 
@@ -277,7 +278,10 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     }
 
     if (!user.password) {
-      return res.status(400).json({ error: "Reset password required" });
+      return res.status(400).json({ 
+        error: "Reset password required", 
+        resetRequired: true 
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -341,7 +345,7 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
     // Send the email OR log to console if no SMTP is configured
     if (resend) {
       await resend.emails.send({
-        from: 'EHH App <noreply@yourdomain.com>', // Use your verified domain
+        from: 'EHH Security <onboarding@resend.dev>', // Resend sandbox email for testing
         to: user.email,
         subject: 'Your EHH Password Reset Code',
         html: `
