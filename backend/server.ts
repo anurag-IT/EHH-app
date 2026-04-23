@@ -496,7 +496,7 @@ app.post("/api/users/reset-password", async (req: any, res: any) => {
     res.status(200).json({ message: "Password reset successfully. You can now log in." });
   } catch (error: any) {
     console.error("[RESET PASSWORD ERROR]", error);
-    res.status(500).json({ error: "Failed to reset password" });
+    res.status(500).json({ error: `Reset error: ${error.message}` });
   }
 });
 
