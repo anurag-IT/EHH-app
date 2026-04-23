@@ -76,7 +76,7 @@ const loginLimiter = rateLimit({
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 10 });
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60_000, // 1 hour window
-  max: 3, // max 3 OTP emails per IP per hour
+  max: 100, // Increased for development/testing convenience
   message: { error: "Too many reset requests. Please try again in 1 hour." },
   standardHeaders: true,
   legacyHeaders: false
@@ -360,9 +360,10 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
           </div>
         `
       });
-    } else {
-      console.log(`\n\n[DEV MODE] OTP generated for ${user.email} is: ${otp}\n\n`);
     }
+    
+    // Always log to terminal in development for easy access
+    console.log(`\n\n[OTP DEBUG] Code for ${user.email} is: ${otp}\n\n`);
 
     res.status(200).json({ message: "If that email exists, an OTP has been sent." });
   } catch (error: any) {
