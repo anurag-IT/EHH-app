@@ -1625,6 +1625,30 @@ app.delete("/admin/delete/:id", checkAdminMode, async (req: any, res: any) => {
   }
 });
 
+app.get("/api/health-check", async (req: any, res: any) => {
+  try {
+    // Test DB connection
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ 
+      status: "OK", 
+      database: "CONNECTED",
+      env: {
+        hasDbUrl: !!process.env.DATABASE_URL,
+        hasDirectUrl: !!process.env.DIRECT_URL,
+        nodeEnv: process.env.NODE_ENV
+      }
+    });
+  } catch (error: any) {
+    console.error("[HEALTH CHECK FAILED]", error);
+    res.status(500).json({ 
+      status: "ERROR", 
+      database: "DISCONNECTED",
+      error: error.message,
+      suggestion: "Check your DATABASE_URL and DIRECT_URL on Render."
+    });
+  }
+});
+
 app.get("/db-test", async (req: any, res: any) => {
   try {
     const users = await prisma.user.findMany({ take: 5 });
