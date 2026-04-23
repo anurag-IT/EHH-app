@@ -1631,7 +1631,7 @@ app.get("/api/health-check", async (req: any, res: any) => {
     await prisma.$queryRaw`SELECT 1`;
     res.json({ 
       status: "OK", 
-      version: "1.0.5",
+      version: "1.0.6",
       database: "CONNECTED",
       env: {
         hasDbUrl: !!process.env.DATABASE_URL,
@@ -1647,6 +1647,20 @@ app.get("/api/health-check", async (req: any, res: any) => {
       error: error.message,
       suggestion: "Check your DATABASE_URL and DIRECT_URL on Render."
     });
+  }
+});
+
+app.get("/api/emergency-db-fix", async (req: any, res: any) => {
+  try {
+    // Force add the password column if missing
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtp" TEXT;`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtpExpiry" TIMESTAMP;`);
+    
+    res.json({ message: "Database fix applied successfully. Missing columns added." });
+  } catch (error: any) {
+    console.error("[FIX FAILED]", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
