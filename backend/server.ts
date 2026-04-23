@@ -348,23 +348,29 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
     });
 
     // Send the email OR log to console if no SMTP is configured
-    if (resend) {
-      await resend.emails.send({
-        from: 'EHH Security <onboarding@resend.dev>', // Resend sandbox email for testing
-        to: user.email,
-        subject: 'Your EHH Password Reset Code',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #4F46E5;">EHH — Password Reset</h2>
-            <p>Your one-time password reset code is:</p>
-            <div style="background: #F3F4F6; padding: 24px; text-align: center; border-radius: 8px; margin: 20px 0;">
-              <h1 style="font-size: 36px; letter-spacing: 8px; color: #111827; margin: 0;">${otp}</h1>
+    try {
+      if (resend) {
+        await resend.emails.send({
+          from: 'EHH Security <onboarding@resend.dev>', // Resend sandbox email for testing
+          to: user.email,
+          subject: 'Your EHH Password Reset Code',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #4F46E5;">EHH — Password Reset</h2>
+              <p>Your one-time password reset code is:</p>
+              <div style="background: #F3F4F6; padding: 24px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                <h1 style="font-size: 36px; letter-spacing: 8px; color: #111827; margin: 0;">${otp}</h1>
+              </div>
+              <p style="color: #6B7280;">This code expires in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+              <p style="color: #6B7280; font-size: 12px;">If you didn't request this, ignore this email.</p>
             </div>
-            <p style="color: #6B7280;">This code expires in <strong>15 minutes</strong>. Do not share it with anyone.</p>
-            <p style="color: #6B7280; font-size: 12px;">If you didn't request this, ignore this email.</p>
-          </div>
-        `
-      });
+          `
+        });
+      }
+    } catch (emailError: any) {
+      console.error("[EMAIL SENDING ERROR]", emailError);
+      // We don't throw the error here so the user gets a 200 response
+      // and can still find the OTP in the server logs for development.
     }
     
     // Always log to terminal in development for easy access
