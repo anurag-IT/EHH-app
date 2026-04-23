@@ -1218,7 +1218,11 @@ app.post("/api/users/:id/follow", checkUserRestriction, async (req: any, res: an
     const followingId = parseInt(req.params.id);
     const followerId = req.user.id;
     if (followerId === followingId) return res.status(400).json({ error: "Cannot follow yourself" });
-      if (existing) {
+    const existing = await prisma.userFollow.findUnique({ 
+      where: { followerId_followingId: { followerId, followingId } } 
+    });
+
+    if (existing) {
         await prisma.userFollow.delete({ where: { id: existing.id } });
         res.json({ following: false, status: null });
       } else {
