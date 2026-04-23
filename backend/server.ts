@@ -311,7 +311,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     });
   } catch (error: any) {
     console.error("[LOGIN ERROR]", error);
-    res.status(500).json({ error: "Authentication system failure" });
+    res.status(500).json({ error: `Login error: ${error.message}` });
   }
 });
 
@@ -379,7 +379,7 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
     res.status(200).json({ message: "If that email exists, an OTP has been sent." });
   } catch (error: any) {
     console.error("[FORGOT PASSWORD ERROR]", error);
-    res.status(500).json({ error: "Failed to process reset request" });
+    res.status(500).json({ error: `Reset failure: ${error.message}` });
   }
 });
 
