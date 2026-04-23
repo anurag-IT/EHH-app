@@ -217,7 +217,7 @@ const checkAdminMode = (req: express.Request, res: express.Response, next: expre
 const adminKeyMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const key = req.headers['x-admin-key'];
   if (!key || key !== process.env.ADMIN_SECRET_KEY) {
-    console.warn(`[ADMIN ACCESS DENIED] Received key: ${key}, Expected: ${process.env.ADMIN_SECRET_KEY}`);
+    console.warn(`[ADMIN ACCESS DENIED] Invalid or missing admin key from origin: ${req.headers.origin}`);
     return res.status(403).json({ error: 'Access denied' });
   }
   next();
