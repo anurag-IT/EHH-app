@@ -1652,12 +1652,26 @@ app.get("/api/health-check", async (req: any, res: any) => {
 
 app.get("/api/emergency-db-fix", async (req: any, res: any) => {
   try {
-    // Force add the password column if missing
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password" TEXT;`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtp" TEXT;`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtpExpiry" TIMESTAMP;`);
+    // Force add all missing columns
+    const commands = [
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "password" TEXT;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtp" TEXT;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtpExpiry" TIMESTAMP;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtpAttempts" INTEGER DEFAULT 0;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "resetOtpLockedAt" TIMESTAMP;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "status" TEXT DEFAULT 'ACTIVE';`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banUntil" TIMESTAMP;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banCount" INTEGER DEFAULT 0;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "banReason" TEXT;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isRestricted" BOOLEAN DEFAULT FALSE;`,
+      `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastSeen" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`
+    ];
+
+    for (const sql of commands) {
+      await prisma.$executeRawUnsafe(sql);
+    }
     
-    res.json({ message: "Database fix applied successfully. Missing columns added." });
+    res.json({ message: "All missing columns have been forced into the database successfully." });
   } catch (error: any) {
     console.error("[FIX FAILED]", error);
     res.status(500).json({ error: error.message });
