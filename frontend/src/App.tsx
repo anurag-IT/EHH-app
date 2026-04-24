@@ -127,6 +127,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
+  const [shakeForm, setShakeForm] = useState(false);
 
   // Auto-refresh on version mismatch to clear stale mobile cache
   useEffect(() => {
@@ -349,12 +350,21 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         setPassword("");
       } else {
         const errorMsg = err.response?.data?.error;
+        if (errorMsg === "USER_NOT_FOUND" || errorMsg === "WRONG_PASSWORD") {
+          setShakeForm(true);
+          setTimeout(() => setShakeForm(false), 600);
+        }
+
         if (errorMsg === "USER_NOT_FOUND") {
-          toast.error("You are not registered yet to EHH. Please click the New to EHH button and register your account!");
+          toast.error("No account found with this email. Please sign up first!", { icon: "👤" });
         } else if (errorMsg === "WRONG_PASSWORD") {
-          toast.error("Password not match or password is wrong, try again.");
+          toast.error("Wrong password. Please try again or use Forgot Password.", { icon: "🔒" });
+        } else if (errorMsg?.includes("already exists")) {
+          toast.error("This email is already registered. Please log in instead.", { icon: "📧" });
+        } else if (errorMsg?.includes("6 characters")) {
+          toast.error("Password must be at least 6 characters long.", { icon: "⚠️" });
         } else {
-          toast.error(errorMsg || "Authentication failed. Check your credentials.");
+          toast.error(errorMsg || "Something went wrong. Please try again.", { icon: "❌" });
         }
       }
     } finally {
@@ -403,7 +413,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for human and humanity</p>
             </div>
             
-            <form onSubmit={handleAuth} className="space-y-6">
+            <form onSubmit={handleAuth} className={`space-y-6 ${shakeForm ? 'animate-shake' : ''}`}>
               {authMode === "register" && (
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">Full Name</label>
@@ -468,6 +478,22 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                     >
                       Forgot password?
                     </button>
+                  )}
+                  {authMode === "register" && password.length > 0 && (
+                    <div className="px-4 mt-1">
+                      <div className="flex gap-1 h-1">
+                        {[1,2,3,4].map(i => (
+                          <div key={i} className={`flex-1 rounded-full transition-all duration-300 ${
+                            password.length >= i * 3
+                              ? i <= 1 ? 'bg-red-500' : i <= 2 ? 'bg-yellow-500' : i <= 3 ? 'bg-blue-500' : 'bg-green-500'
+                              : 'bg-slate-700'
+                          }`} />
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1 ml-1">
+                        {password.length < 6 ? 'Too short' : password.length < 9 ? 'Weak' : password.length < 12 ? 'Good' : 'Strong'}
+                      </p>
+                    </div>
                   )}
                 </div>
               )}
