@@ -25,7 +25,6 @@ import Admin from "./pages/Admin";
 import { User, Post } from "./types";
 import OptimizedImage from "./components/common/OptimizedImage";
 import { SocketProvider, useSocket } from "./context/SocketContext";
-import SplashScreen from "./components/SplashScreen";
 import StoriesRow from "./components/StoriesRow";
 
 // --- Modular Components (Lazy Loaded) ---
@@ -57,7 +56,6 @@ const PremiumLoader = () => (
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
@@ -95,17 +93,10 @@ export default function App() {
         }
       } catch (err) {
         console.error("Failed to restore session:", err);
-      } finally {
-        // Remove the hardcoded 2200ms delay — show app as soon as localStorage is read
-        setIsInitialized(true);
       }
     };
     initApp();
   }, []);
-
-  if (!isInitialized) {
-    return <SplashScreen />;
-  }
 
   return (
     <QueryClientProvider client={queryClient}>
