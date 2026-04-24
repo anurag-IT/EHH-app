@@ -112,7 +112,30 @@ const setCachedData = (key: string, data: any) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
 
-const upload = multer({ storage: multer.memoryStorage() });
+const ALLOWED_IMAGE_MIMETYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+  'image/avif',
+  'image/heic',
+  'image/heif'
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype.toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Only images are allowed.`));
+    }
+  },
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB max per file
+});
 
 const getUserIdFromRequest = (req: express.Request): number | null => {
   const authHeader = req.headers.authorization;
