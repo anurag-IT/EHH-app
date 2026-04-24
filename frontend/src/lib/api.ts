@@ -31,10 +31,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem("ehh_token");
       localStorage.removeItem("ehh_user");
-      // Optional: window.location.href = "/"; // Force full reload/redirect to clear state
-      // However, we'll let App.tsx handle the UI transition by setting user to null if possible
-      // or we can force a reload to be safe:
-      window.location.reload();
+      window.location.href = "/"; // Force full reload/redirect to clear state
     }
     return Promise.reject(error);
   }

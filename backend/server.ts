@@ -261,7 +261,18 @@ app.post("/api/users/register", authLimiter, async (req: any, res: any) => {
         status: true
       }
     });
-    res.json(user);
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not defined in environment");
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({ token, user });
   } catch (error: any) {
     console.error("[REGISTER ERROR]", error);
     res.status(400).json({ error: error.message || "Registration failed" });
@@ -301,7 +312,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '30d' }
     );
 
     const { password: _, ...userWithoutPassword } = user;
