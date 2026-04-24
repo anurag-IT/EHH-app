@@ -14,7 +14,9 @@ import {
   TrendingUp,
   Camera,
   Image as ImageIcon,
-  MessageCircle
+  MessageCircle,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast, ToastContainer } from "react-toastify";
@@ -128,6 +130,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
   const [shakeForm, setShakeForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Auto-refresh on version mismatch to clear stale mobile cache
   useEffect(() => {
@@ -356,15 +359,15 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         }
 
         if (errorMsg === "USER_NOT_FOUND") {
-          toast.error("No account found with this email. Please sign up first!", { icon: "👤" });
+          toast.error("No account found with this email. Please sign up first!", { icon: <span>👤</span> });
         } else if (errorMsg === "WRONG_PASSWORD") {
-          toast.error("Wrong password. Please try again or use Forgot Password.", { icon: "🔒" });
+          toast.error("Wrong password. Please try again or use Forgot Password.", { icon: <span>🔒</span> });
         } else if (errorMsg?.includes("already exists")) {
-          toast.error("This email is already registered. Please log in instead.", { icon: "📧" });
+          toast.error("This email is already registered. Please log in instead.", { icon: <span>📧</span> });
         } else if (errorMsg?.includes("6 characters")) {
-          toast.error("Password must be at least 6 characters long.", { icon: "⚠️" });
+          toast.error("Password must be at least 6 characters long.", { icon: <span>⚠️</span> });
         } else {
-          toast.error(errorMsg || "Something went wrong. Please try again.", { icon: "❌" });
+          toast.error(errorMsg || "Something went wrong. Please try again.", { icon: <span>❌</span> });
         }
       }
     } finally {
@@ -462,14 +465,23 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   <label className="text-[10px] font-bold uppercase text-slate-500 ml-4 tracking-widest">
                     {authMode === "new_password" ? "Your New Password" : "Security Password"}
                   </label>
-                  <input 
-                    type="password" 
-                    required={authMode === "login" || authMode === "register" || authMode === "new_password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)]"
-                    placeholder="••••••••"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required={authMode === "login" || authMode === "register" || authMode === "new_password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-7 py-4 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder:text-slate-500 focus:bg-slate-800 focus:border-green-500/50 outline-none transition-all duration-300 focus:shadow-[0_0_15px_rgba(34,197,94,0.15)] pr-14"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors p-1"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                   {authMode === "login" && (
                     <button
                       type="button"

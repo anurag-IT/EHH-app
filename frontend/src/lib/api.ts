@@ -28,7 +28,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect if it's a 401 AND it's NOT a login attempt
+    // This allows "Wrong Password" errors (which are 401) to show a toast instead of reloading the page
+    if (error.response?.status === 401 && !error.config.url.includes("/api/users/login")) {
       localStorage.removeItem("ehh_token");
       localStorage.removeItem("ehh_user");
       window.location.href = "/"; // Force full reload/redirect to clear state
