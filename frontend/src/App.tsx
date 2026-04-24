@@ -62,33 +62,40 @@ export default function App() {
       try {
         const token = localStorage.getItem("ehh_token");
         const savedUser = localStorage.getItem("ehh_user");
-        
+
         if (token && savedUser) {
+          // Immediately restore from localStorage — never show logged-out state first
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
-          
-          // Silently validate the session in the background
-          api.get(`/api/users/profile`).then((res) => {
+
+          // Validate token in background — but ONLY log out if token is truly invalid (401)
+          // NOT on network errors, timeouts, or server errors (500)
+          api.get(`/api/users/${parsedUser.id}/profile`).then((res) => {
             if (res.data && res.data.id) {
-              const minimalUser = {
+              setUser(res.data);
+              localStorage.setItem("ehh_user", JSON.stringify({
                 id: res.data.id,
                 name: res.data.name,
                 avatar: res.data.avatar,
-                role: res.data.role
-              };
-              setUser(res.data); // Full user for state
-              localStorage.setItem("ehh_user", JSON.stringify(minimalUser));
+                role: res.data.role,
+                status: res.data.status
+              }));
             }
-          }).catch(() => {
-            setUser(null);
-            localStorage.removeItem("ehh_token");
-            localStorage.removeItem("ehh_user");
+          }).catch((err) => {
+            // ONLY clear session if server explicitly says token is invalid
+            if (err.response?.status === 401) {
+              setUser(null);
+              localStorage.removeItem("ehh_token");
+              localStorage.removeItem("ehh_user");
+            }
+            // On 500, network error, timeout — keep user logged in and try again later
           });
         }
       } catch (err) {
         console.error("Failed to restore session:", err);
       } finally {
-        setTimeout(() => setIsInitialized(true), 2200);
+        // Remove the hardcoded 2200ms delay — show app as soon as localStorage is read
+        setIsInitialized(true);
       }
     };
     initApp();
