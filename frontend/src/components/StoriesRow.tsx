@@ -110,7 +110,7 @@ export default function StoriesRow() {
                 )}
              </div>
            </div>
-           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Your Signal</span>
+           <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-1">Your Signal</span>
            <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
         </div>
 
@@ -135,7 +135,7 @@ export default function StoriesRow() {
                 />
               </div>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors">
+            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest group-hover:text-white transition-colors mt-1">
               {group.user.name}
             </span>
           </motion.div>
