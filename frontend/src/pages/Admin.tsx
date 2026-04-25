@@ -64,6 +64,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
         
         <nav className="flex-1 space-y-2">
           <SidebarButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} icon={<LayoutDashboard size={20}/>} label="Overview" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "posts"} onClick={() => setActiveTab("posts")} icon={<Database size={20}/>} label="Network Signals" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "users"} onClick={() => setActiveTab("users")} icon={<Users size={20}/>} label="User Registry" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={20}/>} label="Incident Reports" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<SearchIcon size={20}/>} label="Signal Trace" collapsed={!sidebarOpen} />
@@ -92,7 +93,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
         <header className="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 bg-slate-950/50 backdrop-blur-3xl z-40">
            <div className="flex items-center gap-4">
               <h2 className="text-2xl font-black tracking-tighter uppercase italic text-white/90">
-                {activeTab === "dashboard" ? "Network Overview" : activeTab === "flags" ? "Incident Review" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                {activeTab === "dashboard" ? "Network Overview" : activeTab === "flags" ? "Incident Review" : activeTab === "posts" ? "Network Signals" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
               </h2>
            </div>
            
@@ -177,6 +178,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
               </motion.div>
             )}
 
+            {activeTab === "posts" && <NetworkSignals />}
             {activeTab === "users" && <UsersManager />}
             {activeTab === "flags" && <FlaggedContent />}
             {activeTab === "images" && <ImageTrace />}
@@ -474,23 +476,134 @@ function ImageTrace() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-             {/* Simple Match UI */}
-             <div className="p-8 bg-slate-950 rounded-3xl border border-white/5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Source Signal</p>
-                <img src={preview!} className="w-full rounded-2xl shadow-2xl" />
+          <div className="space-y-10 w-full text-left">
+             <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="w-full md:w-64 shrink-0">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Source Signal</p>
+                   <img src={preview!} className="w-full aspect-square object-cover rounded-2xl shadow-xl border border-white/5" />
+                </div>
+                <div className="flex-1 w-full bg-slate-950 p-8 rounded-3xl border border-white/5 flex flex-col justify-center">
+                   <div className="text-3xl font-black italic uppercase tracking-tighter text-white mb-2">
+                     {matchResult.matchCount} Matches Found
+                   </div>
+                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Across global network</p>
+                   {matchResult.matchCount > 0 && (
+                     <button 
+                        onClick={async () => {
+                          if(!confirm("CRITICAL: This will permanently delete ALL matching images across the platform. Proceed?")) return;
+                          try {
+                            const res = await api.delete(`/admin/delete/${matchResult.allMatches[0].postId}`, { headers: getHeaders() });
+                            toast.success(`Nuked ${res.data.count} identical images from the network!`);
+                            setMatchResult(null);
+                            setPreview(null);
+                            setFile(null);
+                          } catch(err) {
+                            toast.error("Wipe failed.");
+                          }
+                        }}
+                        className="mt-6 px-6 py-4 bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:bg-red-500 shadow-xl shadow-red-500/20 transition-all self-start flex items-center gap-2"
+                     >
+                        <Trash2 size={16} /> Nuke Entire Match Network
+                     </button>
+                   )}
+                </div>
              </div>
-             <div className="p-8 bg-slate-950 rounded-3xl border border-white/5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Best Match Encountered</p>
-                {matchResult.bestMatch ? (
-                   <img src={matchResult.bestMatch.previewUrl} className="w-full rounded-2xl shadow-2xl opacity-50" />
-                ) : (
-                   <div className="h-64 flex items-center justify-center text-green-500 font-black uppercase tracking-widest">Signal Unique</div>
-                )}
-             </div>
-             <button onClick={() => setMatchResult(null)} className="md:col-span-2 text-xs font-black text-green-500 uppercase tracking-widest hover:underline">Scan New Signal</button>
+
+             {matchResult.matchCount > 0 && (
+               <div className="space-y-6 pt-6 border-t border-white/5">
+                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Identified Clones</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     {matchResult.allMatches.map((m: any, idx: number) => (
+                        <div key={idx} className="relative group rounded-2xl overflow-hidden border border-white/10 aspect-square">
+                           <img src={m.previewUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-80" />
+                           <div className="absolute bottom-0 left-0 right-0 p-4 space-y-1">
+                              <div className="text-green-500 font-black text-xs">{m.similarity} Match</div>
+                              <div className="text-[8px] text-white/50 uppercase tracking-widest">By: {m.user}</div>
+                           </div>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+             )}
+
+             <button onClick={() => { setMatchResult(null); setPreview(null); setFile(null); }} className="w-full py-6 bg-slate-950 rounded-2xl text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] hover:text-white transition-colors border border-white/5">
+                Scan New Signal
+             </button>
           </div>
         )}
+      </div>
+    </motion.div>
+  );
+}
+
+function NetworkSignals() {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPosts = () => {
+    api.get("/admin/posts", { headers: getHeaders() })
+      .then(res => { setPosts(res.data); setLoading(false); })
+      .catch(() => { toast.error("Posts Load Failure"); setLoading(false); });
+  };
+
+  useEffect(() => { fetchPosts(); }, []);
+
+  const deletePost = async (id: number) => {
+    if (!confirm("Are you sure you want to permanently delete this post?")) return;
+    try {
+      await api.delete(`/admin/posts/${id}`, { headers: getHeaders() });
+      toast.success("Post deleted");
+      fetchPosts();
+    } catch {
+      toast.error("Failed to delete post");
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <div className="bg-slate-900/50 rounded-[3rem] border border-white/5 shadow-sm overflow-hidden backdrop-blur-xl">
+        <div className="px-10 py-8 border-b border-white/5 flex items-center justify-between">
+            <h3 className="font-black text-xl tracking-tighter uppercase italic flex items-center gap-4">
+              <Database className="text-green-500" size={24} />
+              Network Signals (Posts)
+            </h3>
+            <div className="text-[10px] font-black text-green-500 bg-green-500/10 px-6 py-2 rounded-full border border-green-500/20 uppercase tracking-widest">
+              {posts.length} Active Posts
+            </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-slate-950 text-slate-500 uppercase text-[9px] font-black tracking-[0.3em]">
+              <tr>
+                <th className="px-10 py-6">Image</th>
+                <th className="px-10 py-6">Caption</th>
+                <th className="px-10 py-6">Author</th>
+                <th className="px-10 py-6">Metrics</th>
+                <th className="px-10 py-6 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {posts.map((p) => (
+                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors group">
+                  <td className="px-10 py-4">
+                     <img src={p.imageUrl} alt="post" className="w-16 h-16 object-cover rounded-xl border border-white/10 group-hover:border-green-500/50 transition-all" />
+                  </td>
+                  <td className="px-10 py-4 text-slate-300 max-w-xs truncate">{p.caption || "No caption"}</td>
+                  <td className="px-10 py-4 font-bold">{p.user?.name || "Unknown"}</td>
+                  <td className="px-10 py-4 text-slate-400 text-xs">
+                     {p._count?.likes || 0} Likes · {p._count?.comments || 0} Comments
+                  </td>
+                  <td className="px-10 py-4 text-right">
+                     <button onClick={() => deletePost(p.id)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                        <Trash2 size={18} />
+                     </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </motion.div>
   );
@@ -499,6 +612,7 @@ function ImageTrace() {
 function FlaggedContent() {
   const [flags, setFlags] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banModal, setBanModal] = useState<any>(null);
 
   const fetchFlags = () => {
     api.get("/admin/flags", { headers: getHeaders() })
@@ -515,6 +629,17 @@ function FlaggedContent() {
       fetchFlags();
     } catch {
       toast.error("Resolution Failed");
+    }
+  };
+
+  const handleBan = async (id: number, durationDays: number, reason: string) => {
+    try {
+      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
+      toast.success(res.data.message || "User restricted successfully.");
+      setBanModal(null);
+      fetchFlags();
+    } catch {
+      toast.error("Restriction failed.");
     }
   };
 
@@ -549,16 +674,77 @@ function FlaggedContent() {
                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Violation: {flag.reason}</span>
                   </div>
                   <p className="text-[10px] text-slate-400 font-bold leading-relaxed italic">"{flag.post?.caption || "No Context"}"</p>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-2">Author: {flag.user?.name || "Unknown"}</p>
                </div>
 
-               <div className="mt-auto grid grid-cols-2 gap-3 pt-6 border-t border-white/5">
-                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-slate-950 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest border border-white/5 hover:text-white transition-all">Dismiss</button>
-                  <button onClick={() => resolveFlag(flag.id, "WIPE")} className="py-3 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-500 transition-all">Nuke Signal</button>
+               <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-white/5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-slate-950 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest border border-white/5 hover:text-white transition-all">Dismiss</button>
+                    <button onClick={() => resolveFlag(flag.id, "WIPE")} className="py-3 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-500 transition-all">Nuke Signal</button>
+                  </div>
+                  {flag.user && (
+                    <button onClick={() => setBanModal(flag.user)} className="py-3 bg-orange-500/10 text-orange-500 rounded-xl font-black text-[9px] uppercase tracking-widest border border-orange-500/20 hover:bg-orange-500 hover:text-white transition-all w-full flex justify-center items-center gap-2">
+                      <UserX size={14} /> Restrict User
+                    </button>
+                  )}
                </div>
             </div>
           </motion.div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {banModal && (
+          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center z-[200] p-4">
+            <motion.div 
+               initial={{ scale: 0.95, opacity: 0 }} 
+               animate={{ scale: 1, opacity: 1 }} 
+               exit={{ scale: 0.95, opacity: 0 }}
+               className="bg-slate-900 border border-white/10 p-12 rounded-[3rem] w-full max-w-lg shadow-2xl space-y-8"
+            >
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black text-red-500 uppercase tracking-tighter italic">Restrict Node</h3>
+                <p className="text-xs text-slate-400 mb-2">User: <span className="font-bold text-white">{banModal.name}</span></p>
+              </div>
+              
+              <form onSubmit={e => {
+                e.preventDefault();
+                const duration = parseInt((e.target as any).duration.value);
+                const reason = (e.target as any).reason.value;
+                handleBan(banModal.id, duration, reason);
+              }} className="space-y-8">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suspension Duration</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { v: 1, l: '1 Day', sub: 'Strike 1', color: 'peer-checked:bg-yellow-500' },
+                      { v: 3, l: '3 Days', sub: 'Strike 2', color: 'peer-checked:bg-orange-500' },
+                      { v: 7, l: '7 Days', sub: 'Strike 3', color: 'peer-checked:bg-red-500' },
+                      { v: -1, l: 'Permanent', sub: 'Final', color: 'peer-checked:bg-red-900' }
+                    ].map(opt => (
+                      <label key={opt.v} className="cursor-pointer">
+                        <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
+                        <div className={`p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all ${opt.color} peer-checked:text-white`}>
+                           <div className="text-[10px] font-black uppercase tracking-widest">{opt.l}</div>
+                           <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">{opt.sub}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Protocol Violation Reason</label>
+                  <input required type="text" name="reason" placeholder="Enter formal reason..." className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 text-sm outline-none focus:border-red-500/50 transition-all" />
+                </div>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setBanModal(null)} className="flex-1 bg-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-500 border border-white/5">Cancel</button>
+                  <button type="submit" className="flex-[2] bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-red-500/20 hover:bg-red-500 transition-all">Execute Restriction</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
