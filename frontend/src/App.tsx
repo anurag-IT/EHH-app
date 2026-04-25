@@ -60,30 +60,6 @@ const PremiumLoader = () => (
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    if (view === "auth" && (authMode === "login" || authMode === "register")) {
-      const initGoogle = () => {
-        const el = document.getElementById("google-signin-btn");
-        if (el && (window as any).google) {
-          const cid = import.meta.env.VITE_GOOGLE_CLIENT_ID || "968747558888-9lsihokujg5qkb75s9rvdpd6jqb3ks0a.apps.googleusercontent.com";
-          (window as any).google.accounts.id.initialize({
-            client_id: cid,
-            callback: handleGoogleAuth,
-            use_fedcm_for_prompt: true,
-          });
-          (window as any).google.accounts.id.renderButton(el, {
-            theme: "outline",
-            size: "large",
-            width: el.offsetWidth || 320,
-            text: authMode === "register" ? "signup_with" : "signin_with",
-            shape: "rectangular",
-          });
-        }
-      };
-      const timer = setTimeout(initGoogle, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [view, authMode]);
 
   useEffect(() => {
     const initApp = async () => {
@@ -148,6 +124,31 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (view === "auth" && (authMode === "login" || authMode === "register")) {
+      const initGoogle = () => {
+        const el = document.getElementById("google-signin-btn");
+        if (el && (window as any).google) {
+          const cid = import.meta.env.VITE_GOOGLE_CLIENT_ID || "968747558888-9lsihokujg5qkb75s9rvdpd6jqb3ks0a.apps.googleusercontent.com";
+          (window as any).google.accounts.id.initialize({
+            client_id: cid,
+            callback: handleGoogleAuth,
+            use_fedcm_for_prompt: true,
+          });
+          (window as any).google.accounts.id.renderButton(el, {
+            theme: "outline",
+            size: "large",
+            width: el.offsetWidth || 320,
+            text: authMode === "register" ? "signup_with" : "signin_with",
+            shape: "rectangular",
+          });
+        }
+      };
+      const timer = setTimeout(initGoogle, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [view, authMode]);
   const [shakeForm, setShakeForm] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
