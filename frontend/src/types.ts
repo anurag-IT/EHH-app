@@ -16,6 +16,10 @@ export interface User {
     followers: number;
     following: number;
   }
+  points?: number;
+  level?: string;
+  streak?: number;
+  district?: string | null;
 }
 
 export interface Comment {

@@ -40,6 +40,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
   
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
+  const [editDistrict, setEditDistrict] = useState("");
   const [editIsPrivate, setEditIsPrivate] = useState(false);
   const [editAvatar, setEditAvatar] = useState<File | null>(null);
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
       
       setEditName(res.data.name);
       setEditBio(res.data.bio || "");
+      setEditDistrict(res.data.district || "");
       setEditIsPrivate(res.data.isPrivate || false);
     } catch (err) {
       if (showLoading) toast.error("Failed to load profile");
@@ -108,6 +110,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
     const formData = new FormData();
     formData.append("name", editName);
     formData.append("bio", editBio);
+    formData.append("district", editDistrict);
     formData.append("isPrivate", editIsPrivate.toString());
     if (editAvatar) formData.append("images", editAvatar);
 
@@ -321,6 +324,10 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
                      <div className="space-y-1">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Bio Signal</label>
                         <textarea rows={3} value={editBio} onChange={(e) => setEditBio(e.target.value)} className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl text-white font-bold text-sm focus:border-blue-500/50 outline-none transition-all resize-none" />
+                     </div>
+                     <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4">Local District</label>
+                        <input type="text" value={editDistrict} onChange={(e) => setEditDistrict(e.target.value)} placeholder="e.g., Kathmandu, Lalitpur..." className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl text-white font-bold text-sm focus:border-blue-500/50 outline-none transition-all" />
                      </div>
                      
                      {/* Privacy Switch */}

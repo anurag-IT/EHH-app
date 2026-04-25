@@ -272,11 +272,53 @@ const formatPost = (post: any, followStatusByUserId?: Map<number, string>) => {
 };
 
 // Gamification Utilities
+const updateStreak = async (userId: number) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+
+    const now = new Date();
+    const lastActive = new Date(user.lastActive);
+    
+    // Reset hours for comparison
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last = new Date(lastActive.getFullYear(), lastActive.getMonth(), lastActive.getDate());
+    
+    const diffDays = Math.floor((today.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      // Continued streak
+      await prisma.user.update({
+        where: { id: userId },
+        data: { streak: { increment: 1 }, lastActive: now }
+      });
+    } else if (diffDays > 1) {
+      // Streak broken
+      await prisma.user.update({
+        where: { id: userId },
+        data: { streak: 1, lastActive: now }
+      });
+    } else if (diffDays === 0) {
+       // Still today, just update lastActive
+       await prisma.user.update({
+         where: { id: userId },
+         data: { lastActive: now }
+       });
+    }
+  } catch (err) {
+    console.error("Streak update error", err);
+  }
+};
+
 const awardPoints = async (userId: number, points: number) => {
   try {
+    // Also update streak whenever points are awarded (activity)
+    await updateStreak(userId);
+
     const user = await prisma.user.update({
       where: { id: userId },
-      data: { points: { increment: points }, lastActive: new Date() }
+      data: { points: { increment: points }, lastActive: new Date() },
+      include: { badges: true }
     });
 
     let newLevel = "Beginner";
@@ -297,6 +339,25 @@ const awardPoints = async (userId: number, points: number) => {
           content: `Level Up! You are now an ${newLevel}.`
         }
       }).catch(() => {});
+    }
+
+    // Badge Check: First Signal
+    const hasFirstBadge = user.badges.some((b: any) => b.name === "First Signal");
+    if (!hasFirstBadge) {
+      const postsCount = await prisma.post.count({ where: { userId } });
+      if (postsCount >= 1) {
+        await prisma.badge.create({
+          data: { userId, name: "First Signal", icon: "🚀" }
+        });
+      }
+    }
+
+    // Badge Check: Century Club (100 points)
+    const hasCenturyBadge = user.badges.some((b: any) => b.name === "Century Club");
+    if (!hasCenturyBadge && user.points >= 100) {
+      await prisma.badge.create({
+        data: { userId, name: "Century Club", icon: "💯" }
+      });
     }
   } catch (error) {
     console.error("[GAMIFICATION ERROR]", error);
@@ -849,6 +910,7 @@ app.put("/api/users/profile", checkUserRestriction, upload.array("images", 1), a
       data: {
         name: name || req.user.name,
         bio: bio !== undefined ? bio : req.user.bio,
+        district: req.body.district !== undefined ? req.body.district : req.user.district,
         isPrivate: isPrivate === "true" || isPrivate === true,
         avatar: avatarUrl
       },
@@ -2272,6 +2334,32 @@ app.post("/admin/scan", checkAdminMode, upload.array("images", 1), async (req: a
   }
 });
 
+
+app.get("/api/leaderboard", async (req: any, res: any) => {
+  try {
+    const { district } = req.query;
+    const where: any = {};
+    if (district) where.district = district;
+
+    const leaders = await prisma.user.findMany({
+      where,
+      orderBy: { points: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        points: true,
+        level: true,
+        streak: true,
+        district: true
+      }
+    });
+    res.json({ leaders });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get("/api/posts/search", async (req: any, res: any) => {
   try {
