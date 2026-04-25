@@ -396,15 +396,6 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     toast.info("Session terminated.");
   };
 
-  const refreshHome = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    if(view === "feed") {
-      fetchPosts(true);
-    } else {
-      setView("feed");
-    }
-  };
-
   if (view === "auth") {
     return (
       <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-slate-950">
