@@ -36,13 +36,13 @@ export default function UploadScreen() {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
-      selectionLimit: 10,
+      selectionLimit: 20,
       quality: 0.8,
     });
 
     if (!result.canceled) {
       const newUris = result.assets.map(asset => asset.uri);
-      setImages(prev => [...prev, ...newUris].slice(0, 10));
+      setImages(prev => [...prev, ...newUris].slice(0, 20));
     }
   };
 
@@ -57,7 +57,7 @@ export default function UploadScreen() {
       quality: 0.8,
     });
     if (!result.canceled) {
-      setImages(prev => [...prev, result.assets[0].uri].slice(0, 10));
+      setImages(prev => [...prev, result.assets[0].uri].slice(0, 20));
     }
   };
 
@@ -150,7 +150,7 @@ export default function UploadScreen() {
                        <Plus color={colors.textMuted} size={32} />
                     </TouchableOpacity>
                  </ScrollView>
-                 <Text style={{ marginTop: 12, fontSize: 10, fontWeight: '800', color: colors.slate100, letterSpacing: 1 }}>{images.length}/10 ASSETS SELECTED</Text>
+                 <Text style={{ marginTop: 12, fontSize: 10, fontWeight: '800', color: colors.slate100, letterSpacing: 1 }}>{images.length}/20 ASSETS SELECTED</Text>
                </View>
              ) : (
                <View style={{ gap: 16 }}>

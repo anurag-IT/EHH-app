@@ -1,5 +1,9 @@
 import "dotenv/config";
+import "express-async-errors";
+
 import express from "express";
+import morgan from "morgan";
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import compression from "compression";
@@ -66,6 +70,21 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(mongoSanitize()); // strips $ and . from req.body to prevent injection
 app.use(compression() as any);
+
+
+// --- Logging ---
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
+
+// Custom logs for Auth and Upload flow
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/users/login") || req.path.startsWith("/api/users/register")) {
+    console.log(`[AUTH] ${req.method} ${req.path} - ${new Date().toISOString()}`);
+  }
+  if (req.method === "POST" && (req.path.startsWith("/api/posts") || req.path.startsWith("/api/stories"))) {
+    console.log(`[UPLOAD] ${req.method} ${req.path}`);
+  }
+  next();
+});
 
 // --- Rate Limiting ---
 // General API limiter — 200 requests per minute per IP
@@ -265,6 +284,20 @@ const ensureCanMessageUser = async (senderId: number, receiver: any) => {
   }
 
   return null;
+};
+
+// --- Utilities ---
+const safeParseInt = (val: any, fallback: number = 0): number => {
+  const parsed = parseInt(val);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
+const sendResponse = (res: express.Response, status: number, data: any, message?: string) => {
+  return res.status(status).json({
+    success: status >= 200 && status < 300,
+    data: data || null,
+    error: message || null
+  });
 };
 
 const getUserIdFromRequest = (req: express.Request): number | null => {
@@ -1135,7 +1168,7 @@ app.get("/api/stories/:id/viewers", checkUserRestriction, async (req: any, res: 
   }
 });
 
-app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images", 10), async (req: any, res: any) => {
+app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images", 20), async (req: any, res: any) => {
   try {
     const { caption, location, parentId } = req.body;
     const userId = req.user.id;
@@ -1172,7 +1205,15 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
       imageUrls = results.map(r => r.secure_url);
       imagePaths = results.map(r => r.public_id);
 
-      console.log(`[SUCCESS] Post contains ${imageUrls.length} assets.`);
+      // Extract features (phash) from the primary image for network indexing
+      try {
+        const features = await extractFeaturesFromBuffer(files[0].buffer);
+        mainPhash = features.phash;
+      } catch (err) {
+        console.error("[PHASH ERROR]", err);
+      }
+
+      console.log(`[SUCCESS] Post contains ${imageUrls.length} assets with phash: ${mainPhash}`);
     }
 
     const post = await prisma.post.create({
@@ -2090,11 +2131,56 @@ app.use((req: any, res: any, next: any) => {
   next();
 });
 
+// --- Centralized Error Handler ---
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("[ERROR]", err.message);
-  res.status(err.status || 500).json({
-    error: process.env.NODE_ENV === "production" ? "Something went wrong" : err.message
+  const status = err.status || 500;
+  let message = err.message || "Internal Server Error";
+  let code = err.code || "SERVER_ERROR";
+
+  // Prisma Error Handling
+  if (err.name === 'PrismaClientKnownRequestError') {
+    if (err.code === 'P2002') {
+      return res.status(400).json({ success: false, error: "Unique constraint violation. This record already exists.", code: "CONFLICT" });
+    }
+    if (err.code === 'P2025') {
+      return res.status(404).json({ success: false, error: "Record not found.", code: "NOT_FOUND" });
+    }
+    message = "Database operation failed";
+  }
+
+  // JWT Error Handling
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({ success: false, error: "Invalid token session", code: "UNAUTHORIZED" });
+  }
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({ success: false, error: "Token expired. Please login again.", code: "TOKEN_EXPIRED" });
+  }
+
+  // Multer Error Handling
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ success: false, error: `Upload error: ${err.message}`, code: "UPLOAD_ERROR" });
+  }
+
+  console.error(`[ERROR] ${req.method} ${req.path} - ${message}`);
+  if (process.env.NODE_ENV !== "production" && err.stack) {
+    console.error(err.stack);
+  }
+
+  res.status(status).json({
+    success: false,
+    error: message,
+    code: code,
+    stack: process.env.NODE_ENV === "production" ? undefined : err.stack
   });
+});
+
+// --- Global Safety Nets ---
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught Exception:', err);
 });
 
 async function startServer() {

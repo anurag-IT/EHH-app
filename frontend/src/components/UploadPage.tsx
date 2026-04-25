@@ -83,72 +83,91 @@ export default function UploadPage({ onComplete, userId }: UploadPageProps) {
         
         {/* Left Side: Media Preview */}
         <div className="flex-1 bg-black relative group flex flex-col border-r border-slate-800">
-          <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black/20">
              {previews.length > 0 ? (
-               <>
-                 <motion.img 
-                   key={activeIndex}
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   src={previews[activeIndex]} 
-                   className="w-full h-full object-contain" 
-                 />
-                 {previews.length > 1 && (
-                   <>
-                     <button 
-                       onClick={() => setActiveIndex(prev => Math.max(0, prev - 1))}
-                       disabled={activeIndex === 0}
-                       className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/80 disabled:opacity-0 transition-all"
-                     >
-                       <ChevronLeft size={24} />
-                     </button>
-                     <button 
-                       onClick={() => setActiveIndex(prev => Math.min(previews.length - 1, prev + 1))}
-                       disabled={activeIndex === previews.length - 1}
-                       className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 text-white rounded-full hover:bg-black/80 disabled:opacity-0 transition-all"
-                     >
-                       <ChevronRight size={24} />
-                     </button>
-                   </>
-                 )}
-               </>
+               <div className="w-full h-full p-4 overflow-y-auto scrollbar-hide">
+                 {/* Dynamic Grid Preview (Facebook-like) */}
+                 <div className={`grid gap-1 w-full h-full min-h-[400px] ${
+                   previews.length === 1 ? 'grid-cols-1' :
+                   previews.length === 2 ? 'grid-cols-2' :
+                   previews.length === 3 ? 'grid-cols-2' :
+                   'grid-cols-2'
+                 }`}>
+                   {previews.slice(0, 4).map((p, i) => {
+                     let colSpan = "col-span-1";
+                     let rowSpan = "row-span-1";
+                     
+                     if (previews.length === 3 && i === 0) {
+                        colSpan = "col-span-1";
+                        rowSpan = "row-span-2";
+                     }
+                     if (previews.length === 1) {
+                        colSpan = "col-span-1";
+                        rowSpan = "row-span-1";
+                     }
+
+                     return (
+                       <div key={i} className={`relative group/item ${colSpan} ${rowSpan} rounded-lg overflow-hidden border border-white/10 bg-slate-800`}>
+                          <img src={p} className="w-full h-full object-cover" />
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                            className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full opacity-0 group-hover/item:opacity-100 transition-all hover:bg-red-500"
+                          >
+                            <X size={14} />
+                          </button>
+                          {i === 3 && previews.length > 4 && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none">
+                              <span className="text-white font-black text-2xl">+{previews.length - 4}</span>
+                            </div>
+                          )}
+                       </div>
+                     );
+                   })}
+                 </div>
+
+                 {/* Thumbnail Selection List for all images */}
+                 <div className="mt-6 grid grid-cols-5 gap-2 pb-10">
+                    {previews.map((p, i) => (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border-2 border-slate-800 hover:border-green-500 transition-all">
+                        <img src={p} className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => removeFile(i)}
+                          className="absolute top-1 right-1 p-0.5 bg-black/50 text-white rounded-full hover:bg-red-500"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                    {previews.length < 20 && (
+                      <button 
+                        onClick={() => document.getElementById("multi-upload")?.click()}
+                        className="aspect-square rounded-lg border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-700 hover:text-green-500 hover:border-green-500 transition-all bg-slate-800/20"
+                      >
+                        <Plus size={20} />
+                        <span className="text-[8px] font-black mt-1">ADD</span>
+                      </button>
+                    )}
+                 </div>
+               </div>
              ) : (
                <div 
-                 className="flex flex-col items-center justify-center gap-4 cursor-pointer"
+                 className="flex flex-col items-center justify-center gap-4 cursor-pointer w-full h-full group"
                  onClick={() => document.getElementById("multi-upload")?.click()}
                >
-                 <div className="w-20 h-20 bg-slate-800 rounded-3xl flex items-center justify-center text-slate-500 hover:text-green-500 hover:bg-slate-700 transition-all">
-                    <ImageIcon size={40} />
+                 <motion.div 
+                   whileHover={{ scale: 1.05, rotate: 2 }}
+                   className="w-24 h-24 bg-slate-800 rounded-[2.5rem] flex items-center justify-center text-slate-500 group-hover:text-green-500 group-hover:bg-slate-700 transition-all shadow-2xl border border-white/5"
+                 >
+                    <ImageIcon size={48} />
+                 </motion.div>
+                 <div className="text-center space-y-1">
+                   <p className="font-black text-white uppercase text-sm tracking-[0.2em]">Select Visual Signals</p>
+                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Multi-asset array support (Max 20)</p>
                  </div>
-                 <p className="font-bold text-slate-500 uppercase text-xs tracking-widest">Select Signal Assets (Max 20)</p>
                </div>
              )}
           </div>
 
-          {/* Thumbnail Strip */}
-          {previews.length > 0 && (
-            <div className="h-24 bg-slate-900/50 border-t border-slate-800 p-3 flex gap-3 overflow-x-auto scrollbar-hide">
-               {previews.map((p, i) => (
-                 <div key={i} className={`relative shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${activeIndex === i ? 'border-green-500 scale-105' : 'border-transparent'}`}>
-                    <img src={p} className="w-full h-full object-cover" onClick={() => setActiveIndex(i)} />
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                      className="absolute top-0 right-0 p-0.5 bg-black/50 text-white hover:text-red-500"
-                    >
-                      <X size={12} />
-                    </button>
-                 </div>
-               ))}
-               {previews.length < 20 && (
-                 <button 
-                   onClick={() => document.getElementById("multi-upload")?.click()}
-                   className="shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-700 hover:text-green-500 hover:border-green-500 transition-all"
-                 >
-                   <Plus size={20} />
-                 </button>
-               )}
-            </div>
-          )}
           <input id="multi-upload" type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
         </div>
 
