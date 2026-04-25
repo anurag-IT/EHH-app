@@ -125,7 +125,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   // Auto-refresh on version mismatch to clear stale mobile cache
   useEffect(() => {
-    const APP_VERSION = "2.3";
+    const APP_VERSION = "2.4";
     const lastVersion = localStorage.getItem("app_version");
     
     if (lastVersion && lastVersion !== APP_VERSION) {
@@ -565,7 +565,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   }
 
   return (
-    <div className={`min-h-screen bg-slate-950 text-white selection:bg-green-500 selection:text-slate-900 ${view === "admin" ? "" : "pb-32 pt-32 md:pb-0 md:pt-28"}`}>
+    <div className={`min-h-screen bg-slate-950 text-white selection:bg-green-500 selection:text-slate-900 ${view === "admin" ? "" : "pb-32 pt-16 md:pb-0 md:pt-20"}`}>
       {view !== "admin" && (
         <nav className="fixed top-0 left-0 right-0 h-16 md:h-20 bg-slate-950/80 backdrop-blur-2xl border-b border-white/[0.05] z-[100] flex items-center shadow-2xl">
           <div className="w-full max-w-[1920px] mx-auto px-6 flex items-center justify-between">
