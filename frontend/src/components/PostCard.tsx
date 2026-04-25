@@ -127,6 +127,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
   const [isLiking, setIsLiking] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
+  const [isLikingAnimation, setIsLikingAnimation] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [following, setFollowing] = useState(post.isFollowing || false);
   const [followStatus, setFollowStatus] = useState<'PENDING' | 'ACCEPTED' | null>(post.followStatus || null);
@@ -146,6 +147,9 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     if (isBanned || isSyncing.current) return;
     isSyncing.current = true;
     setIsLiking(true);
+    setIsLikingAnimation(true);
+    setTimeout(() => setIsLikingAnimation(false), 1000);
+
     const wasLiked = liked;
     const previousCount = likeCount;
     setLiked(!wasLiked);
@@ -363,6 +367,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-5">
             <motion.button 
+              animate={isLikingAnimation ? { scale: [1, 1.4, 1] } : {}}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={handleLike} 
@@ -393,6 +398,11 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                const url = `${window.location.origin}/post/${post.id}`;
+                navigator.clipboard.writeText(url);
+                toast.success("Signal link copied to clipboard!");
+              }}
               className="text-white hover:text-slate-400"
             >
               <Send size={24} />
@@ -402,7 +412,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
           <motion.button 
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="text-white"
+            className="text-white hover:text-yellow-500 transition-colors"
           >
             <Bookmark size={26} />
           </motion.button>
