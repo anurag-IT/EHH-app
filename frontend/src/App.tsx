@@ -573,8 +573,12 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                     className="w-full flex justify-center"
                     ref={(el) => {
                       if (el && (window as any).google) {
+                        const cid = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+                        if (!cid || cid.includes("placeholder")) {
+                          console.error("CRITICAL: VITE_GOOGLE_CLIENT_ID is missing or not loaded. Restart your dev server!");
+                        }
                         (window as any).google.accounts.id.initialize({
-                          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                          client_id: cid,
                           callback: handleGoogleAuth,
                           use_fedcm_for_prompt: true,
                         });
