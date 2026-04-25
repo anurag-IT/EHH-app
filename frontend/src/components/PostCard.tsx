@@ -255,14 +255,14 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-white cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('open-profile', { detail: post.userId }))}>
+              <span className="font-bold text-[13px] md:text-sm text-white cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('open-profile', { detail: post.userId }))}>
                 {post.user.name}
               </span>
               <CheckCircle2 size={12} className="text-blue-500 fill-blue-500/10" />
               {currentUser.id !== post.userId && (
                 <button 
                   onClick={handleFollow} 
-                  className={`text-[12px] font-black uppercase tracking-tighter px-3 py-1 rounded-full transition-all duration-300 ${
+                  className={`text-[10px] md:text-[12px] font-bold md:font-black uppercase tracking-tighter px-2.5 py-1 rounded-full transition-all duration-300 ${
                     followStatus === 'PENDING' ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" :
                     following ? "bg-slate-800 text-slate-400 border border-slate-700" : 
                     "bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-slate-900"

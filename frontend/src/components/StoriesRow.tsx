@@ -88,7 +88,7 @@ export default function StoriesRow() {
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-6 overflow-x-auto pt-2 pb-8 scrollbar-hide px-2">
+      <div className="flex items-start gap-6 overflow-x-auto pt-10 pb-20 px-4 min-h-[200px] scrollbar-hide overflow-y-visible">
         {/* Current User Upload */}
         <div className="flex flex-col items-center gap-2 cursor-pointer shrink-0 group">
            <div 
