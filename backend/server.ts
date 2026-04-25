@@ -413,7 +413,20 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
     }
 
     if (user.status === "BANNED" || user.status === "PERMANENT_BAN" || user.isRestricted) {
-      return res.status(403).json({ error: "Your account is currently blocked." });
+      if (user.status === "PERMANENT_BAN") {
+        return res.status(403).json({
+          error: "PERMANENT_BAN",
+          message: "Your account has been permanently suspended.",
+          reason: user.banReason
+        });
+      }
+      return res.status(403).json({
+        error: "TEMP_BAN",
+        message: "Your account is temporarily suspended.",
+        reason: user.banReason,
+        banUntil: user.banUntil,
+        strike: user.banStrike
+      });
     }
     
     (req as any).user = user;
@@ -530,6 +543,27 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
     if (!user.password) {
       return res.status(400).json({ 
         error: "This account uses Google Sign-In. Please use the Google button to login." 
+      });
+    }
+
+    // Block permanently banned users at login
+    if (user.status === "PERMANENT_BAN") {
+      return res.status(403).json({
+        error: "PERMANENT_BAN",
+        message: "Your account has been permanently suspended from EHH.",
+        reason: user.banReason || "Violation of community guidelines",
+        banCount: user.banStrike || user.banCount
+      });
+    }
+
+    // Block temporarily banned users at login too
+    if (user.status === "BANNED" && user.banUntil && new Date() < user.banUntil) {
+      return res.status(403).json({
+        error: "TEMP_BAN",
+        message: "Your account is temporarily suspended.",
+        reason: user.banReason || "Violation of community guidelines",
+        banUntil: user.banUntil,
+        strike: user.banStrike
       });
     }
 
@@ -913,12 +947,25 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
           data: { googleId, avatar: user.avatar || picture }
         });
       }
-      // Check if banned
+      // Block permanently banned users
       if (user.status === "PERMANENT_BAN") {
-        return res.status(403).json({ error: "This account has been permanently suspended." });
+        return res.status(403).json({
+          error: "PERMANENT_BAN",
+          message: "Your account has been permanently suspended from EHH.",
+          reason: user.banReason || "Violation of community guidelines",
+          banCount: user.banStrike || user.banCount
+        });
       }
+
+      // Block temporarily banned users
       if (user.status === "BANNED" && user.banUntil && new Date() < user.banUntil) {
-        return res.status(403).json({ error: `Account suspended until ${user.banUntil.toLocaleDateString()}.` });
+        return res.status(403).json({
+          error: "TEMP_BAN",
+          message: "Your account is temporarily suspended.",
+          reason: user.banReason || "Violation of community guidelines",
+          banUntil: user.banUntil,
+          strike: user.banStrike
+        });
       }
     } else {
       console.log(`[GOOGLE AUTH] Registering new user: ${email}`);
@@ -1522,23 +1569,81 @@ app.post("/admin/users/:id/ban", checkAdminMode, async (req: any, res: any) => {
   try {
     const id = parseInt(req.params.id);
     const { durationDays, reason } = req.body;
-    let banUntil = null;
-    let status = "BANNED";
-    if (durationDays === -1) {
-      status = "PERMANENT_BAN";
-    } else if (durationDays > 0) {
-      banUntil = new Date();
-      banUntil.setDate(banUntil.getDate() + durationDays);
+
+    // Get current user to check strike count
+    const currentUser = await prisma.user.findUnique({ where: { id } });
+    if (!currentUser) return res.status(404).json({ error: "User not found" });
+
+    // Cannot ban already permanently banned user
+    if (currentUser.status === "PERMANENT_BAN") {
+      return res.status(400).json({ error: "User is already permanently banned." });
     }
+
+    const newStrike = (currentUser.banStrike || 0) + 1;
+
+    // Strike escalation rules:
+    // Strike 1 → 1 day ban (regardless of what admin chose, enforce the ladder)
+    // Strike 2 → 3 days ban
+    // Strike 3 → 7 days ban
+    // Strike 4+ → PERMANENT BAN (auto, no override)
+    let finalDuration: number;
+    let finalStatus: string;
+    let banUntil: Date | null = null;
+
+    if (durationDays === -1) {
+      // Admin explicitly chose permanent — allow this anytime
+      finalStatus = "PERMANENT_BAN";
+      finalDuration = -1;
+    } else if (newStrike >= 4) {
+      // 4th strike always = permanent
+      finalStatus = "PERMANENT_BAN";
+      finalDuration = -1;
+    } else {
+      // Enforce escalation ladder
+      const strikeDurations: Record<number, number> = { 1: 1, 2: 3, 3: 7 };
+      finalDuration = strikeDurations[newStrike] || durationDays;
+      banUntil = new Date();
+      banUntil.setDate(banUntil.getDate() + finalDuration);
+      finalStatus = "BANNED";
+    }
+
     const user = await prisma.user.update({
       where: { id },
-      data: { status, banUntil, banReason: reason, isRestricted: true, banCount: { increment: 1 } }
+      data: {
+        status: finalStatus,
+        banUntil,
+        banReason: reason,
+        isRestricted: true,
+        banCount: { increment: 1 },
+        banStrike: newStrike
+      }
     });
+
     userSessionCache.delete(id);
+
+    const banDescription = finalStatus === "PERMANENT_BAN"
+      ? `PERMANENT BAN (Strike ${newStrike}). Reason: ${reason}`
+      : `${finalDuration}-day ban (Strike ${newStrike}/${finalStatus === "BANNED" ? "3" : ""}). Reason: ${reason}`;
+
     await prisma.adminLog.create({
-      data: { actionType: "ban_user", adminName: req.adminUser.name, targetId: user.uniqueId, details: `Ban duration: ${durationDays} days. Reason: ${reason}` }
+      data: {
+        actionType: "ban_user",
+        adminName: req.adminUser.name,
+        targetId: user.uniqueId,
+        details: banDescription
+      }
     });
-    res.json({ success: true, user: formatAdminUser(user) });
+
+    res.json({
+      success: true,
+      user,
+      appliedDuration: finalDuration,
+      strike: newStrike,
+      isPermanent: finalStatus === "PERMANENT_BAN",
+      message: finalStatus === "PERMANENT_BAN"
+        ? `User permanently banned (Strike ${newStrike})`
+        : `User banned for ${finalDuration} days (Strike ${newStrike} of 3)`
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -37,6 +37,7 @@ model User {
   points       Int       @default(0)
   level        String    @default("Beginner") // Beginner | Active | Eco Warrior | Leader
   streak       Int       @default(0)
+  banStrike    Int       @default(0)
   lastActive   DateTime  @default(now())
   district     String?   // For district-wise leaderboard
   badges       Badge[]
