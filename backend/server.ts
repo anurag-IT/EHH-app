@@ -2387,6 +2387,34 @@ app.get("/api/posts/search", async (req: any, res: any) => {
   }
 });
 
+app.get("/admin/posts", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const posts = await prisma.post.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: PUBLIC_USER_SELECT }, _count: { select: { likes: true, comments: true } } }
+    });
+    res.json(posts.map((post: any) => formatPost(post)));
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/admin/posts/:id", checkAdminMode, async (req: any, res: any) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.post.delete({ where: { id } });
+    
+    await prisma.adminLog.create({
+      data: { actionType: "delete_post", adminName: req.adminUser.name, targetId: `Post-${id}`, details: "Directly deleted a single post via Admin panel." }
+    });
+    
+    cache.clear();
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/admin/reset-similarities", checkAdminMode, async (req: any, res: any) => {
   try {
     await prisma.post.updateMany({ data: { phash: null } });
