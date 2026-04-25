@@ -548,9 +548,33 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
       { expiresIn: '30d' }
     );
 
+    // --- Streak Logic ---
+    const now = new Date();
+    const lastActive = new Date(user.lastActive || user.createdAt);
+    let newStreak = user.streak || 0;
+
+    const diffInMs = now.getTime() - lastActive.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInDays === 1) {
+      newStreak += 1;
+    } else if (diffInDays > 1) {
+      newStreak = 1;
+    } else if (newStreak === 0) {
+      newStreak = 1;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        streak: newStreak,
+        lastActive: now
+      }
+    });
+
     res.json({
       token,
-      user: formatPublicUser(user)
+      user: formatPublicUser(updatedUser)
     });
   } catch (error: any) {
     console.error("[LOGIN ERROR]", error);
@@ -902,7 +926,31 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
       { expiresIn: "30d" }
     );
 
-    const safeUserData = formatPublicUser(user); // use existing formatPublicUser function
+    // --- Streak Logic ---
+    const now = new Date();
+    const lastActiveTime = new Date(user.lastActive || user.createdAt);
+    let newStreak = user.streak || 0;
+
+    const diffInMs = now.getTime() - lastActiveTime.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInDays === 1) {
+      newStreak += 1;
+    } else if (diffInDays > 1) {
+      newStreak = 1;
+    } else if (newStreak === 0) {
+      newStreak = 1;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { 
+        streak: newStreak,
+        lastActive: now
+      }
+    });
+
+    const safeUserData = formatPublicUser(updatedUser); // use existing formatPublicUser function
     res.json({ token, user: safeUserData });
 
   } catch (error: any) {
