@@ -236,7 +236,11 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
     setLiked(!liked);
     setLikesCount(liked ? likesCount - 1 : likesCount + 1);
     try {
-      await api.post(`/api/posts/${item.id}/like`);
+      const res = await api.post(`/api/posts/${item.id}/like`);
+      if (res.data.success) {
+        setLiked(res.data.liked);
+        setLikesCount(res.data.likesCount);
+      }
     } catch {
       setLiked(prevLiked);
     }
@@ -247,7 +251,10 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
     const prevState = isFollowing;
     setIsFollowing(!prevState);
     try {
-      await api.post(`/api/users/${item.user.id}/follow`);
+      const res = await api.post(`/api/users/${item.user.id}/follow`);
+      if (res.data.success !== undefined) { // Backend returns success or following bool
+         setIsFollowing(res.data.following);
+      }
     } catch (e) {
       setIsFollowing(prevState);
       Alert.alert("Link Failure", "Unable to synchronize follows.");
@@ -260,8 +267,10 @@ const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: 
     if (reposting) return;
     setReposting(true);
     try {
-      await api.post(`/api/posts/${item.id}/repost`);
-      Alert.alert("Success", "Successfully reposted!");
+      const res = await api.post(`/api/posts/${item.id}/repost`);
+      if (res.data.success) {
+        Alert.alert("Success", "Successfully reposted!");
+      }
     } catch {
       Alert.alert("Error", "Could not complete repost.");
     } finally {

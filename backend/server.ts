@@ -159,15 +159,17 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 } // 20MB max per file
 });
 
-const PUBLIC_USER_SELECT: any = {
+const PUBLIC_USER_SELECT = {
   id: true,
   name: true,
-  uniqueId: true,
   avatar: true,
+  uniqueId: true,
   bio: true,
-  isPrivate: true,
   role: true,
-  status: true
+  points: true,
+  level: true,
+  streak: true,
+  district: true
 };
 
 const ADMIN_USER_SELECT: any = {
@@ -256,15 +258,46 @@ const formatPost = (post: any, followStatusByUserId?: Map<number, string>) => {
   return {
     ...post,
     user: formatPublicUser(post.user),
-    imageUrls: post.imageUrls || [],
-    imagePaths: post.imagePaths || [],
+    isLiked: post.likes?.length > 0,
+    isFollowing: followStatusByUserId?.get(post.userId) === "ACCEPTED",
     likesCount: post._count?.likes ?? 0,
     commentsCount: post._count?.comments ?? 0,
     repostsCount: post._count?.reposts ?? 0,
-    isLiked: !!post.likes?.length,
-    isFollowing: followStatus === "ACCEPTED",
-    followStatus
+    imageUrls: post.imageUrls || [],
+    imagePaths: post.imagePaths || [],
   };
+};
+
+// Gamification Utilities
+const awardPoints = async (userId: number, points: number) => {
+  try {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { points: { increment: points }, lastActive: new Date() }
+    });
+
+    let newLevel = "Beginner";
+    if (user.points > 2000) newLevel = "Leader";
+    else if (user.points > 500) newLevel = "Eco Warrior";
+    else if (user.points > 100) newLevel = "Active";
+
+    if (newLevel !== user.level) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { level: newLevel }
+      });
+      
+      prisma.notification.create({
+        data: {
+          userId,
+          type: "SYSTEM",
+          content: `Level Up! You are now an ${newLevel}.`
+        }
+      }).catch(() => {});
+    }
+  } catch (error) {
+    console.error("[GAMIFICATION ERROR]", error);
+  }
 };
 
 const isSelfOrAdmin = (requestUser: any, targetUserId: number) => {
@@ -904,21 +937,14 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
     const { text } = req.body;
     const postId = parseInt(req.params.id);
     const userId = req.user.id;
-    if (!text) return res.status(400).json({ error: "Comment text is required" });
+    if (!text) return res.status(400).json({ success: false, error: "Comment text is required" });
 
     const targetPost = await prisma.post.findFirst({
-      where: {
-        AND: [
-          { id: postId },
-          buildVisiblePostWhere(userId)
-        ]
-      },
+      where: { AND: [{ id: postId }, buildVisiblePostWhere(userId)] },
       select: { id: true, userId: true }
     });
 
-    if (!targetPost) {
-      return res.status(404).json({ error: "Post not found" });
-    }
+    if (!targetPost) return res.status(404).json({ success: false, error: "Post not found" });
 
     const comment = await prisma.comment.create({
       data: { text, postId, userId },
@@ -927,31 +953,36 @@ app.post("/api/posts/:id/comment", checkUserRestriction, async (req: any, res: a
         post: { select: { userId: true } }
       }
     });
-    // Create notification (wrap in separate try/catch so comment doesn't fail if notification does)
+
+    // Create notification
     if (comment.post.userId !== userId) {
-      try {
-        await prisma.notification.create({
-          data: {
-            userId: comment.post.userId, 
-            senderId: userId, 
-            senderName: comment.user.name,
-            senderAvatar: comment.user.avatar, 
-            type: "COMMENT", 
-            postId: postId, 
-            content: "commented on your post"
-          }
+      prisma.notification.create({
+        data: {
+          userId: comment.post.userId, senderId: userId, senderName: comment.user.name,
+          senderAvatar: comment.user.avatar, type: "COMMENT", postId: postId, content: "commented on your post"
+        }
+      }).catch(() => {});
+      
+      const targetSocketId = userSockets.get(comment.post.userId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("notification", { 
+          type: "COMMENT", senderName: comment.user.name, content: "commented on your post" 
         });
-      } catch (notifyError) {
-        console.error("[NOTIFICATION ERROR]", notifyError);
       }
     }
+
+    await awardPoints(userId, 3); // +3 for commenting
+
     const { post, ...commentResponse } = comment;
     res.json({
-      ...commentResponse,
-      user: formatPublicUser(commentResponse.user)
+      success: true,
+      data: {
+        ...commentResponse,
+        user: formatPublicUser(commentResponse.user)
+      }
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -1218,21 +1249,18 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
 
     const post = await prisma.post.create({
       data: {
-        userId,
-        caption,
-        location: location || null,
-        imagePath: mainImagePath,
-        imageUrl: mainImageUrl,
-        imageUrls,
-        imagePaths,
-        phash: mainPhash,
-        parentId: parentId ? parseInt(parentId) : null
+        userId, caption, location, parentId: parentId ? parseInt(parentId) : null,
+        imageUrl: mainImageUrl, imagePath: mainImagePath, phash: mainPhash,
+        imageUrls, imagePaths
       },
       include: { 
         user: { select: PUBLIC_USER_SELECT },
         _count: { select: { likes: true, comments: true, reposts: true } }
       }
     });
+    
+    await awardPoints(userId, 10); // +10 for posting
+
     cache.clear();
     
     res.json({
@@ -1402,18 +1430,27 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
     const postId = parseInt(req.params.id);
     const userId = req.user.id;
     let liked = true;
+
     try {
       const like = await prisma.like.create({
         data: { userId, postId },
         include: { user: { select: { name: true, avatar: true } }, post: { select: { userId: true } } }
       });
+
       if (like.post.userId !== userId) {
         prisma.notification.create({
           data: {
             userId: like.post.userId, senderId: userId, senderName: like.user.name,
             senderAvatar: like.user.avatar, type: "LIKE", postId: postId, content: "liked your post"
           }
-        }).catch((err: any) => console.error("[NOTIFY ERROR]", err));
+        }).catch(() => {});
+
+        const targetSocketId = userSockets.get(like.post.userId);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit("notification", { type: "LIKE", senderName: like.user.name, content: "liked your post" });
+        }
+
+        await awardPoints(like.post.userId, 2); // +2 for receiver of like
       }
     } catch (createError: any) {
       if (createError.code === 'P2002') {
@@ -1423,10 +1460,11 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
         throw createError;
       }
     }
+
     const likesCount = await prisma.like.count({ where: { postId } });
     res.json({ success: true, liked, likesCount });
   } catch (error: any) {
-    res.status(500).json({ error: "Interaction synchronization failure." });
+    res.status(500).json({ success: false, error: "Interaction synchronization failure." });
   }
 });
 
@@ -1436,16 +1474,10 @@ app.post("/api/posts/:id/repost", checkUserRestriction, async (req: any, res: an
     const userId = req.user.id;
     
     const post = await prisma.post.findFirst({
-      where: {
-        AND: [
-          { id: postId },
-          buildVisiblePostWhere(userId)
-        ]
-      }
+      where: { AND: [{ id: postId }, buildVisiblePostWhere(userId)] },
+      include: { user: { select: { name: true, avatar: true } } }
     });
-    if (!post) {
-       return res.status(404).json({ error: "Post not found" });
-    }
+    if (!post) return res.status(404).json({ success: false, error: "Post not found" });
 
     const newPost = await prisma.post.create({
       data: {
@@ -1465,10 +1497,27 @@ app.post("/api/posts/:id/repost", checkUserRestriction, async (req: any, res: an
       }
     });
 
-    res.json(formatPost(newPost));
+    // Create Notification for the original author
+    if (post.userId !== userId) {
+      const sender = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, avatar: true } });
+      prisma.notification.create({
+        data: {
+          userId: post.userId, senderId: userId, senderName: sender?.name,
+          senderAvatar: sender?.avatar, type: "REPOST", postId: newPost.id, content: "reposted your signal"
+        }
+      }).catch(() => {});
+
+      const targetSocketId = userSockets.get(post.userId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("notification", { 
+          type: "REPOST", senderName: sender?.name, content: "reposted your signal" 
+        });
+      }
+    }
+
+    res.json({ success: true, data: formatPost(newPost) });
   } catch (error: any) {
-    console.error("[REPOST ERROR]", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

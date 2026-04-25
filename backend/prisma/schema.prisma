@@ -31,6 +31,15 @@ model User {
   banReason    String?
   isRestricted Boolean   @default(false)
   lastSeen    DateTime  @default(now())
+  
+  // Gamification System
+  points       Int       @default(0)
+  level        String    @default("Beginner") // Beginner | Active | Eco Warrior | Leader
+  streak       Int       @default(0)
+  lastActive   DateTime  @default(now())
+  district     String?   // For district-wise leaderboard
+  badges       Badge[]
+
   posts        Post[]
   messagesSent     Message[] @relation("SentMessages")
   messagesReceived Message[] @relation("ReceivedMessages")
@@ -44,6 +53,15 @@ model User {
   storyReactions StoryReaction[]
   storyViews     StoryView[]
   storyReplies   StoryReply[]
+}
+
+model Badge {
+  id          Int      @id @default(autoincrement())
+  name        String   // e.g., "Eco Warrior", "Popular", "Top Commenter"
+  icon        String   // Emoji or icon name
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
 }
 
 model UserFollow {

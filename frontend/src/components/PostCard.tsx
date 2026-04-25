@@ -170,8 +170,10 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     if (!commentText.trim() || isBanned) return;
     try {
       const res = await api.post(`/api/posts/${post.id}/comment`, { text: commentText });
-      setPostComments(prev => [...prev, res.data]);
-      setCommentText("");
+      if (res.data.success) {
+        setPostComments(prev => [...prev, res.data.data]);
+        setCommentText("");
+      }
     } catch {
       toast.error("Comment failed");
     }
@@ -182,8 +184,10 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
     setIsReposting(true);
     try {
       const res = await api.post(`/api/posts/${post.id}/repost`, {});
-      toast.success("Successfully reposted!");
-      if (onRepost) onRepost(res.data);
+      if (res.data.success) {
+        toast.success("Successfully reposted!");
+        if (onRepost) onRepost(res.data.data);
+      }
     } catch {
       toast.error("Could not complete repost. Try again.");
     } finally {
@@ -198,6 +202,19 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       setFollowing(res.data.following);
       setFollowStatus(res.data.status);
     } catch { }
+  };
+
+  const handleReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reportReason.trim() || isBanned) return;
+    try {
+      await api.post(`/api/posts/${post.id}/report`, { reason: reportReason });
+      toast.success("Signal flagged for review. Thank you for keeping EHH safe.");
+      setShowReport(false);
+      setReportReason("");
+    } catch {
+      toast.error("Failed to submit report.");
+    }
   };
   
   const handleAdminDeleteSingle = async () => {
@@ -345,22 +362,50 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       <div className="p-4 pt-4 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-5">
-            <button onClick={handleLike} className={`${liked ? "text-red-500" : "text-white"}`}>
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={handleLike} 
+              className={`${liked ? "text-red-500" : "text-white"}`}
+            >
               <Heart size={26} fill={liked ? "currentColor" : "none"} strokeWidth={2} />
-            </button>
-            <button onClick={() => setShowComments(true)} className="text-white hover:text-slate-400">
+            </motion.button>
+
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowComments(true)} 
+              className="text-white hover:text-slate-400"
+            >
               <MessageCircle size={window.innerWidth < 768 ? 22 : 26} strokeWidth={2} />
-            </button>
-            <button 
+            </motion.button>
+
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={handleRepost} 
               disabled={isReposting} 
-              className={`${isReposting ? "opacity-50" : "text-white hover:text-amber-400 transition-colors"}`}
+              className={`${isReposting ? "opacity-50" : "text-white hover:text-amber-400 transition-colors"} ${post.parentId ? "text-amber-500" : ""}`}
             >
               <Repeat2 size={26} strokeWidth={2} />
-            </button>
-            <button className="text-white hover:text-slate-400"><Send size={24} /></button>
+            </motion.button>
+
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="text-white hover:text-slate-400"
+            >
+              <Send size={24} />
+            </motion.button>
           </div>
-          <button className="text-white"><Bookmark size={26} /></button>
+          
+          <motion.button 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="text-white"
+          >
+            <Bookmark size={26} />
+          </motion.button>
         </div>
 
         <div className="space-y-1">
@@ -373,8 +418,38 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
         <form onSubmit={handleComment} className="pt-4 border-t border-slate-800/50 flex gap-3">
            <input type="text" placeholder="Add comment..." className="flex-1 bg-transparent text-sm outline-none text-white" value={commentText} onChange={(e) => setCommentText(e.target.value)} />
-           <button type="submit" disabled={!commentText.trim()} className="text-blue-500 font-black text-xs uppercase disabled:opacity-0">Post</button>
+           <button type="submit" disabled={!commentText.trim()} className="text-blue-500 font-black text-xs uppercase disabled:opacity-0 transition-all active:scale-90">Post</button>
         </form>
+
+        <AnimatePresence>
+          {showReport && (
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xl z-[3000] flex items-center justify-center p-4">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-slate-800 w-full max-w-md rounded-[2.5rem] border border-slate-700 p-8 shadow-2xl space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black text-white uppercase tracking-tighter">Flag Signal</h3>
+                  <button onClick={() => setShowReport(false)} className="text-slate-400"><X size={24} /></button>
+                </div>
+                <p className="text-xs text-slate-400 font-medium leading-relaxed">Please select a reason for reporting this content. Our moderators will investigate the transmission immediately.</p>
+                <form onSubmit={handleReport} className="space-y-4">
+                   <select 
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl p-4 text-white text-sm outline-none focus:border-green-500/50 transition-all"
+                    required
+                   >
+                     <option value="">Select Reason...</option>
+                     <option value="SPAM">Spam or Misleading</option>
+                     <option value="HATE">Hate Speech</option>
+                     <option value="HARASSMENT">Harassment</option>
+                     <option value="VIOLENCE">Graphic Violence</option>
+                     <option value="OTHER">Other Issue</option>
+                   </select>
+                   <button type="submit" className="w-full py-4 bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all">Submit Report</button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Full Size Carousel Viewer */}

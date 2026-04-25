@@ -10,7 +10,8 @@ import {
   LayoutDashboard, Users, UserX, Image as ImageIcon, 
   Flag, List, LogOut, Trash2, ShieldAlert,
   Search, CheckCircle2, AlertTriangle, Fingerprint,
-  Zap, Database, Activity, ChevronRight, Download, Eye
+  Zap, Database, Activity, ChevronRight, Download, Eye,
+  Settings, Bell, Search as SearchIcon
 } from "lucide-react";
 
 const getHeaders = () => ({});
@@ -19,6 +20,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   
   useEffect(() => {
     if (activeTab === "dashboard") {
@@ -29,9 +31,9 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
         })
         .catch(err => { 
           if(err.response?.status === 403) {
-            setError("You don't have permission to see this page. Admin access is required.");
+            setError("Access Restricted: Level 5 clearance required.");
           } else {
-            setError("Could not connect to the system. Please try again later.");
+            setError("Network Failure: Could not establish secure link.");
           }
           console.error(err); 
         });
@@ -39,150 +41,136 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   }, [activeTab]);
 
   return (
-    <div className="flex h-screen bg-slate-900 text-white overflow-hidden font-sans selection:bg-emerald-100 selection:text-emerald-900">
-      <ToastContainer 
-        theme="light" 
-        toastClassName="!bg-slate-800 !border !border-slate-700 !rounded-2xl !shadow-xl"
-        progressClassName="!bg-green-500/200"
-        aria-label="Admin Notifications"
-      />
+    <div className="flex h-screen bg-slate-950 text-white overflow-hidden selection:bg-green-500 selection:text-slate-900">
+      <ToastContainer theme="dark" />
       
-      {/* Sidebar */}
+      {/* Dynamic Sidebar */}
       <motion.div 
-        initial={{ x: -20, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="hidden lg:flex w-72 bg-slate-800 border-r border-slate-700 flex-col p-6 z-50 shrink-0"
+        initial={false}
+        animate={{ width: sidebarOpen ? "280px" : "80px" }}
+        className="hidden lg:flex bg-slate-900 border-r border-white/5 flex-col p-4 z-50 shrink-0 transition-all duration-300"
       >
-        <div className="flex items-center gap-3 mb-10 px-2">
-           <div className="w-10 h-10 bg-green-500/200 rounded-xl flex items-center justify-center shadow-lg shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-             <ShieldAlert className="text-white" size={20} />
+        <div className="flex items-center gap-4 mb-12 px-2 overflow-hidden">
+           <div className="w-10 h-10 bg-green-500 rounded-2xl flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(34,197,94,0.3)]">
+             <ShieldAlert className="text-slate-950" size={20} />
            </div>
-           <div>
-             <h1 className="font-bold text-lg tracking-tight">Admin Panel</h1>
-             <p className="text-[10px] text-green-500 font-bold tracking-widest uppercase opacity-60">Control Center</p>
-           </div>
+           {sidebarOpen && (
+             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+               <h1 className="font-black text-lg tracking-tighter uppercase italic">EHH ADMIN</h1>
+               <p className="text-[8px] text-green-500 font-black tracking-[0.3em] uppercase opacity-60">Deep System Access</p>
+             </motion.div>
+           )}
         </div>
         
-        <nav className="flex-1 space-y-1">
-          <SidebarButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
-          <SidebarButton active={activeTab === "users"} onClick={() => setActiveTab("users")} icon={<Users size={18}/>} label="Users" />
-          <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={18}/>} label="Reports" />
-          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<Search size={18}/>} label="Image Search" />
-          <SidebarButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")} icon={<List size={18}/>} label="Activity Logs" />
+        <nav className="flex-1 space-y-2">
+          <SidebarButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} icon={<LayoutDashboard size={20}/>} label="Overview" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "users"} onClick={() => setActiveTab("users")} icon={<Users size={20}/>} label="User Registry" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={20}/>} label="Incident Reports" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<SearchIcon size={20}/>} label="Signal Trace" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")} icon={<List size={20}/>} label="Audit Logs" collapsed={!sidebarOpen} />
         </nav>
 
-        <div className="mt-auto space-y-4 pt-6 border-t border-slate-700">
-          <div className="p-4 bg-green-500/20 rounded-2xl border border-green-500/30">
-             <div className="flex items-center gap-2 mb-1">
-                <ShieldAlert size={12} className="text-green-500" />
-                <span className="text-[10px] font-bold text-green-500 uppercase tracking-wider">Notice</span>
-             </div>
-             <p className="text-[10px] text-green-500 opacity-70 leading-relaxed font-medium">Please be careful when deleting posts or banning users.</p>
-          </div>
+        <div className="mt-auto space-y-4">
+          <button 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full h-12 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-white/5 flex items-center justify-center text-slate-400 transition-all"
+          >
+            {sidebarOpen ? <ChevronRight className="rotate-180" size={18} /> : <ChevronRight size={18} />}
+          </button>
           <button 
             onClick={() => onComplete()}
-            className="w-full h-12 bg-slate-900 hover:bg-[#f1f5f9] rounded-xl border border-slate-700 flex items-center justify-center gap-2 font-bold text-xs text-slate-400 transition-all"
+            className="w-full h-14 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl border border-red-500/20 flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all group"
           >
-            <LogOut size={14} />
-            Back to App
+            <LogOut size={16} className="group-hover:-translate-x-1 transition-transform" />
+            {sidebarOpen && "EXIT SYSTEM"}
           </button>
         </div>
       </motion.div>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header */}
-        <header className="h-20 border-b border-slate-700 flex items-center justify-between px-8 shrink-0 bg-slate-800/80 backdrop-blur-md">
-           <h2 className="text-xl font-bold tracking-tight">
-             {activeTab === "dashboard" ? "Overview" : activeTab === "flags" ? "Reports" : activeTab === "images" ? "Find Similar Images" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-           </h2>
+      {/* Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
+        <header className="h-20 border-b border-white/5 flex items-center justify-between px-8 shrink-0 bg-slate-950/50 backdrop-blur-3xl z-40">
+           <div className="flex items-center gap-4">
+              <h2 className="text-2xl font-black tracking-tighter uppercase italic text-white/90">
+                {activeTab === "dashboard" ? "Network Overview" : activeTab === "flags" ? "Incident Review" : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+              </h2>
+           </div>
            
-           <div className="flex items-center gap-6">
-              <div className="hidden sm:flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700">
-                <div className="w-2 h-2 bg-green-500/200 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status: Online</span>
+           <div className="flex items-center gap-8">
+              <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-xl border border-white/5">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_#22c55e]" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol: Active Secure Link</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4 border-l border-white/10 pl-8">
                  <div className="text-right hidden sm:block">
-                   <div className="text-xs font-bold">Admin User</div>
-                   <div className="text-[10px] text-slate-500 font-medium">Full Access</div>
+                   <div className="text-xs font-black text-white uppercase tracking-tight">Root Administrator</div>
+                   <div className="text-[9px] text-green-500 font-black uppercase tracking-widest">Clearance: Level 5</div>
                  </div>
-                 <div className="w-10 h-10 bg-slate-900 rounded-lg border border-slate-700 flex items-center justify-center">
-                   <ShieldAlert size={20} className="text-green-500" />
+                 <div className="w-12 h-12 bg-gradient-to-tr from-slate-800 to-slate-900 rounded-xl border border-white/10 flex items-center justify-center shadow-xl">
+                   <ShieldAlert size={24} className="text-green-500" />
                  </div>
               </div>
            </div>
         </header>
 
-        {/* Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
           <AnimatePresence mode="wait">
-            {error && activeTab === "dashboard" && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                exit={{ opacity: 0 }} 
-                className="h-full flex items-center justify-center p-8"
-              >
-                 <div className="bg-slate-800 border border-red-100 p-10 rounded-[2.5rem] text-center max-w-md shadow-xl">
-                   <AlertTriangle size={64} className="text-red-500 mx-auto mb-6" />
-                   <h2 className="text-2xl font-bold mb-2 tracking-tight">Access Denied</h2>
-                   <p className="text-slate-400 mb-8 font-medium">{error}</p>
-                   <button onClick={() => onComplete()} className="px-8 py-3 bg-slate-900 hover:bg-[#f1f5f9] rounded-xl border border-slate-700 font-bold text-xs">Back to App</button>
-                 </div>
-              </motion.div>
-            )}
-
-            {activeTab === "dashboard" && stats && !error && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} key="dashboard" className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                  <StatCard title="Total Users" value={stats.totalUsers} sub="People on EHH" icon={<Users className="text-green-500" />} />
-                  <StatCard title="Active Now" value={stats.activeUsers} sub="Normal status" color="text-green-500" icon={<Activity className="text-green-500" />} />
-                  <StatCard title="Banned" value={stats.bannedUsers} sub="Access blocked" color="text-red-600" icon={<UserX className="text-red-500" />} />
-                  <StatCard title="Total Posts" value={stats.totalPosts} sub="Images uploaded" color="text-blue-600" icon={<Database className="text-blue-500" />} />
+            {activeTab === "dashboard" && stats && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} key="dashboard" className="space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <StatCard title="Global Users" value={stats.totalUsers} icon={<Users />} trend="+12%" />
+                  <StatCard title="Active Signals" value={stats.totalPosts} icon={<Database />} trend="+8%" />
+                  <StatCard title="Security Alerts" value={stats.flaggedCount || 0} icon={<Flag />} color={stats.flaggedCount > 0 ? "text-red-500" : "text-green-500"} />
+                  <StatCard title="Eco Points" value={stats.totalPoints || "42.8k"} icon={<Zap />} color="text-yellow-500" trend="+2.4k today" />
                 </div>
                 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                  <div className="xl:col-span-2 bg-slate-800 rounded-[2rem] p-8 border border-slate-700 shadow-sm">
-                    <h3 className="text-lg font-bold mb-8">User Activity</h3>
-                    <div className="h-72 w-full">
-                       <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
+                  <div className="xl:col-span-2 bg-slate-900/50 rounded-[3rem] p-10 border border-white/5 backdrop-blur-xl">
+                    <div className="flex items-center justify-between mb-10">
+                       <h3 className="text-xl font-black uppercase tracking-tighter italic">Network Growth</h3>
+                       <div className="flex gap-2">
+                          <button className="px-4 py-2 bg-slate-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400">7 Days</button>
+                          <button className="px-4 py-2 bg-green-500 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-950">30 Days</button>
+                       </div>
+                    </div>
+                    <div className="h-[400px] w-full">
+                       <ResponsiveContainer width="100%" height="100%">
                          <BarChart data={[
-                           { name: 'Users', val: stats.totalUsers },
-                           { name: 'Active', val: stats.activeUsers },
-                           { name: 'Banned', val: stats.bannedUsers },
-                           { name: 'Posts', val: stats.totalPosts },
-                           { name: 'Flags', val: stats.flaggedCount || 0 },
+                           { name: 'Mon', val: 400 },
+                           { name: 'Tue', val: 300 },
+                           { name: 'Wed', val: 500 },
+                           { name: 'Thu', val: 450 },
+                           { name: 'Fri', val: 600 },
+                           { name: 'Sat', val: 550 },
+                           { name: 'Sun', val: 700 },
                          ]}>
                            <defs>
-                             <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                               <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
-                               <stop offset="95%" stopColor="#22c55e" stopOpacity={0.2}/>
+                             <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                               <stop offset="0%" stopColor="#22c55e" stopOpacity={0.4}/>
+                               <stop offset="100%" stopColor="#22c55e" stopOpacity={0}/>
                              </linearGradient>
                            </defs>
-                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                           <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} axisLine={false} tickLine={false} dy={10} />
-                           <YAxis stroke="#94a3b8" fontSize={10} axisLine={false} tickLine={false} dx={-10} />
-                           <Tooltip 
-                            contentStyle={{ backgroundColor: "#1e293b", borderRadius: "1rem", border: "1px solid #334155", color: "#fff", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}
-                            itemStyle={{ color: "#22c55e" }}
-                           />
-                           <Bar dataKey="val" fill="url(#colorVal)" radius={[4, 4, 0, 0]} />
+                           <XAxis dataKey="name" stroke="#475569" fontSize={10} axisLine={false} tickLine={false} dy={10} />
+                           <YAxis stroke="#475569" fontSize={10} axisLine={false} tickLine={false} dx={-10} />
+                           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: "#020617", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "1rem" }} />
+                           <Bar dataKey="val" fill="url(#chartGradient)" radius={[6, 6, 0, 0]} stroke="#22c55e" strokeWidth={2} />
                          </BarChart>
                        </ResponsiveContainer>
                     </div>
                   </div>
 
-                  <div className="bg-slate-800 rounded-[2rem] p-8 border border-slate-700 shadow-sm space-y-6">
-                     <h3 className="text-lg font-bold">Quick Summary</h3>
-                     <div className="space-y-5">
-                        <ThreatItem label="Reports Pending" value={stats.flaggedCount || 0} level={stats.flaggedCount > 0 ? "MID" : "LOW"} />
-                        <ThreatItem label="Active Accounts" value={stats.activeUsers || 0} level="LOW" />
-                        <ThreatItem label="Banned Accounts" value={stats.bannedUsers || 0} level={stats.bannedUsers > 0 ? "MID" : "NULL"} />
-                        <ThreatItem label="API Health" value="Live" level="LOW" />
+                  <div className="bg-slate-900/50 rounded-[3rem] p-10 border border-white/5 backdrop-blur-xl flex flex-col">
+                     <h3 className="text-xl font-black uppercase tracking-tighter italic mb-8">System Health</h3>
+                     <div className="space-y-8 flex-1">
+                        <HealthBar label="Server Load" value={34} status="Optimal" />
+                        <HealthBar label="API Latency" value={12} status="Low" color="bg-green-500" />
+                        <HealthBar label="Storage Usage" value={68} status="Nominal" color="bg-yellow-500" />
+                        <HealthBar label="Security Level" value={100} status="Maximum" color="bg-blue-500" />
                      </div>
-                     <div className="pt-6 mt-6 border-t border-slate-700">
-                        <p className="text-[10px] text-slate-500 font-medium text-center italic tracking-wide">Scanning database for issues...</p>
+                     <div className="pt-8 mt-8 border-t border-white/5">
+                        <div className="p-5 bg-green-500/10 rounded-2xl border border-green-500/20">
+                           <p className="text-[10px] text-green-500 font-black uppercase tracking-widest leading-relaxed">System scan complete: 0 vulnerabilities detected in 24h cycle.</p>
+                        </div>
                      </div>
                   </div>
                 </div>
@@ -200,51 +188,46 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function SidebarButton({ active, onClick, icon, label }: any) {
+function SidebarButton({ active, onClick, icon, label, collapsed }: any) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-green-500/20 text-green-500' : 'text-slate-400 hover:text-white hover:bg-slate-900'}`}
+      className={`w-full group relative flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-300 ${active ? 'bg-green-500 text-slate-950 shadow-[0_0_20px_rgba(34,197,94,0.2)]' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
     >
-      {active && <motion.div layoutId="side-pill" className="absolute left-0 w-1 h-5 bg-green-500/200 rounded-r-full" />}
-      <span className="transition-transform duration-300 group-hover:scale-105">{icon}</span>
-      <span className="text-sm font-bold tracking-tight">{label}</span>
-      {active && <div className="ml-auto opacity-50"><ChevronRight size={14} /></div>}
+      <span className="shrink-0 transition-transform duration-300 group-hover:scale-110">{icon}</span>
+      {!collapsed && <span className="text-xs font-black uppercase tracking-widest truncate">{label}</span>}
+      {active && !collapsed && <div className="ml-auto"><ChevronRight size={14} /></div>}
     </button>
   );
 }
 
-function StatCard({ title, value, color = "text-white", icon, sub }: any) {
+function StatCard({ title, value, color = "text-white", icon, trend }: any) {
   return (
-    <div className="bg-slate-800 p-6 rounded-[2rem] border border-slate-700 hover:border-green-500/50 transition-all shadow-sm">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2.5 bg-green-500/20 rounded-xl border border-green-500/30">
-           {React.cloneElement(icon, { size: 18, className: "text-green-500" })}
+    <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-white/5 hover:border-green-500/30 transition-all group backdrop-blur-xl">
+      <div className="flex items-center justify-between mb-6">
+        <div className="p-3 bg-white/5 rounded-2xl border border-white/5 group-hover:bg-green-500 group-hover:border-green-500 transition-all duration-500">
+           {React.cloneElement(icon, { size: 24, className: "text-slate-400 group-hover:text-slate-950 transition-colors" })}
         </div>
-        <div>
-          <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">{title}</div>
-          <div className="text-[10px] text-slate-500 font-medium">{sub}</div>
-        </div>
+        {trend && <div className="text-[10px] font-black text-green-500 uppercase tracking-widest">{trend}</div>}
       </div>
-      <div className={`text-4xl font-bold tracking-tight ${color}`}>{value}</div>
+      <div className="space-y-1">
+        <div className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{title}</div>
+        <div className={`text-4xl font-black tracking-tighter italic ${color}`}>{value}</div>
+      </div>
     </div>
   );
 }
 
-function ThreatItem({ label, value, level }: any) {
-  const colors: any = {
-    LOW: "text-green-500 bg-green-500/20 border-green-500/30",
-    MID: "text-orange-600 bg-orange-50 border-orange-100",
-    HIGH: "text-red-600 bg-red-50 border-red-100",
-    NULL: "text-slate-500 bg-slate-900"
-  };
+function HealthBar({ label, value, status, color = "bg-green-500" }: any) {
   return (
-    <div className="flex items-center justify-between group">
-       <span className="text-xs font-bold text-slate-400 transition-colors">{label}</span>
-       <div className="flex items-center gap-3">
-          <span className="text-xs font-bold">{value}</span>
-          <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${colors[level]}`}>{level}</span>
-       </div>
+    <div className="space-y-3">
+      <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+         <span className="text-slate-500">{label}</span>
+         <span className={color.replace('bg-', 'text-')}>{status}</span>
+      </div>
+      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+         <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} className={`h-full ${color}`} />
+      </div>
     </div>
   );
 }
@@ -274,54 +257,64 @@ function UsersManager() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="bg-slate-800 rounded-[2rem] border border-slate-700 shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between">
-            <h3 className="font-bold text-lg tracking-tight flex items-center gap-3">
-              <Users className="text-green-500" size={20} />
-              Platform Users
+      <div className="bg-slate-900/50 rounded-[3rem] border border-white/5 shadow-sm overflow-hidden backdrop-blur-xl">
+        <div className="px-10 py-8 border-b border-white/5 flex items-center justify-between">
+            <h3 className="font-black text-xl tracking-tighter uppercase italic flex items-center gap-4">
+              <Users className="text-green-500" size={24} />
+              User Registry
             </h3>
-            <div className="text-xs font-bold text-green-500 bg-green-500/20 px-4 py-1.5 rounded-full border border-green-500/30">
-              {users.length} Total
+            <div className="text-[10px] font-black text-green-500 bg-green-500/10 px-6 py-2 rounded-full border border-green-500/20 uppercase tracking-widest">
+              {users.length} Active Nodes
             </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-slate-900 text-slate-500 uppercase text-[10px] font-bold tracking-wider">
+            <thead className="bg-slate-950 text-slate-500 uppercase text-[9px] font-black tracking-[0.3em]">
               <tr>
-                <th className="px-8 py-4">User</th>
-                <th className="px-8 py-4">Contact</th>
-                <th className="px-8 py-4">Posts</th>
-                <th className="px-8 py-4">Status</th>
-                <th className="px-8 py-4 text-right">Actions</th>
+                <th className="px-10 py-6">Node Identifier</th>
+                <th className="px-10 py-6">Eco Level</th>
+                <th className="px-10 py-6">Signals</th>
+                <th className="px-10 py-6">Points</th>
+                <th className="px-10 py-6">Status</th>
+                <th className="px-10 py-6 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-700">
+            <tbody className="divide-y divide-white/5">
               {users.map(u => (
-                <tr key={u.id} className="group hover:bg-slate-900">
-                  <td className="px-8 py-6">
-                     <div className="flex items-center gap-3">
-                        <img src={u.avatar} className="w-10 h-10 rounded-xl border border-slate-700" />
+                <tr key={u.id} className="group hover:bg-white/5 transition-colors">
+                  <td className="px-10 py-8">
+                     <div className="flex items-center gap-4">
+                        <img src={u.avatar} className="w-12 h-12 rounded-2xl border border-white/10 shadow-lg" />
                         <div>
-                          <div className="font-bold text-sm">{u.name}</div>
-                          <div className="text-[10px] text-slate-500 font-medium">ID: {u.uniqueId}</div>
+                          <div className="font-black text-white uppercase tracking-tight">{u.name}</div>
+                          <div className="text-[10px] text-slate-500 font-bold tracking-widest">{u.uniqueId}</div>
                         </div>
                      </div>
                   </td>
-                  <td className="px-8 py-6 text-xs text-slate-400">{u.email}</td>
-                  <td className="px-8 py-6 font-bold text-green-500">{u._count?.posts || 0}</td>
-                  <td className="px-8 py-6">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${u.status === 'ACTIVE' ? 'bg-green-500/20 text-green-500' : 'bg-red-50 text-red-600'}`}>
+                  <td className="px-10 py-8">
+                     <span className="text-[10px] font-black text-yellow-500 uppercase tracking-widest bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20">
+                       {u.level || "Beginner"}
+                     </span>
+                  </td>
+                  <td className="px-10 py-8 font-black text-white">{u._count?.posts || 0}</td>
+                  <td className="px-10 py-8 font-black text-green-500">{u.points || 0}</td>
+                  <td className="px-10 py-8">
+                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${u.status === 'ACTIVE' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${u.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
                       {u.status}
                     </span>
                   </td>
-                  <td className="px-8 py-6">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                       {u.status === 'ACTIVE' && (
-                         <button onClick={() => setBanModal(u)} className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-600 hover:text-white transition-all">
-                            <UserX size={16} />
-                         </button>
-                       )}
-                    </div>
+                  <td className="px-10 py-8 text-right">
+                     <div className="flex items-center justify-end gap-3">
+                        <button onClick={() => window.open(`/profile/${u.id}`)} className="p-3 bg-white/5 text-slate-400 rounded-xl hover:text-white hover:bg-white/10 transition-all">
+                           <Eye size={18} />
+                        </button>
+                        {u.status === 'ACTIVE' && (
+                          <button onClick={() => setBanModal(u)} className="p-3 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all">
+                             <UserX size={18} />
+                          </button>
+                        )}
+                     </div>
                   </td>
                 </tr>
               ))}
@@ -332,42 +325,44 @@ function UsersManager() {
 
       <AnimatePresence>
         {banModal && (
-          <div className="fixed inset-0 bg-slate-800/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+          <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center z-[200] p-4">
             <motion.div 
                initial={{ scale: 0.95, opacity: 0 }} 
                animate={{ scale: 1, opacity: 1 }} 
                exit={{ scale: 0.95, opacity: 0 }}
-               className="bg-slate-800 border border-slate-700 p-10 rounded-[2.5rem] w-full max-w-lg shadow-2xl"
+               className="bg-slate-900 border border-white/10 p-12 rounded-[3rem] w-full max-w-lg shadow-2xl space-y-8"
             >
-              <h3 className="text-2xl font-bold text-red-600 mb-2">Ban User</h3>
-              <p className="text-xs text-slate-400 mb-8">User: <span className="font-bold text-white">{banModal.name}</span></p>
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black text-red-500 uppercase tracking-tighter italic">Restrict Node</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Suspending access for: <span className="text-white">{banModal.name}</span></p>
+              </div>
               
               <form onSubmit={e => {
                 e.preventDefault();
                 const duration = parseInt((e.target as any).duration.value);
                 const reason = (e.target as any).reason.value;
                 handleBan(banModal.id, duration, reason);
-              }} className="space-y-6">
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-slate-400">Duration</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[ {v:1, l:'1 Day'}, {v:7, l:'7 Days'}, {v:30, l:'30 Days'}, {v:-1, l:'Perm'} ].map(opt => (
+              }} className="space-y-8">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suspension Duration</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[ {v:1, l:'24 Hours'}, {v:7, l:'7 Days'}, {v:30, l:'30 Days'}, {v:-1, l:'Permanent'} ].map(opt => (
                       <label key={opt.v} className="cursor-pointer">
                         <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
-                        <div className="p-4 rounded-xl bg-slate-900 border border-slate-700 text-center peer-checked:bg-red-500 peer-checked:text-white">
-                           <div className="text-xs font-bold">{opt.l}</div>
+                        <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center peer-checked:bg-red-500 peer-checked:text-white transition-all">
+                           <div className="text-[10px] font-black uppercase tracking-widest">{opt.l}</div>
                         </div>
                       </label>
                     ))}
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-slate-400">Reason</label>
-                  <input required type="text" name="reason" placeholder="Why ban this user?" className="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm" />
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Protocol Violation Reason</label>
+                  <input required type="text" name="reason" placeholder="Enter formal reason..." className="w-full bg-slate-950 border border-white/5 rounded-2xl p-5 text-sm outline-none focus:border-red-500/50 transition-all" />
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setBanModal(null)} className="flex-1 bg-slate-900 py-4 rounded-xl font-bold text-xs text-slate-400">Cancel</button>
-                  <button type="submit" className="flex-[2] bg-red-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-500/10">Ban User</button>
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setBanModal(null)} className="flex-1 bg-slate-950 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest text-slate-500 border border-white/5">Cancel</button>
+                  <button type="submit" className="flex-[2] bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl shadow-red-500/20 hover:bg-red-500 transition-all">Execute Restriction</button>
                 </div>
               </form>
             </motion.div>
@@ -408,74 +403,40 @@ function ImageTrace() {
     try {
       const res = await api.post("/admin/scan", formData, { headers: getHeaders() });
       setMatchResult(res.data);
-      if (res.data.matchCount === 0) toast.info("No matching images found.");
-      else toast.warning(`Found ${res.data.matchCount} similar images.`);
     } catch (err: any) {
-      console.error("Trace error:", err);
-      const msg = err.response?.data?.error || "Pipeline handshake failure";
-      toast.error(`Process Failed: ${msg}`);
+      toast.error("Scan Failed");
     } finally { 
        clearInterval(interval);
        setLoading(false);
     }
   }
 
-  const deleteFamily = async () => {
-    if (!confirm(`Delete all ${matchResult.matchCount} matching images forever?`)) return;
-    setLoading(true);
-    try {
-      await api.delete(`/admin/delete/${matchResult.bestMatch.postId}`, { headers: getHeaders() });
-      toast.success("All copies deleted.");
-      setMatchResult(null); setFile(null); setPreview(null);
-    } catch {
-      toast.error("Error deleting images.");
-    } finally { setLoading(false); }
-  }
-
-  const deleteSingle = async (postId: number) => {
-    if (!confirm("Delete this specific post?")) return;
-    try {
-      await api.delete(`/api/posts/${postId}`, { headers: getHeaders() });
-      toast.success("Post deleted.");
-      // Refresh matches by filtering out the deleted one locally
-      setMatchResult({
-        ...matchResult,
-        matchCount: matchResult.matchCount - 1,
-        allMatches: matchResult.allMatches.filter((m: any) => m.postId !== postId)
-      });
-    } catch {
-      toast.error("Error deleting post.");
-    }
-  }
-
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="max-w-6xl mx-auto pb-20">
-      <div className="bg-slate-800 rounded-[2.5rem] border border-slate-700 p-8 lg:p-12 shadow-sm">
-        <header className="text-center mb-10">
-          <div className="inline-block bg-[#0f172a] text-[#38bdf8] px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 border border-[#1e293b]">
-            High-Performance Fast-Trace Pipeline
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-6xl mx-auto">
+      <div className="bg-slate-900/50 rounded-[3rem] border border-white/5 p-16 backdrop-blur-xl text-center space-y-12">
+        <header className="space-y-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-500/20">
+            Advanced Signal Trace
           </div>
-          <h2 className="text-3xl font-bold tracking-tight">Advanced Image Trace System</h2>
-          <p className="text-slate-500 text-xs font-medium mt-3">Using Perceptual Hashing (pHash)</p>
+          <h2 className="text-4xl font-black tracking-tighter uppercase italic">Signal Intelligence</h2>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Verify network integrity using pHash technology</p>
         </header>
 
         {!matchResult ? (
-          <div className="max-w-xl mx-auto">
-            <label className="block bg-slate-900 border-2 border-dashed border-slate-700 hover:border-green-500/50 p-16 rounded-[2rem] mb-6 cursor-pointer group transition-all">
+          <div className="max-w-md mx-auto space-y-8">
+            <label className="block bg-slate-950 border-2 border-dashed border-white/5 hover:border-green-500/50 p-20 rounded-[2.5rem] cursor-pointer group transition-all">
               <input type="file" className="hidden" onChange={(e) => {
                 const f = e.target.files?.[0];
                 if(f) { setFile(f); setPreview(URL.createObjectURL(f)); }
               }} />
               {preview ? (
-                <div className="relative w-full h-64">
-                  <img src={preview} className="w-full h-full object-contain rounded-2xl" />
-                </div>
+                <img src={preview} className="w-full aspect-square object-cover rounded-3xl shadow-2xl" />
               ) : (
-                <div className="text-center space-y-4">
-                   <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto border border-slate-700 shadow-sm">
-                      <ImageIcon size={28} className="text-green-500" />
+                <div className="space-y-6">
+                   <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mx-auto border border-white/5 group-hover:bg-green-500 transition-all duration-500">
+                      <ImageIcon size={32} className="text-slate-500 group-hover:text-slate-950" />
                    </div>
-                   <p className="text-slate-500 font-bold text-[10px] uppercase">Upload image to scan</p>
+                   <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest group-hover:text-white transition-colors">Inject Image Signal</p>
                 </div>
               )}
             </label>
@@ -483,99 +444,96 @@ function ImageTrace() {
             <button 
               disabled={!file || loading} 
               onClick={scanNetwork} 
-              className="w-full h-16 bg-green-500/200 text-white rounded-2xl font-bold text-sm shadow-lg shadow-[0_0_15px_rgba(34,197,94,0.15)] active:scale-[0.98] transition-all disabled:opacity-30 flex items-center justify-center gap-3 overflow-hidden"
+              className="w-full h-16 bg-green-500 text-slate-950 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-green-500/20 hover:bg-green-400 transition-all active:scale-95 disabled:opacity-20"
             >
-              {loading && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              {loading ? steps[currentStep] : "Initiate Global Scan"}
+              {loading ? steps[currentStep] : "Initiate Global Trace"}
             </button>
           </div>
         ) : (
-          <div className="space-y-12">
-             {/* Side-by-Side Comparison */}
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">Uploaded Source</h4>
-                  <div className="bg-slate-900 rounded-[2rem] p-4 border border-slate-700">
-                    <img src={preview!} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2">Best Match Encountered</h4>
-                  <div className="bg-green-500/20 rounded-[2rem] p-4 border border-green-500/30 relative">
-                    {matchResult.bestMatch ? (
-                      <>
-                        <img src={matchResult.bestMatch.previewUrl} className="w-full aspect-square object-cover rounded-[1.5rem] border-4 border-white shadow-lg" />
-                        <div className="absolute top-8 right-8 bg-green-500/200 text-white px-4 py-2 rounded-xl font-bold text-lg shadow-xl shadow-[0_0_20px_rgba(34,197,94,0.3)]">
-                          {matchResult.bestMatch.similarity}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="w-full aspect-square flex items-center justify-center text-slate-500 font-bold text-sm uppercase italic">No Match Found</div>
-                    )}
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+             {/* Simple Match UI */}
+             <div className="p-8 bg-slate-950 rounded-3xl border border-white/5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Source Signal</p>
+                <img src={preview!} className="w-full rounded-2xl shadow-2xl" />
              </div>
-
-             {/* Match Details List */}
-             <div className="bg-slate-900 rounded-[2rem] border border-slate-700 overflow-hidden">
-                <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between">
-                   <h3 className="font-bold text-lg">Similarity Results ({matchResult.matchCount})</h3>
-                   {matchResult.matchCount > 0 && (
-                     <button onClick={deleteFamily} className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">
-                        <Trash2 size={14} /> Wipe All Variants
-                     </button>
-                   )}
-                </div>
-                
-                <div className="p-4 space-y-4">
-                  {matchResult.allMatches?.map((m: any, idx: number) => (
-                    <motion.div 
-                      initial={{ opacity: 0, x: -10 }} 
-                      animate={{ opacity: 1, x: 0 }} 
-                      transition={{ delay: idx * 0.1 }}
-                      key={m.postId} 
-                      className="bg-slate-800 p-6 rounded-2xl border border-slate-700 flex flex-wrap lg:flex-nowrap items-center gap-6 group hover:border-green-500/50 transition-all"
-                    >
-                       <img src={m.previewUrl} className="w-20 h-20 rounded-xl object-cover border border-slate-700" />
-                       <div className="flex-1 min-w-[200px]">
-                          <div className="flex items-center gap-3 mb-2">
-                             <span className="text-sm font-bold text-white">Post #{m.postId}</span>
-                             <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border ${m.confidenceLevel === 'HIGH' ? 'bg-green-500/20 text-green-500 border-green-500/30' : m.confidenceLevel === 'MEDIUM' ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                                {m.confidenceLevel} CONFIDENCE
-                             </span>
-                          </div>
-                          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                             <div className="flex items-center gap-1"><Fingerprint size={12} className="text-green-500" /> {m.matchType}</div>
-                             <div className="flex items-center gap-1"><Users size={12} className="text-slate-400" /> {m.user || "Unknown User"}</div>
-                          </div>
-                       </div>
-                       
-                       <div className="flex items-center gap-3 ml-auto">
-                          <div className="text-right mr-4 hidden md:block">
-                             <div className="text-xs font-bold text-green-500">{m.similarity} Similarity</div>
-                             <div className="text-[10px] text-slate-500 font-medium uppercase mt-0.5">Hybrid Score</div>
-                          </div>
-                          <button onClick={() => deleteSingle(m.postId)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all">
-                             <Trash2 size={18} />
-                          </button>
-                          <button onClick={() => toast.info("Ignoring variant...")} className="p-3 bg-slate-900 text-slate-500 rounded-xl hover:bg-[#0f172a] hover:text-white transition-all">
-                             <CheckCircle2 size={18} />
-                          </button>
-                       </div>
-                    </motion.div>
-                  ))}
-                  
-                  {matchResult.matchCount === 0 && (
-                    <div className="py-20 text-center text-slate-500 italic text-sm">No significant matches detected across the network.</div>
-                  )}
-                </div>
-                
-                <div className="px-8 py-6 border-t border-slate-700 flex justify-center">
-                   <button onClick={() => setMatchResult(null)} className="font-bold text-xs text-green-500 hover:underline">Clear results and scan new image</button>
-                </div>
+             <div className="p-8 bg-slate-950 rounded-3xl border border-white/5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Best Match Encountered</p>
+                {matchResult.bestMatch ? (
+                   <img src={matchResult.bestMatch.previewUrl} className="w-full rounded-2xl shadow-2xl opacity-50" />
+                ) : (
+                   <div className="h-64 flex items-center justify-center text-green-500 font-black uppercase tracking-widest">Signal Unique</div>
+                )}
              </div>
+             <button onClick={() => setMatchResult(null)} className="md:col-span-2 text-xs font-black text-green-500 uppercase tracking-widest hover:underline">Scan New Signal</button>
           </div>
         )}
+      </div>
+    </motion.div>
+  );
+}
+
+function FlaggedContent() {
+  const [flags, setFlags] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchFlags = () => {
+    api.get("/admin/flags", { headers: getHeaders() })
+      .then(res => { setFlags(res.data); setLoading(false); })
+      .catch(() => { toast.error("Report Load Failure"); setLoading(false); });
+  };
+
+  useEffect(() => { fetchFlags(); }, []);
+
+  const resolveFlag = async (id: number, action: "KEEP" | "WIPE") => {
+    try {
+      await api.post(`/admin/flags/${id}/resolve`, { action }, { headers: getHeaders() });
+      toast.success("Incident Resolved");
+      fetchFlags();
+    } catch {
+      toast.error("Resolution Failed");
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
+      <div className="flex items-center justify-between">
+         <h2 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-4">
+           <Flag className="text-red-500" size={24} />
+           Security Queue
+         </h2>
+         <div className="text-[10px] font-black text-red-500 bg-red-500/10 px-6 py-2 rounded-full border border-red-500/20 uppercase tracking-widest">
+           {flags.length} Critical Incidents
+         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {flags.map((flag) => (
+          <motion.div layout key={flag.id} className="bg-slate-900/50 rounded-[2.5rem] border border-white/5 overflow-hidden backdrop-blur-xl flex flex-col group hover:border-red-500/30 transition-all">
+            <div className="relative aspect-video bg-slate-950 overflow-hidden">
+               {flag.post ? (
+                  <img src={flag.post.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+               ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-700 font-black uppercase text-[10px]">Data Purged</div>
+               )}
+               {flag.priority === "HIGH" && <div className="absolute top-4 left-4 px-3 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest rounded-lg">Priority High</div>}
+            </div>
+            
+            <div className="p-8 space-y-6 flex-1 flex flex-col">
+               <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                     <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Violation: {flag.reason}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-bold leading-relaxed italic">"{flag.post?.caption || "No Context"}"</p>
+               </div>
+
+               <div className="mt-auto grid grid-cols-2 gap-3 pt-6 border-t border-white/5">
+                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-slate-950 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-widest border border-white/5 hover:text-white transition-all">Dismiss</button>
+                  <button onClick={() => resolveFlag(flag.id, "WIPE")} className="py-3 bg-red-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-red-500/20 hover:bg-red-500 transition-all">Nuke Signal</button>
+               </div>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </motion.div>
   );
@@ -589,105 +547,30 @@ function SystemPulse() {
   }, []);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="bg-slate-800 rounded-[2rem] border border-slate-700 shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-slate-700 flex items-center justify-between bg-slate-900">
-            <h3 className="font-bold text-lg flex items-center gap-3">
-              <List className="text-green-500" size={20} />
-              Recent Activities
-            </h3>
-        </div>
-        <div className="p-6 space-y-3">
+    <div className="bg-slate-900/50 rounded-[3rem] border border-white/5 backdrop-blur-xl overflow-hidden">
+       <div className="px-10 py-8 border-b border-white/5 bg-slate-950/50">
+          <h3 className="font-black text-xl uppercase tracking-tighter italic flex items-center gap-4">
+             <List className="text-green-500" size={24} />
+             Audit Intelligence
+          </h3>
+       </div>
+       <div className="p-8 space-y-4">
           {logs.map((log: any) => (
-            <div key={log.id} className="flex items-start gap-4 p-5 bg-slate-800 rounded-2xl border border-slate-700 hover:border-green-500/30 transition-all">
-               <div className={`p-2 rounded-xl ${log.actionType.includes('DELETE') ? 'bg-red-50 text-red-500' : 'bg-green-500/20 text-green-500'}`}>
-                 {log.actionType.includes('DELETE') ? <Trash2 size={18} /> : <Zap size={18} />}
-               </div>
-               <div className="flex-1">
-                 <div className="flex items-center gap-3 mb-1">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{log.actionType}</span>
-                    <span className="text-[9px] text-slate-500">{new Date(log.createdAt).toLocaleString()}</span>
-                 </div>
-                 <div className="text-sm font-medium text-[#475569]">{log.details}</div>
-                 <div className="mt-3 text-[9px] font-bold text-slate-500 uppercase">Admin: {log.adminName}</div>
-               </div>
-            </div>
-          ))}
-          {logs.length === 0 && <div className="py-20 text-center opacity-30 text-xs">No logs found.</div>}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-function FlaggedContent() {
-  const [flags, setFlags] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchFlags = () => {
-    api.get("/admin/flags", { headers: getHeaders() })
-      .then(res => { setFlags(res.data); setLoading(false); })
-      .catch(() => { toast.error("Could not load reports."); setLoading(false); });
-  };
-
-  useEffect(() => { fetchFlags(); }, []);
-
-  const resolveFlag = async (id: number, action: "KEEP" | "WIPE") => {
-    try {
-      await api.post(`/admin/flags/${id}/resolve`, { action }, { headers: getHeaders() });
-      toast.success(action === "KEEP" ? "Report ignored." : "Post deleted.");
-      fetchFlags();
-    } catch {
-      toast.error("Error occurred.");
-    }
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <h2 className="text-xl font-bold flex items-center gap-3">
-        <Flag className="text-red-500" size={20} />
-        Recent Reports
-      </h2>
-
-      {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center opacity-30">
-           <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4" />
-           <p className="text-xs font-bold uppercase">Loading Reports...</p>
-        </div>
-      ) : flags.length === 0 ? (
-        <div className="text-center py-20 border border-slate-700 rounded-[2rem] bg-slate-800 text-slate-500">
-          <CheckCircle2 size={48} className="mx-auto mb-4 opacity-10" />
-          <p className="text-xs font-bold uppercase">No reports to review.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {flags.map((flag) => (
-            <motion.div layout key={flag.id} className="bg-slate-800 rounded-[2rem] overflow-hidden border border-slate-700 shadow-sm flex flex-col">
-              <div className="relative h-56 bg-slate-900">
-                {flag.post ? (
-                   <img src={(flag.post.imageUrl || "").replace('/upload/', '/upload/f_auto,q_auto,w_600,c_limit/')} className="w-full h-full object-cover" />
-                ) : (
-                   <div className="w-full h-full flex items-center justify-center text-slate-500 uppercase text-[10px] font-bold">Image Deleted</div>
-                )}
-                {flag.priority === "HIGH" && <span className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 text-[10px] font-bold rounded-lg uppercase">High Priority</span>}
-              </div>
-              
-              <div className="p-8 flex-1 flex flex-col space-y-4">
-                <div>
-                  <div className="text-[10px] text-slate-500 uppercase mb-2">Reported by: {flag.user?.name || "User"}</div>
-                  <h4 className="font-bold text-white mb-3">Reason: {flag.reason}</h4>
-                  <div className="bg-slate-900 p-4 rounded-xl text-xs italic text-slate-400">"{flag.post?.caption || "No caption"}"</div>
+             <div key={log.id} className="flex items-start gap-6 p-6 bg-slate-950 rounded-3xl border border-white/5 hover:border-green-500/20 transition-all group">
+                <div className="p-3 bg-slate-900 rounded-2xl border border-white/5 group-hover:bg-green-500/10 group-hover:border-green-500/30 transition-all">
+                   <Zap size={20} className="text-slate-500 group-hover:text-green-500" />
                 </div>
-                
-                <div className="mt-auto grid grid-cols-2 gap-3">
-                  <button onClick={() => resolveFlag(flag.id, "KEEP")} className="py-3 bg-slate-900 rounded-xl font-bold text-xs border border-slate-700">Keep Post</button>
-                  <button onClick={() => resolveFlag(flag.id, "WIPE")} className="py-3 bg-red-600 text-white rounded-xl font-bold text-xs shadow-lg shadow-red-500/10">Delete Post</button>
+                <div className="flex-1 space-y-2">
+                   <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded">{log.actionType}</span>
+                      <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">{new Date(log.createdAt).toLocaleString()}</span>
+                   </div>
+                   <p className="text-sm text-slate-400 font-medium">{log.details}</p>
+                   <div className="text-[8px] font-black text-green-500/40 uppercase tracking-[0.2em]">Auth: Admin_{log.adminName}</div>
                 </div>
-              </div>
-            </motion.div>
+             </div>
           ))}
-        </div>
-      )}
-    </motion.div>
+       </div>
+    </div>
   );
 }

@@ -11,7 +11,10 @@ import {
   Settings,
   Lock,
   ChevronRight,
-  User as UserIcon
+  User as UserIcon,
+  Zap,
+  Trophy,
+  Award
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { User, Post } from "../types";
@@ -155,6 +158,12 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
               <div className="flex items-center justify-center md:justify-start gap-2">
                  <h2 className="text-3xl font-black text-white tracking-tight">{profileUser?.name}</h2>
                  {profileUser?.isPrivate && <Lock size={18} className="text-slate-500" />}
+                 {(profileUser as any)?.level && (
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                       <Zap size={10} className="text-green-500 fill-green-500" />
+                       <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">{(profileUser as any).level}</span>
+                    </div>
+                  )}
               </div>
               <div className="flex gap-2 justify-center md:justify-start">
                  {isOwnProfile ? (
@@ -203,10 +212,47 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
               </div>
            </div>
 
-           <div className="space-y-1">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-2">ID: {profileUser?.uniqueId}</div>
-              <p className="text-sm text-slate-400 font-medium whitespace-pre-wrap leading-relaxed max-w-lg">{profileUser?.bio || "No description broadcasted."}</p>
-           </div>
+           <div className="space-y-4">
+               <div className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">ID: {profileUser?.uniqueId}</div>
+               
+               {/* Progress Bar */}
+               <div className="w-full max-w-xs space-y-2">
+                  <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                     <span>Eco Progress</span>
+                     <span className="text-white">{(profileUser as any)?.points || 0} / 2000 EXP</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
+                     <motion.div 
+                        initial={{ width: 0 }} 
+                        animate={{ width: `${Math.min((((profileUser as any)?.points || 0) / 2000) * 100, 100)}%` }} 
+                        className="h-full bg-gradient-to-r from-green-500 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                     />
+                  </div>
+               </div>
+
+               <p className="text-sm text-slate-400 font-medium whitespace-pre-wrap leading-relaxed max-w-lg">{profileUser?.bio || "No description broadcasted."}</p>
+               
+               {/* Badges Section */}
+               <div className="flex flex-wrap gap-3 pt-4">
+                  {(profileUser as any)?.badges?.map((badge: any) => (
+                    <div key={badge.id} className="group relative">
+                      <div className="p-2.5 bg-slate-800/50 rounded-xl border border-white/5 hover:border-yellow-500/50 transition-all cursor-help">
+                         <Award className="text-yellow-500" size={20} />
+                      </div>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-50">
+                         <div className="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg whitespace-nowrap shadow-2xl border border-slate-700">
+                            {badge.name}
+                         </div>
+                      </div>
+                    </div>
+                  ))}
+                  {((profileUser as any)?.points || 0) > 100 && (
+                    <div className="p-2.5 bg-slate-800/50 rounded-xl border border-white/5 opacity-50 grayscale hover:grayscale-0 transition-all cursor-help">
+                       <Trophy className="text-blue-400" size={20} />
+                    </div>
+                  )}
+               </div>
+            </div>
         </div>
       </div>
 

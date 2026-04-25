@@ -16,12 +16,14 @@ import {
   Image as ImageIcon,
   MessageCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Trophy
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import Admin from "./pages/Admin";
+import LeaderboardPage from "./pages/LeaderboardPage";
 import { User, Post } from "./types";
 import OptimizedImage from "./components/common/OptimizedImage";
 import { SocketProvider, useSocket } from "./context/SocketContext";
@@ -35,6 +37,7 @@ const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const MessagingPage = lazy(() => import("./components/MessagingPage"));
 const NotificationPage = lazy(() => import("./components/NotificationPage"));
 const LostFoundPage = lazy(() => import("./components/LostFoundPage"));
+const PostSkeleton = lazy(() => import("./components/PostSkeleton"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,7 +111,7 @@ export default function App() {
 }
 
 function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | null) => void }) {
-  const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages" | "notifications">("feed");
+  const [view, setView] = useState<"feed" | "search" | "upload" | "profile" | "auth" | "lostfound" | "admin" | "userProfile" | "messages" | "notifications" | "leaderboard">("feed");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register" | "forgot" | "reset" | "new_password">("login");
@@ -184,6 +187,15 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     window.addEventListener('open-profile', handleOpenProfile);
     return () => window.removeEventListener('open-profile', handleOpenProfile);
   }, []);
+
+  const refreshHome = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (view === "feed") {
+      fetchPosts(true);
+    } else {
+      setView("feed");
+    }
+  };
 
   const fetchPosts = async (reset = false) => {
     if (loading || (loadingMore && !reset)) return;
@@ -582,6 +594,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             
             <div className="hidden md:flex items-center gap-2 bg-slate-800 p-1.5 rounded-2xl border border-slate-700/50">
               <NavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={20} />} label="Home" />
+              <NavButton active={view === "leaderboard"} onClick={() => setView("leaderboard")} icon={<Trophy size={20} />} label="Ranking" />
               <NavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={20} />} label="Search" />
               <NavButton active={view === "upload"} onClick={() => setView("upload")} icon={<PlusSquare size={20} />} label="Post" />
               <NavButton active={view === "notifications"} onClick={() => setView("notifications")} icon={<Bell size={20} />} label="Notifications" badge={unreadNotifications} />
@@ -678,8 +691,8 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 <div className="col-span-1 lg:col-span-6 space-y-8 pb-12">
                   <StoriesRow />
                   {loading ? (
-                    Array(3).fill(0).map((_, i) => (
-                      <div key={i} className="h-[600px] w-full bg-slate-800 border border-slate-700 rounded-[3rem] animate-pulse" />
+                    Array(5).fill(0).map((_, i) => (
+                      <PostSkeleton key={i} />
                     ))
                   ) : posts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center space-y-6">
@@ -777,6 +790,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
             {view === "notifications" && user && <NotificationPage user={user} onRead={() => fetchUnreadCount(user.id)} />}
             {view === "messages" && user && <MessagingPage currentUser={user} initialUser={activeChatUser} />}
             {view === "lostfound" && <LostFoundPage />}
+            {view === "leaderboard" && <LeaderboardPage />}
             {view === "admin" && <Admin onComplete={() => { fetchPosts(true); setView("feed"); }} />}
           </AnimatePresence>
         </Suspense>
