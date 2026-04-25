@@ -869,20 +869,35 @@ app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (r
 
 app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
   try {
-    const { credential } = req.body; // Google ID token from frontend
+    const { credential } = req.body; 
+    console.log("[GOOGLE AUTH] Attempting verification...");
+    
     if (!credential) return res.status(400).json({ error: "Google credential required" });
 
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error("[CRITICAL] GOOGLE_CLIENT_ID is missing on server environment!");
+      return res.status(500).json({ error: "Server misconfiguration: GOOGLE_CLIENT_ID missing" });
+    }
+
     // Verify the token with Google
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyError: any) {
+      console.error("[GOOGLE VERIFY ERROR]", verifyError.message);
+      return res.status(401).json({ error: "Google token verification failed" });
+    }
+
     const payload = ticket.getPayload();
     if (!payload || !payload.email) {
-      return res.status(401).json({ error: "Invalid Google token" });
+      return res.status(401).json({ error: "Invalid Google token payload" });
     }
 
     const { email, name, picture, sub: googleId } = payload;
+    console.log(`[GOOGLE AUTH] Token valid for: ${email}`);
 
     // Check if user exists by googleId first, then by email
     let user = await prisma.user.findFirst({
@@ -890,6 +905,7 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
     });
 
     if (user) {
+      console.log(`[GOOGLE AUTH] User found: ${user.id}`);
       // Existing user — link googleId if not already linked
       if (!user.googleId) {
         user = await prisma.user.update({
@@ -905,8 +921,9 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
         return res.status(403).json({ error: `Account suspended until ${user.banUntil.toLocaleDateString()}.` });
       }
     } else {
+      console.log(`[GOOGLE AUTH] Registering new user: ${email}`);
       // New user — auto-register with Google info
-      const uniqueId = await generateUniqueId(); // reuse existing function
+      const uniqueId = await generateUniqueId(); 
       user = await prisma.user.create({
         data: {
           name: name || "EHH User",
@@ -914,12 +931,11 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
           googleId,
           avatar: picture || null,
           uniqueId,
-          password: null, // no password for Google users
+          password: null,
         }
       });
     }
 
-    // Issue JWT exactly like normal login
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET!,
@@ -944,18 +960,14 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
-      data: { 
-        streak: newStreak,
-        lastActive: now
-      }
+      data: { streak: newStreak, lastActive: now }
     });
 
-    const safeUserData = formatPublicUser(updatedUser); // use existing formatPublicUser function
-    res.json({ token, user: safeUserData });
+    res.json({ token, user: formatPublicUser(updatedUser) });
 
   } catch (error: any) {
-    console.error("[GOOGLE AUTH ERROR]", error.message);
-    res.status(500).json({ error: "Google authentication failed" });
+    console.error("[GOOGLE AUTH 500]", error);
+    res.status(500).json({ error: error.message || "Internal server error during Google Auth" });
   }
 });
 

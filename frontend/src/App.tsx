@@ -61,6 +61,31 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    if (view === "auth" && (authMode === "login" || authMode === "register")) {
+      const initGoogle = () => {
+        const el = document.getElementById("google-signin-btn");
+        if (el && (window as any).google) {
+          const cid = import.meta.env.VITE_GOOGLE_CLIENT_ID || "968747558888-9lsihokujg5qkb75s9rvdpd6jqb3ks0a.apps.googleusercontent.com";
+          (window as any).google.accounts.id.initialize({
+            client_id: cid,
+            callback: handleGoogleAuth,
+            use_fedcm_for_prompt: true,
+          });
+          (window as any).google.accounts.id.renderButton(el, {
+            theme: "outline",
+            size: "large",
+            width: el.offsetWidth || 320,
+            text: authMode === "register" ? "signup_with" : "signin_with",
+            shape: "rectangular",
+          });
+        }
+      };
+      const timer = setTimeout(initGoogle, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [view, authMode]);
+
+  useEffect(() => {
     const initApp = async () => {
       try {
         const token = localStorage.getItem("ehh_token");
@@ -568,33 +593,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                     <span className="text-xs text-slate-500 font-medium">OR</span>
                     <div className="flex-1 h-px bg-slate-800" />
                   </div>
-                  <div
-                    id="google-signin-btn"
-                    className="w-full flex justify-center"
-                    ref={(el) => {
-                      if (el && (window as any).google) {
-                        // Use environment variable first, then fallback to your specific ID
-                        const cid = import.meta.env.VITE_GOOGLE_CLIENT_ID || "968747558888-9lsihokujg5qkb75s9rvdpd6jqb3ks0a.apps.googleusercontent.com";
-                        
-                        if (!cid || cid.includes("placeholder")) {
-                          console.error("CRITICAL: VITE_GOOGLE_CLIENT_ID is missing or not loaded.");
-                        }
-
-                        (window as any).google.accounts.id.initialize({
-                          client_id: cid,
-                          callback: handleGoogleAuth,
-                          use_fedcm_for_prompt: true,
-                        });
-                        (window as any).google.accounts.id.renderButton(el, {
-                          theme: "outline",
-                          size: "large",
-                          width: el.offsetWidth || 320,
-                          text: authMode === "register" ? "signup_with" : "signin_with",
-                          shape: "rectangular",
-                        });
-                      }
-                    }}
-                  />
+                  <div id="google-signin-btn" className="w-full flex justify-center" />
                 </div>
               )}
 
