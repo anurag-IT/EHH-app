@@ -379,10 +379,30 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
           toast.error("This email is already registered. Please log in instead.", { icon: <span>📧</span> });
         } else if (errorMsg?.includes("6 characters")) {
           toast.error("Password must be at least 6 characters long.", { icon: <span>⚠️</span> });
+        } else if (errorMsg?.includes("Google Sign-In")) {
+          toast.error(errorMsg, { icon: <span>🔵</span> });
         } else {
           toast.error(errorMsg || "Something went wrong. Please try again.", { icon: <span>❌</span> });
         }
       }
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleGoogleAuth = async (credentialResponse: any) => {
+    try {
+      setAuthLoading(true);
+      const res = await api.post("/api/auth/google", {
+        credential: credentialResponse.credential
+      });
+      const { token, user: userData } = res.data;
+      localStorage.setItem("ehh_token", token);
+      localStorage.setItem("ehh_user", JSON.stringify(userData));
+      setUser(userData);
+      toast.success(`Welcome, ${userData.name}! 🌿`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Google sign-in failed");
     } finally {
       setAuthLoading(false);
     }
@@ -540,6 +560,36 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   )}
                 </span>
               </button>
+
+              {(authMode === "login" || authMode === "register") && (
+                <div className="px-6 pb-2">
+                  <div className="flex items-center gap-3 my-3">
+                    <div className="flex-1 h-px bg-slate-800" />
+                    <span className="text-xs text-slate-500 font-medium">OR</span>
+                    <div className="flex-1 h-px bg-slate-800" />
+                  </div>
+                  <div
+                    id="google-signin-btn"
+                    className="w-full flex justify-center"
+                    ref={(el) => {
+                      if (el && (window as any).google) {
+                        (window as any).google.accounts.id.initialize({
+                          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                          callback: handleGoogleAuth,
+                          use_fedcm_for_prompt: true,
+                        });
+                        (window as any).google.accounts.id.renderButton(el, {
+                          theme: "outline",
+                          size: "large",
+                          width: el.offsetWidth || 320,
+                          text: authMode === "register" ? "signup_with" : "signin_with",
+                          shape: "rectangular",
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
               {(authMode === "forgot" || authMode === "reset" || authMode === "new_password") && (
                 <button

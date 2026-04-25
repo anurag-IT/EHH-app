@@ -6,6 +6,7 @@ import morgan from "morgan";
 
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from 'google-auth-library';
 import compression from "compression";
 import cors from "cors";
 import helmet from "helmet";
@@ -100,6 +101,8 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 10 });
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60_000, // 1 hour window
   max: 10,
@@ -526,8 +529,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
 
     if (!user.password) {
       return res.status(400).json({ 
-        error: "Reset password required", 
-        resetRequired: true 
+        error: "This account uses Google Sign-In. Please use the Google button to login." 
       });
     }
 
@@ -570,6 +572,12 @@ app.post("/api/users/forgot-password", forgotPasswordLimiter, async (req: any, r
     if (!user) {
       // Security: return 200 even if not found to prevent email scanning
       return res.status(200).json({ message: "If that email exists, an OTP has been sent." });
+    }
+
+    if (!user.password) {
+      return res.status(400).json({ 
+        error: "This account uses Google Sign-In. No password reset needed — just use the Google button." 
+      });
     }
 
     // Generate 6-digit OTP
@@ -833,6 +841,74 @@ app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (r
     await prisma.userFollow.delete({ where: { id: requestId } });
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
+  try {
+    const { credential } = req.body; // Google ID token from frontend
+    if (!credential) return res.status(400).json({ error: "Google credential required" });
+
+    // Verify the token with Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: "Invalid Google token" });
+    }
+
+    const { email, name, picture, sub: googleId } = payload;
+
+    // Check if user exists by googleId first, then by email
+    let user = await prisma.user.findFirst({
+      where: { OR: [{ googleId }, { email }] }
+    });
+
+    if (user) {
+      // Existing user — link googleId if not already linked
+      if (!user.googleId) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleId, avatar: user.avatar || picture }
+        });
+      }
+      // Check if banned
+      if (user.status === "PERMANENT_BAN") {
+        return res.status(403).json({ error: "This account has been permanently suspended." });
+      }
+      if (user.status === "BANNED" && user.banUntil && new Date() < user.banUntil) {
+        return res.status(403).json({ error: `Account suspended until ${user.banUntil.toLocaleDateString()}.` });
+      }
+    } else {
+      // New user — auto-register with Google info
+      const uniqueId = await generateUniqueId(); // reuse existing function
+      user = await prisma.user.create({
+        data: {
+          name: name || "EHH User",
+          email: email.toLowerCase(),
+          googleId,
+          avatar: picture || null,
+          uniqueId,
+          password: null, // no password for Google users
+        }
+      });
+    }
+
+    // Issue JWT exactly like normal login
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: "30d" }
+    );
+
+    const safeUserData = formatPublicUser(user); // use existing formatPublicUser function
+    res.json({ token, user: safeUserData });
+
+  } catch (error: any) {
+    console.error("[GOOGLE AUTH ERROR]", error.message);
+    res.status(500).json({ error: "Google authentication failed" });
+  }
 });
 
 app.get("/api/users/:id", async (req: any, res: any) => {
