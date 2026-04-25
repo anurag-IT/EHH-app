@@ -691,7 +691,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               <ShieldAlert className="text-red-500" size={32} />
             </div>
             <div className="relative z-10">
-              <h3 className="text-red-100 font-black text-xl tracking-tight">Account Blocked</h3>
+              <h3 className="text-red-100 font-black text-xl tracking-tight">Account Blocked (Status: {user.status})</h3>
               <p className="text-red-400/80 text-sm font-medium mt-1">
                 Your account is currently suspended for: <span className="text-red-400 font-bold underline decoration-red-500/50 underline-offset-4">{user.banReason || "Not following our rules"}</span>. 
                 {user.banUntil ? ` You can use the app again on ${new Date(user.banUntil).toLocaleDateString()}.` : " This block is permanent."}
