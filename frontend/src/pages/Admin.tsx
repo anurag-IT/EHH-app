@@ -246,10 +246,10 @@ function UsersManager() {
 
   const handleBan = async (id: number, durationDays: number, reason: string) => {
     try {
-      await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
-      toast.success("User banned successfully.");
+      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
+      toast.success(res.data.message || "User banned successfully.");
       setBanModal(null);
-      fetchUsers();
+      fetchUsers(); // refresh list to show updated strike count
     } catch {
       toast.error("Process failed.");
     }
@@ -303,6 +303,13 @@ function UsersManager() {
                       <div className={`w-1.5 h-1.5 rounded-full ${u.status === 'ACTIVE' ? 'bg-green-500' : 'bg-red-500'}`} />
                       {u.status}
                     </span>
+                    {(u.banStrike > 0) && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold ml-1 ${
+                        u.banStrike >= 3 ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
+                      }`}>
+                        ⚡ {u.banStrike} strike{u.banStrike !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </td>
                   <td className="px-10 py-8 text-right">
                      <div className="flex items-center justify-end gap-3">
@@ -334,7 +341,18 @@ function UsersManager() {
             >
               <div className="space-y-2">
                 <h3 className="text-3xl font-black text-red-500 uppercase tracking-tighter italic">Restrict Node</h3>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Suspending access for: <span className="text-white">{banModal.name}</span></p>
+                <p className="text-xs text-slate-400 mb-2">User: <span className="font-bold text-white">{banModal.name}</span></p>
+                <div className="flex gap-2 items-center mb-6">
+                  <span className="text-xs text-slate-400">Current strikes:</span>
+                  {[1,2,3].map(s => (
+                    <div key={s} className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      (banModal.banStrike || 0) >= s ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-500'
+                    }`}>{s}</div>
+                  ))}
+                  {(banModal.banStrike || 0) >= 3 && (
+                    <span className="text-[10px] text-red-400 font-bold ml-1">⚠️ Next ban = PERMANENT</span>
+                  )}
+                </div>
               </div>
               
               <form onSubmit={e => {
@@ -346,11 +364,17 @@ function UsersManager() {
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suspension Duration</label>
                   <div className="grid grid-cols-2 gap-4">
-                    {[ {v:1, l:'24 Hours'}, {v:7, l:'7 Days'}, {v:30, l:'30 Days'}, {v:-1, l:'Permanent'} ].map(opt => (
+                    {[
+                      { v: 1, l: '1 Day', sub: 'Strike 1', color: 'peer-checked:bg-yellow-500' },
+                      { v: 3, l: '3 Days', sub: 'Strike 2', color: 'peer-checked:bg-orange-500' },
+                      { v: 7, l: '7 Days', sub: 'Strike 3', color: 'peer-checked:bg-red-500' },
+                      { v: -1, l: 'Permanent', sub: 'Final', color: 'peer-checked:bg-red-900' }
+                    ].map(opt => (
                       <label key={opt.v} className="cursor-pointer">
                         <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
-                        <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center peer-checked:bg-red-500 peer-checked:text-white transition-all">
+                        <div className={`p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all ${opt.color} peer-checked:text-white`}>
                            <div className="text-[10px] font-black uppercase tracking-widest">{opt.l}</div>
+                           <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">{opt.sub}</div>
                         </div>
                       </label>
                     ))}
