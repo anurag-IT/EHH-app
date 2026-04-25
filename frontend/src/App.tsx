@@ -124,6 +124,13 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const [authLoading, setAuthLoading] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [targetUserId, setTargetUserId] = useState<number | null>(null);
+  const [banInfo, setBanInfo] = useState<{
+    type: 'TEMP_BAN' | 'PERMANENT_BAN';
+    message: string;
+    reason: string;
+    banUntil?: string;
+    strike?: number;
+  } | null>(null);
 
   useEffect(() => {
     if (view === "auth" && (authMode === "login" || authMode === "register")) {
@@ -290,6 +297,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBanInfo(null);
     if (authLoading) return;
 
     const requiresPassword = authMode === "login" || authMode === "register" || authMode === "new_password";
@@ -386,6 +394,26 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       setView("feed");
       toast.success(`Welcome, ${userData.name}`);
     } catch (err: any) {
+      const errorCode = err.response?.data?.error;
+      if (errorCode === "PERMANENT_BAN") {
+        setBanInfo({
+          type: "PERMANENT_BAN",
+          message: err.response.data.message,
+          reason: err.response.data.reason,
+        });
+        return;
+      }
+      if (errorCode === "TEMP_BAN") {
+        setBanInfo({
+          type: "TEMP_BAN",
+          message: err.response.data.message,
+          reason: err.response.data.reason,
+          banUntil: err.response.data.banUntil,
+          strike: err.response.data.strike,
+        });
+        return;
+      }
+
       if (err.response?.data?.resetRequired) {
         toast.info("Security update required: Use Forgot Password to set a new one.");
         setAuthMode("forgot");
@@ -418,6 +446,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   const handleGoogleAuth = async (credentialResponse: any) => {
     try {
+      setBanInfo(null);
       setAuthLoading(true);
       const res = await api.post("/api/auth/google", {
         credential: credentialResponse.credential
@@ -428,6 +457,25 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       setUser(userData);
       toast.success(`Welcome, ${userData.name}! 🌿`);
     } catch (err: any) {
+      const errorCode = err.response?.data?.error;
+      if (errorCode === "PERMANENT_BAN") {
+        setBanInfo({
+          type: "PERMANENT_BAN",
+          message: err.response.data.message,
+          reason: err.response.data.reason,
+        });
+        return;
+      }
+      if (errorCode === "TEMP_BAN") {
+        setBanInfo({
+          type: "TEMP_BAN",
+          message: err.response.data.message,
+          reason: err.response.data.reason,
+          banUntil: err.response.data.banUntil,
+          strike: err.response.data.strike,
+        });
+        return;
+      }
       toast.error(err.response?.data?.error || "Google sign-in failed");
     } finally {
       setAuthLoading(false);
@@ -568,6 +616,48 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                       ["forgot","reset","new_password"].indexOf(authMode) > i ? "bg-green-500" : "bg-slate-700"
                     }`} />
                   ))}
+                </div>
+              )}
+
+              {banInfo && (
+                <div className={`mx-4 mt-2 p-4 rounded-2xl border ${
+                  banInfo.type === 'PERMANENT_BAN'
+                    ? 'bg-red-950/60 border-red-500/40'
+                    : 'bg-orange-950/60 border-orange-500/40'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">
+                      {banInfo.type === 'PERMANENT_BAN' ? '🚫' : '⏳'}
+                    </span>
+                    <div className="flex-1">
+                      <p className={`font-bold text-sm ${
+                        banInfo.type === 'PERMANENT_BAN' ? 'text-red-400' : 'text-orange-400'
+                      }`}>
+                        {banInfo.type === 'PERMANENT_BAN' ? 'Account Permanently Suspended' : 'Account Temporarily Suspended'}
+                      </p>
+                      <p className="text-xs text-slate-300 mt-1">{banInfo.message}</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Reason: <span className="text-slate-200 font-medium">{banInfo.reason}</span>
+                      </p>
+                      {banInfo.type === 'TEMP_BAN' && banInfo.banUntil && (
+                        <p className="text-xs text-orange-300 mt-1 font-medium">
+                          Access restored on: {new Date(banInfo.banUntil).toLocaleDateString('en-US', {
+                            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                          })}
+                        </p>
+                      )}
+                      {banInfo.type === 'TEMP_BAN' && banInfo.strike && (
+                        <p className="text-xs text-orange-400 mt-1">
+                          ⚠️ Strike {banInfo.strike} of 3 — {3 - banInfo.strike} more ban{3 - banInfo.strike !== 1 ? 's' : ''} will result in permanent suspension
+                        </p>
+                      )}
+                      {banInfo.type === 'PERMANENT_BAN' && (
+                        <p className="text-xs text-red-400 mt-2 font-medium">
+                          This decision is final. You cannot access EHH with this account.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
               
