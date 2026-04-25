@@ -125,7 +125,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   // Auto-refresh on version mismatch to clear stale mobile cache
   useEffect(() => {
-    const APP_VERSION = "2.4";
+    const APP_VERSION = "2.5";
     const lastVersion = localStorage.getItem("app_version");
     
     if (lastVersion && lastVersion !== APP_VERSION) {
@@ -136,6 +136,11 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
        localStorage.setItem("app_version", APP_VERSION);
     }
   }, []);
+
+  // Reset scroll to top when switching views
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [view]);
   
   // Pagination State
   const [cursor, setCursor] = useState<number | null>(null);
