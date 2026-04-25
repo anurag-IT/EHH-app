@@ -19,6 +19,7 @@ import { Shield, ArrowRight, CheckCircle2 } from "lucide-react-native";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
@@ -28,17 +29,17 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       if (isLogin) {
-        if (!email) {
+        if (!email || !password) {
           setLoading(false);
-          return Alert.alert("Required", "Email identifier missing.");
+          return Alert.alert("Required", "Email and password are required.");
         }
-        await login(email);
+        await login(email, password);
       } else {
-        if (!name || !email) {
+        if (!name || !email || !password) {
           setLoading(false);
-          return Alert.alert("Required", "Protocol requires both name and email.");
+          return Alert.alert("Required", "Name, email, and password are required.");
         }
-        await register(name, email);
+        await register(name, email, password);
       }
     } catch (e: any) {
       Alert.alert("Access Denied", e.response?.data?.error || "Neural link failure.");
@@ -106,6 +107,18 @@ export default function LoginScreen() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+            />
+          </View>
+
+          <View>
+            <Text style={[globalStyles.subtitle, { marginLeft: 12, marginBottom: 8 }]}>Password</Text>
+            <TextInput
+              style={[globalStyles.input, { height: 60, fontSize: 16, backgroundColor: colors.white }]}
+              placeholder="Enter secure passcode..."
+              placeholderTextColor={colors.textMuted}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
             />
           </View>
 

@@ -27,6 +27,7 @@ export default function MessagingScreen() {
   const { onlineUsers } = useSocket();
 
   const fetchConversations = async () => {
+    if (!user?.id) return;
     try {
       const res = await api.get(`/api/messages/conversations/${user?.id}`);
       setConversations(res.data);
@@ -39,31 +40,31 @@ export default function MessagingScreen() {
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+  }, [user?.id]);
 
   const filteredConversations = conversations.filter(conv => 
-     conv.otherUser.name.toLowerCase().includes(searchQuery.toLowerCase())
+     conv.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderConversation = ({ item }: { item: any }) => {
-    const isOnline = onlineUsers.has(item.otherUser.id);
+    const isOnline = onlineUsers.has(item.id) || item.isOnline;
     return (
       <TouchableOpacity 
         style={styles.convItem}
-        onPress={() => navigation.navigate("Chat", { otherUser: item.otherUser })}
+        onPress={() => navigation.navigate("Chat", { otherUser: item })}
       >
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: item.otherUser.avatar }} style={styles.avatar} />
+          <Image source={{ uri: item.avatar }} style={styles.avatar} />
           {isOnline && <View style={styles.onlineDot} />}
         </View>
         <View style={styles.convText}>
-          <Text style={styles.userName}>{item.otherUser.name}</Text>
-          <Text style={[styles.lastMsg, !item.isRead && { fontWeight: '900', color: colors.text }]} numberOfLines={1}>
-             {item.lastMessage?.content || "No messages yet"}
+          <Text style={styles.userName}>{item.name}</Text>
+          <Text style={[styles.lastMsg, item.unread && { fontWeight: '900', color: colors.text }]} numberOfLines={1}>
+             {item.lastMessage || "No messages yet"}
           </Text>
         </View>
         <View style={styles.meta}>
-           {!item.isRead && <View style={styles.unreadBadge} />}
+           {item.unread && <View style={styles.unreadBadge} />}
            <ChevronRight size={16} color={colors.border} />
         </View>
       </TouchableOpacity>
@@ -100,7 +101,7 @@ export default function MessagingScreen() {
         ) : (
           <FlatList 
             data={filteredConversations}
-            keyExtractor={(item) => item.otherUser.id.toString()}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={renderConversation}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
@@ -125,7 +126,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20
   },
   headerIcon: { backgroundColor: colors.slate50, padding: 12, borderRadius: 15 },
- pocket: { backgroundColor: colors.slate50, padding: 12, borderRadius: 15 },
   searchBar: { 
     flexDirection: 'row', 
     alignItems: 'center', 

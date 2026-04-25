@@ -13,11 +13,7 @@ import {
   Zap, Database, Activity, ChevronRight, Download, Eye
 } from "lucide-react";
 
-const getHeaders = () => {
-  const key = import.meta.env.VITE_ADMIN_KEY;
-  console.log("DEBUG: Sending admin request with key:", key ? "PRESENT" : "MISSING");
-  return { "x-admin-key": key };
-};
+const getHeaders = () => ({});
 
 export default function Admin({ onComplete }: { onComplete: () => void }) {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -156,7 +152,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                            { name: 'Active', val: stats.activeUsers },
                            { name: 'Banned', val: stats.bannedUsers },
                            { name: 'Posts', val: stats.totalPosts },
-                           { name: 'Reports', val: Math.floor(stats.totalPosts / 5) },
+                           { name: 'Flags', val: stats.flaggedCount || 0 },
                          ]}>
                            <defs>
                              <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
@@ -180,10 +176,10 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
                   <div className="bg-slate-800 rounded-[2rem] p-8 border border-slate-700 shadow-sm space-y-6">
                      <h3 className="text-lg font-bold">Quick Summary</h3>
                      <div className="space-y-5">
-                        <ThreatItem label="Reports Pending" value="12" level="LOW" />
-                        <ThreatItem label="Banned Recently" value="43" level="MID" />
-                        <ThreatItem label="Bugs Found" value="0" level="NULL" />
-                        <ThreatItem label="App Health" value="Healthy" level="HIGH" />
+                        <ThreatItem label="Reports Pending" value={stats.flaggedCount || 0} level={stats.flaggedCount > 0 ? "MID" : "LOW"} />
+                        <ThreatItem label="Active Accounts" value={stats.activeUsers || 0} level="LOW" />
+                        <ThreatItem label="Banned Accounts" value={stats.bannedUsers || 0} level={stats.bannedUsers > 0 ? "MID" : "NULL"} />
+                        <ThreatItem label="API Health" value="Live" level="LOW" />
                      </div>
                      <div className="pt-6 mt-6 border-t border-slate-700">
                         <p className="text-[10px] text-slate-500 font-medium text-center italic tracking-wide">Scanning database for issues...</p>
@@ -276,17 +272,6 @@ function UsersManager() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete User? This cannot be undone.")) return;
-    try {
-      await api.delete(`/admin/users/${id}`, { headers: getHeaders() });
-      toast.success("User deleted.");
-      fetchUsers();
-    } catch {
-      toast.error("Error deleting user.");
-    }
-  };
-
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div className="bg-slate-800 rounded-[2rem] border border-slate-700 shadow-sm overflow-hidden">
@@ -336,9 +321,6 @@ function UsersManager() {
                             <UserX size={16} />
                          </button>
                        )}
-                       <button onClick={() => handleDelete(u.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all">
-                          <Trash2 size={16} />
-                       </button>
                     </div>
                   </td>
                 </tr>

@@ -125,15 +125,15 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   // Auto-refresh on version mismatch to clear stale mobile cache
   useEffect(() => {
-    const currentBuild = import.meta.env.VITE_BUILD_TIME;
-    const lastBuild = localStorage.getItem("last_build_time");
+    const APP_VERSION = "2.1";
+    const lastVersion = localStorage.getItem("app_version");
     
-    if (currentBuild && lastBuild && currentBuild !== lastBuild) {
+    if (lastVersion && lastVersion !== APP_VERSION) {
        console.log("New version detected. Clearing cache and refreshing...");
-       localStorage.setItem("last_build_time", currentBuild);
+       localStorage.setItem("app_version", APP_VERSION);
        window.location.reload();
-    } else if (currentBuild && !lastBuild) {
-       localStorage.setItem("last_build_time", currentBuild);
+    } else if (!lastVersion) {
+       localStorage.setItem("app_version", APP_VERSION);
     }
   }, []);
   
@@ -218,24 +218,29 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   const { socket } = useSocket();
 
   useEffect(() => {
-    if (socket) {
-      socket.on("receiveMessage", () => {
-        if (user) fetchUnreadCount(user.id);
-      });
-      socket.on("notification", () => {
-        if (user) fetchUnreadCount(user.id);
-      });
-    }
+    const handleReceiveMessage = () => {
+      if (user) fetchUnreadCount(user.id);
+    };
+    const handleNotification = () => {
+      if (user) fetchUnreadCount(user.id);
+    };
     const handleOpenChat = (e: any) => {
       setActiveChatUser(e.detail);
       setView("messages");
     };
 
+    if (socket) {
+      socket.on("receiveMessage", handleReceiveMessage);
+      socket.on("notification", handleNotification);
+    }
+
     window.addEventListener('open-chat', handleOpenChat);
 
     return () => {
-      socket?.off("receiveMessage");
-      socket?.off("notification");
+      if (socket) {
+        socket.off("receiveMessage", handleReceiveMessage);
+        socket.off("notification", handleNotification);
+      }
       window.removeEventListener('open-chat', handleOpenChat);
     };
   }, [socket, user]);
@@ -385,7 +390,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
 
   if (view === "auth") {
     return (
-      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-slate-900">
+      <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-slate-950">
         <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-green-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-emerald-500/10 rounded-full blur-[120px]" />
 
@@ -394,7 +399,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-md w-full relative z-10"
         >
-          <div className="premium-card bg-slate-800 p-10 backdrop-blur-3xl shadow-[0_0_50px_rgba(34,197,94,0.1)] border border-slate-700/50 rounded-[2.5rem]">
+          <div className="premium-card p-6 md:p-10 rounded-[2rem] md:rounded-[2.5rem]">
             <div className="flex flex-col items-center mb-12">
               <motion.div 
                 animate={{ rotate: [0, 2, -2, 0] }}
@@ -403,8 +408,8 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
               >
                 <img src="/logo.png" alt="EHH Logo" className="h-16 w-auto" />
               </motion.div>
-              <h1 className="text-4xl font-black text-white mb-1 tracking-tighter uppercase">EHH</h1>
-              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px] text-center">Earth for human and humanity</p>
+              <h1 className="text-3xl md:text-4xl font-black text-white mb-1 tracking-tighter uppercase">EHH</h1>
+              <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[8px] md:text-[10px] text-center">Earth for human and humanity</p>
             </div>
             
             <form onSubmit={handleAuth} className={`space-y-6 ${shakeForm ? 'animate-shake' : ''}`}>
@@ -547,10 +552,10 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                 {authMode === "login" || authMode === "forgot" || authMode === "reset" ? "New to EHH? Signup" : "Already EHH member? Login"}
               </button>
 
-              <div className="mt-8 flex items-center gap-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+              <div className="mt-8 flex items-center justify-center gap-4 text-[8px] md:text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
                 <span className="h-[1px] w-8 bg-slate-700" />
                 <span>EHH | Earth for human and humanity</span>
-                <span className="h-[1px] w-8 bg-slate-100" />
+                <span className="h-[1px] w-6 md:w-8 bg-slate-800" />
               </div>
             </div>
           </div>
@@ -560,9 +565,9 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
   }
 
   return (
-    <div className={`min-h-screen bg-slate-900 text-white selection:bg-green-500 selection:text-slate-900 ${view === "admin" ? "" : "pb-24 md:pb-0 md:pt-20"}`}>
+    <div className={`min-h-screen bg-slate-950 text-white selection:bg-green-500 selection:text-slate-900 ${view === "admin" ? "" : "pb-32 md:pb-0 md:pt-20"}`}>
       {view !== "admin" && (
-        <nav className="fixed top-0 left-0 right-0 h-20 bg-slate-900/80 backdrop-blur-2xl border-b border-slate-800 z-[100] flex items-center shadow-lg">
+        <nav className="fixed top-0 left-0 right-0 h-16 md:h-20 bg-slate-950/80 backdrop-blur-2xl border-b border-white/[0.05] z-[100] flex items-center shadow-2xl">
           <div className="w-full max-w-[1920px] mx-auto px-6 flex items-center justify-between">
             <div className="flex items-center gap-4 cursor-pointer group" onClick={refreshHome}>
               <div className="p-2 bg-slate-800 rounded-xl border border-slate-700/50 transition-all shadow-[0_0_15px_rgba(34,197,94,0.15)] group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]">
@@ -606,7 +611,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         </nav>
       )}
 
-      <main className={`${view === "admin" ? "w-full" : "w-full max-w-[1920px] mx-auto px-6 py-6"}`}>
+      <main className={`${view === "admin" ? "w-full" : "w-full max-w-[1920px] mx-auto px-4 md:px-6 py-4 md:py-6"}`}>
         {user && user.status !== "ACTIVE" && view !== "admin" && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
@@ -736,7 +741,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                         <div className="space-y-6">
                           <div className="p-6 bg-slate-900 rounded-[2rem] text-white shadow-inner border border-slate-700/50">
                             <h4 className="font-black text-lg leading-tight uppercase tracking-tighter text-green-500">Safe Network</h4>
-                            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">All transmissions are end-to-end encrypted and verified.</p>
+                            <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">Sessions use authenticated access controls and protected API requests.</p>
                           </div>
                           <div className="p-5 bg-slate-900 rounded-2xl border border-slate-700/50">
                              <div className="flex items-center gap-3 mb-3">
@@ -773,16 +778,16 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       </main>
 
       {view !== "admin" && (
-        <nav className="md:hidden fixed bottom-6 left-6 right-6 h-20 bg-slate-800/90 backdrop-blur-3xl border border-slate-700/50 flex items-center justify-around z-[100] rounded-[2.5rem] shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-          <MobileNavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={24} />} />
-          <MobileNavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={24} />} />
-          <div className="relative -top-10">
-            <button onClick={() => setView("upload")} className="w-16 h-16 bg-green-500 text-slate-900 rounded-[2rem] flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.4)] active:scale-90 transition-all hover:bg-green-400">
-              <PlusSquare size={28} />
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 bg-slate-900/90 backdrop-blur-3xl border-t border-white/10 flex items-center justify-around z-[100] px-6 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+          <MobileNavButton active={view === "feed"} onClick={refreshHome} icon={<Home size={22} />} />
+          <MobileNavButton active={view === "search"} onClick={() => setView("search")} icon={<Search size={22} />} />
+          <div className="relative -top-6">
+            <button onClick={() => setView("upload")} className="w-14 h-14 bg-green-500 text-slate-950 rounded-2xl flex items-center justify-center shadow-[0_0_25px_rgba(34,197,94,0.4)] active:scale-90 transition-all hover:bg-green-400">
+              <PlusSquare size={24} />
             </button>
           </div>
-          <MobileNavButton active={view === "notifications"} onClick={() => setView("notifications")} icon={<Bell size={24} />} />
-          <MobileNavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={24} />} />
+          <MobileNavButton active={view === "notifications"} onClick={() => setView("notifications")} icon={<Bell size={22} />} />
+          <MobileNavButton active={view === "profile"} onClick={() => setView("profile")} icon={<UserIcon size={22} />} />
         </nav>
       )}
 

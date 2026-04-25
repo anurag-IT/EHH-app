@@ -25,7 +25,9 @@ export const SocketProvider: React.FC<{ user: User | null; children: React.React
   const [typingUsers, setTypingUsers] = useState<Map<number, boolean>>(new Map());
 
   useEffect(() => {
-    if (!user) {
+    const token = localStorage.getItem("ehh_token");
+
+    if (!user || !token) {
       if (socket) {
         socket.disconnect();
         setSocket(null);
@@ -40,11 +42,11 @@ export const SocketProvider: React.FC<{ user: User | null; children: React.React
       transports: ['polling', 'websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      auth: { token }
     });
 
     newSocket.on('connect', () => {
       console.log('Socket connected');
-      newSocket.emit('register', user.id);
     });
 
     newSocket.on('userStatusUpdate', ({ userId, status }: { userId: number; status: 'online' | 'offline' }) => {

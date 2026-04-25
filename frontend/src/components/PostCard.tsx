@@ -241,10 +241,10 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="bg-slate-900 border border-slate-800/60 rounded-[1.5rem] overflow-hidden shadow-2xl mb-6 max-w-[500px] mx-auto"
+      className="bg-slate-950 border border-white/[0.05] rounded-[1.25rem] md:rounded-[1.5rem] overflow-hidden shadow-2xl mb-4 md:mb-6 max-w-[500px] mx-auto"
     >
       {/* Header */}
-      <div className="p-4 flex items-center justify-between">
+      <div className="p-3 md:p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div onClick={() => window.dispatchEvent(new CustomEvent('open-profile', { detail: post.userId }))} className="cursor-pointer">
             <div className="p-0.5 rounded-full bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600">
@@ -322,7 +322,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       {/* Professional Description Area (Upper Side) */}
       <div className="px-4 pb-3">
         <div className="flex flex-col gap-1">
-          <p className="text-[14px] leading-relaxed text-slate-200 whitespace-pre-wrap font-medium tracking-tight">
+          <p className="text-[14px] md:text-[15px] leading-relaxed text-white whitespace-pre-wrap font-medium tracking-tight">
             {post.caption}
           </p>
         </div>
@@ -349,7 +349,7 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
               <Heart size={26} fill={liked ? "currentColor" : "none"} strokeWidth={2} />
             </button>
             <button onClick={() => setShowComments(true)} className="text-white hover:text-slate-400">
-              <MessageCircle size={26} strokeWidth={2} />
+              <MessageCircle size={window.innerWidth < 768 ? 22 : 26} strokeWidth={2} />
             </button>
             <button 
               onClick={handleRepost} 

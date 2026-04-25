@@ -82,9 +82,9 @@ export default function NotificationPage({ user, onRead }: NotificationPageProps
   };
 
   return (
-    <div className="max-w-xl mx-auto py-12 px-4 pb-32">
+    <div className="max-w-xl mx-auto py-8 md:py-12 px-4 pb-32">
       <div className="flex items-center justify-between mb-12">
-         <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Transmission Registry</h2>
+         <h2 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tighter">Transmission Registry</h2>
          <div className="px-3 py-1 bg-slate-800 rounded-full border border-slate-700 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
             {notifications.filter(n => !n.isRead).length} Unread
          </div>
@@ -98,7 +98,7 @@ export default function NotificationPage({ user, onRead }: NotificationPageProps
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: idx * 0.05 }}
             onClick={() => markRead(n.id)}
-            className={`relative p-5 flex items-center gap-6 cursor-pointer group transition-all rounded-[2rem] border overflow-hidden ${
+            className={`relative p-4 md:p-5 flex items-center gap-4 md:gap-6 cursor-pointer group transition-all rounded-[1.5rem] md:rounded-[2rem] border overflow-hidden ${
               n.isRead 
               ? 'bg-slate-900/40 border-slate-800 opacity-60' 
               : 'bg-slate-800 border-slate-700/50 shadow-xl'

@@ -1,28 +1,26 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import api from "../api";
+import api, { AUTH_TOKEN_KEY, USER_STORAGE_KEY } from "../api";
 
 interface User {
   id: number;
   name: string;
-  email: string;
+  email?: string;
   uniqueId: string;
   avatar: string;
   role: string;
+  status?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string) => Promise<void>;
-  register: (name: string, email: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
-
-const USER_STORAGE_KEY = "ehh_userData";
-const USER_ID_KEY = "ehh_userId";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -32,10 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
-  /**
-   * Restores user session from AsyncStorage on app launch / refresh.
-   * This ensures the user stays signed in across app restarts.
-   */
   const restoreSession = async () => {
     try {
       const storedUser = await AsyncStorage.getItem(USER_STORAGE_KEY);
@@ -43,8 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const parsedUser: User = JSON.parse(storedUser);
         setUser(parsedUser);
 
-        // Background validation: silently verify the stored user still
-        // exists on the backend. If it fails, clear stale session.
         validateSession(parsedUser.id).catch(() => {
           clearSession();
         });
@@ -52,48 +44,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error("[Auth] Failed to restore session:", e);
     } finally {
-      // Always mark loading done so the app doesn't hang
       setLoading(false);
     }
   };
 
-  /**
-   * Pings the backend to confirm the stored user ID is still valid.
-   * Called silently in the background after restoring from AsyncStorage.
-   */
   const validateSession = async (userId: number) => {
-    const res = await api.get(`/api/users/${userId}`);
+    const res = await api.get(`/api/users/${userId}/profile`);
     if (res.data && res.data.id) {
-      // Refresh stored user data with latest from server
-      setUser(res.data);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.data));
+      const nextUser: User = {
+        id: res.data.id,
+        name: res.data.name,
+        email: res.data.email,
+        uniqueId: res.data.uniqueId,
+        avatar: res.data.avatar,
+        role: res.data.role,
+        status: res.data.status
+      };
+      setUser(nextUser);
+      await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(nextUser));
     }
   };
 
   const clearSession = async () => {
     setUser(null);
-    await AsyncStorage.multiRemove([USER_STORAGE_KEY, USER_ID_KEY]);
+    await AsyncStorage.multiRemove([USER_STORAGE_KEY, AUTH_TOKEN_KEY]);
   };
 
-  const saveSession = async (userData: User) => {
+  const saveSession = async (userData: User, token: string) => {
     setUser(userData);
     await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
-    await AsyncStorage.setItem(USER_ID_KEY, userData.id.toString());
+    await AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
   };
 
-  const login = async (email: string) => {
+  const login = async (email: string, password: string) => {
     const res = await api.post("/api/users/login", {
       email: email.trim().toLowerCase(),
+      password
     });
-    await saveSession(res.data);
+    await saveSession(res.data.user, res.data.token);
   };
 
-  const register = async (name: string, email: string) => {
+  const register = async (name: string, email: string, password: string) => {
     const res = await api.post("/api/users/register", {
       name: name.trim(),
       email: email.trim().toLowerCase(),
+      password
     });
-    await saveSession(res.data);
+    await saveSession(res.data.user, res.data.token);
   };
 
   const logout = async () => {

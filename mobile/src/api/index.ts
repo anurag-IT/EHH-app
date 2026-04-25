@@ -1,10 +1,9 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
 
-// If testing on Android Emulator, localhost should be 10.0.2.2.
-// For a physical device or generic expo testing, you usually use your computer's local IP address.
-export const DEV_API_URL = "https://ehh-api-production.loca.lt";
+export const AUTH_TOKEN_KEY = "ehh_token";
+export const USER_STORAGE_KEY = "ehh_user";
+export const DEV_API_URL = process.env.EXPO_PUBLIC_API_URL || "https://ehh-api-production.loca.lt";
 
 const api = axios.create({
   baseURL: DEV_API_URL,
@@ -15,9 +14,9 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const userId = await AsyncStorage.getItem("userId");
-  if (userId) {
-    config.headers["x-user-id"] = userId;
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

@@ -14,15 +14,18 @@ import { Heart, UserPlus, MessageCircle, AlertTriangle, ShieldCheck } from "luci
 import { colors, globalStyles } from "../theme";
 import api from "../api";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../context/AuthContext";
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
 
   const fetchNotifications = async () => {
+    if (!user?.id) return;
     try {
-      const res = await api.get("/api/notifications");
+      const res = await api.get(`/api/notifications/${user.id}`);
       setNotifications(res.data);
     } catch (e) {
       console.error(e);
@@ -33,7 +36,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     fetchNotifications();
-  }, []);
+  }, [user?.id]);
 
   const renderIcon = (type: string) => {
     switch (type) {
@@ -62,7 +65,7 @@ export default function NotificationsScreen() {
       }}
     >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: item.sender?.avatar }} style={styles.avatar} />
+        <Image source={{ uri: item.sender?.avatar || item.senderAvatar }} style={styles.avatar} />
         <View style={[styles.typeIcon, { backgroundColor: getIconBg(item.type) }]}>
            {renderIcon(item.type)}
         </View>
@@ -70,7 +73,7 @@ export default function NotificationsScreen() {
       
       <View style={styles.notifContent}>
         <Text style={styles.notifText}>
-          <Text style={styles.senderName}>{item.sender?.name} </Text>
+          <Text style={styles.senderName}>{item.sender?.name || item.senderName} </Text>
           {item.content}
         </Text>
         <Text style={styles.time}>{new Date(item.createdAt).toLocaleDateString()}</Text>

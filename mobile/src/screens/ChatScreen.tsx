@@ -25,7 +25,7 @@ export default function ChatScreen() {
   const navigation = useNavigation<any>();
   const { otherUser } = route.params;
   const { user: currentUser } = useAuth();
-  const { socket, typingUsers, sendTyping, markAsRead } = useSocket();
+  const { socket, typingUsers, sendTyping, markAsRead, sendMessage } = useSocket();
 
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
@@ -36,6 +36,7 @@ export default function ChatScreen() {
   const isOtherTyping = typingUsers.has(otherUser.id);
 
   const fetchHistory = async () => {
+    if (!currentUser?.id) return;
     try {
       const res = await api.get(`/api/messages/chat/${currentUser?.id}/${otherUser.id}`);
       setMessages(res.data);
@@ -51,28 +52,31 @@ export default function ChatScreen() {
     fetchHistory();
 
     if (socket) {
-      socket.on("newMessage", (msg: any) => {
+      const handleIncoming = (msg: any) => {
         if (msg.senderId === otherUser.id) {
           setMessages(prev => [msg, ...prev]);
           markAsRead(otherUser.id);
         }
-      });
-      return () => { socket.off("newMessage"); };
+      };
+
+      const handleSent = (msg: any) => {
+        if (msg.receiverId === otherUser.id) {
+          setMessages(prev => [msg, ...prev]);
+        }
+      };
+
+      socket.on("receiveMessage", handleIncoming);
+      socket.on("messageSent", handleSent);
+      return () => {
+        socket.off("receiveMessage", handleIncoming);
+        socket.off("messageSent", handleSent);
+      };
     }
   }, [socket, otherUser.id]);
 
   const handleSend = () => {
     if (!inputText.trim()) return;
-    const msg = {
-      id: Date.now(),
-      senderId: currentUser?.id,
-      receiverId: otherUser.id,
-      content: inputText,
-      createdAt: new Date().toISOString()
-    };
-    
-    setMessages(prev => [msg, ...prev]);
-    socket?.emit("sendMessage", { receiverId: otherUser.id, content: inputText });
+    sendMessage(otherUser.id, inputText.trim());
     setInputText("");
     sendTyping(otherUser.id, false);
   };

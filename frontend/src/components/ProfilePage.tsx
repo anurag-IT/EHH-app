@@ -111,7 +111,13 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
     try {
       const res = await api.put("/api/users/profile", formData);
       setProfileUser(prev => ({ ...prev!, ...res.data }));
-      localStorage.setItem("ehh_user", JSON.stringify(res.data));
+      localStorage.setItem("ehh_user", JSON.stringify({
+        id: res.data.id,
+        name: res.data.name,
+        avatar: res.data.avatar,
+        role: res.data.role,
+        status: res.data.status
+      }));
       setShowEditModal(false);
       toast.success("Identity updated on grid.");
       fetchProfile(false);

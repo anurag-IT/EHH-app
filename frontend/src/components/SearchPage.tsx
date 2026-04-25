@@ -125,13 +125,13 @@ export default function SearchPage() {
       {/* Results Container */}
       <div className="min-h-[40vh]">
         {loading ? (
-          <div className="grid grid-cols-3 gap-1 md:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1 md:gap-4">
             {Array(9).fill(0).map((_, i) => (
               <div key={i} className="aspect-square bg-slate-800 rounded-lg animate-pulse" />
             ))}
           </div>
         ) : activeTab === "signals" ? (
-          <div className="grid grid-cols-3 gap-1 md:gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1 md:gap-4">
             {postResults.map((post) => (
               <motion.div 
                 key={post.id} 

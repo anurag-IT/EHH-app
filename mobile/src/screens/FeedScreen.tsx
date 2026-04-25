@@ -225,7 +225,7 @@ export default function FeedScreen() {
 const PostItem = memo(({ item, onOpenViewer }: { item: any, onOpenViewer: (idx: number) => void }) => {
   const [liked, setLiked] = useState(item.isLiked);
   const [likesCount, setLikesCount] = useState(item.likesCount);
-  const [isFollowing, setIsFollowing] = useState(item.user.isFollowing || false);
+  const [isFollowing, setIsFollowing] = useState(item.isFollowing || false);
   const [followingLoading, setFollowingLoading] = useState(false);
   const [reposting, setReposting] = useState(false);
   const navigation = useNavigation<any>();

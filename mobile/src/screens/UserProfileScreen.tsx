@@ -47,7 +47,7 @@ export default function UserProfileScreen() {
     try {
       const [profRes, postsRes] = await Promise.all([
         api.get(`/api/users/${userId}/profile`),
-        api.get(`/api/posts?userId=${userId}`)
+        api.get(`/api/users/${userId}/posts`)
       ]);
       setProfile(profRes.data);
       setPosts(postsRes.data.posts);
@@ -124,15 +124,15 @@ export default function UserProfileScreen() {
               
               <View style={styles.statsRow}>
                  <View style={styles.statItem}>
-                   <Text style={styles.statNum}>{profile.postsCount}</Text>
+                   <Text style={styles.statNum}>{profile._count?.posts || 0}</Text>
                    <Text style={styles.statLabel}>POSTS</Text>
                  </View>
                  <View style={styles.statItem}>
-                   <Text style={styles.statNum}>{profile.followersCount}</Text>
+                   <Text style={styles.statNum}>{profile._count?.followers || 0}</Text>
                    <Text style={styles.statLabel}>INDEXED</Text>
                  </View>
                  <View style={styles.statItem}>
-                   <Text style={styles.statNum}>{profile.followingCount}</Text>
+                   <Text style={styles.statNum}>{profile._count?.following || 0}</Text>
                    <Text style={styles.statLabel}>TRACKING</Text>
                  </View>
               </View>

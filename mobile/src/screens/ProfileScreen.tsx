@@ -42,12 +42,17 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   const fetchProfileData = async () => {
+    if (!user?.id) return;
     try {
-      const [statsRes, postsRes] = await Promise.all([
-        api.get(`/api/users/${user?.id}/stats`),
-        api.get(`/api/posts?userId=${user?.id}`)
+      const [profileRes, postsRes] = await Promise.all([
+        api.get(`/api/users/${user.id}/profile`),
+        api.get(`/api/users/${user.id}/posts`)
       ]);
-      setStats(statsRes.data);
+      setStats({
+        postsCount: profileRes.data?._count?.posts || 0,
+        followersCount: profileRes.data?._count?.followers || 0,
+        followingCount: profileRes.data?._count?.following || 0
+      });
       setPosts(postsRes.data.posts);
     } catch (e) {
       console.error(e);
@@ -58,7 +63,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (isFocused) fetchProfileData();
-  }, [isFocused]);
+  }, [isFocused, user?.id]);
 
   const renderOption = (icon: any, label: string, sub: string, danger = false) => (
     <TouchableOpacity 

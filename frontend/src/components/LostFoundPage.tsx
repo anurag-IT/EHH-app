@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../lib/api";
 import { 
   Send, 
   ShieldAlert, 
@@ -21,8 +21,7 @@ export default function LostFoundPage() {
     if (isBanned) return;
     setLoading(true);
     try {
-      const user = JSON.parse(userStr || "{}");
-      await axios.post("/api/messages/send", { uniqueId, messageText: message }, { headers: { "x-user-id": user.id } });
+      await api.post("/api/messages/send", { uniqueId, messageText: message });
       setSuccess(true);
       setMessage("");
       setUniqueId("");

@@ -1,0 +1,273 @@
+ 1. What Is This App?
+
+**EHH (Earth for Humans and Humanity)** is a full-stack social media web application built for students. Think of it as a private Instagram-style platform where students of the same institution can share posts, stories, follow each other, message each other, and interact — all within a closed, admin-moderated environment.
+
+## 2. Tech Stack — Every Technology Used
+
+A professional engineer will ask this first. Know every item:
+
+**Frontend:**
+| Technology | Version | Why it's used |
+|---|---|---|
+| React | v19 | UI framework — builds all the screens |
+| TypeScript | v5.8 | Type safety — catches bugs before runtime |
+| Vite | v6.2 | Build tool — faster than Create React App |
+| Tailwind CSS | v4.1 | Styling — utility classes instead of writing CSS |
+| Axios | v1.14 | HTTP client — makes API calls to backend |
+| Socket.io-client | v4.8 | Real-time connection — live messaging, online status |
+| TanStack Query | v5.99 | Data fetching and caching |
+| React Virtuoso | v4.18 | Virtual scrolling — renders only visible posts in feed |
+| Motion | v12 | Animations — smooth transitions and effects |
+| Lucide React | v0.546 | Icon library |
+| React Toastify | v11 | Toast notifications |
+| Recharts | v3.8 | Charts in admin dashboard |
+
+**Backend:**
+| Technology | Version | Why it's used |
+|---|---|---|
+| Node.js + Express | v4.22 | Server framework — handles all API requests |
+| TypeScript | v5.8 | Type safety on server too |
+| Socket.io | v4.8 | Real-time bidirectional communication |
+| Prisma ORM | v6.19 | Database queries — abstracts raw SQL |
+| bcryptjs | v2.4 | Password hashing — stores passwords securely |
+| jsonwebtoken | v9.0 | JWT tokens — keeps users logged in securely |
+| Multer | v2.1 | File uploads — receives images from frontend |
+| Sharp | v0.34 | Image processing — resizes images for hashing |
+| image-hash | v7.0 | Perceptual hashing — detects similar/duplicate images |
+| Helmet | v8.0 | HTTP security headers |
+| express-rate-limit | v7.4 | Rate limiting — prevents spam and abuse |
+| express-mongo-sanitize | v2.2 | Input sanitization — prevents injection attacks |
+| Resend | v6.12 | Email sending — for OTP password reset emails |
+| Cloudinary | v2.9 | Image storage and CDN delivery |
+| compression | v1.8 | Gzip compression — faster API responses |
+
+**Database:**
+| Technology | Why |
+|---|---|
+| PostgreSQL | Relational database — structured data, relationships |
+| Supabase | Hosts the PostgreSQL database (cloud provider) |
+
+**Deployment:**
+| Service | What it hosts |
+|---|---|
+| Render | Hosts the backend Node.js server |
+| Render or same | Hosts the built frontend (static files) |
+| Supabase | Hosts the PostgreSQL database |
+| Cloudinary | Hosts all user-uploaded images (CDN) |
+
+---
+
+## 3. Database — All 14 Tables and What They Do
+
+```
+User              → Every person who signs up
+UserFollow        → Who follows who (+ follow request status)
+Post              → Every post (image, caption, location, phash)
+Like              → Which user liked which post
+Comment           → Comments on posts
+Message           → Direct messages between two users
+FlaggedContent    → Posts reported by users for review
+AdminLog          → Every admin action ever taken (audit trail)
+Setting           → Global app settings (key-value store)
+Notification      → All notifications (likes, follows, comments)
+ImageMatch        → Duplicate image detection results
+Story             → 24-hour stories
+StoryReaction     → Emoji reactions on stories
+StoryView         → Who has seen each story
+StoryReply        → Replies to stories
+```
+
+---
+
+## 4. All API Endpoints — What Each Does
+
+**Authentication (no token needed):**
+- `POST /api/users/register` — create account, returns JWT token
+- `POST /api/users/login` — login with email + password, returns JWT
+- `POST /api/users/forgot-password` — sends OTP email (max 3 per hour per IP)
+- `POST /api/users/verify-otp` — checks OTP (locks after 5 wrong attempts)
+- `POST /api/users/reset-password` — sets new password after OTP verified
+
+**Users:**
+- `GET /api/users/search?q=` — search users by name or uniqueId
+- `GET /api/users/:id` — get basic user info
+- `GET /api/users/:id/profile` — full profile with followers/following counts and 12 recent posts
+- `GET /api/users/:id/posts?cursor=` — paginated posts for a profile
+- `GET /api/users/:id/followers` — list of followers
+- `GET /api/users/:id/following` — list of following
+- `POST /api/users/:id/follow` — follow or unfollow a user
+- `PUT /api/users/profile` — update your own name, bio, avatar
+- `POST /api/users/requests/:id/accept` — accept a follow request
+- `POST /api/users/requests/:id/reject` — reject a follow request
+
+**Posts:**
+- `GET /api/posts?cursor=` — paginated feed (cursor-based)
+- `POST /api/posts` — create a post (up to 10 images)
+- `DELETE /api/posts/:id` — delete your own post
+- `POST /api/posts/:id/like` — like or unlike a post
+- `POST /api/posts/:id/repost` — repost someone's post
+- `POST /api/posts/:id/comment` — add a comment
+- `POST /api/posts/:id/report` — report a post for admin review
+- `GET /api/posts/:id/chain` — get a repost chain
+- `GET /api/posts/search?q=` — search posts by caption
+
+**Stories:**
+- `POST /api/stories` — upload a story (expires in 24 hours)
+- `GET /api/stories` — get all active stories grouped by user
+- `POST /api/stories/:id/view` — mark a story as viewed
+- `POST /api/stories/:id/react` — react with an emoji
+- `POST /api/stories/:id/reply` — reply to a story
+- `GET /api/stories/:id/viewers` — see who viewed your story
+
+**Messages:**
+- `GET /api/messages/conversations/:userId` — get all conversations
+- `GET /api/messages/chat/:u1/:u2` — get chat history between two users
+- `POST /api/messages/send` — send a message (also via socket)
+- `POST /api/messages/send-v2` — send message with image support
+
+**Notifications:**
+- `GET /api/notifications/:userId` — get all notifications
+- `GET /api/notifications/:userId/unread-count` — count of unread
+- `POST /api/notifications/:id/read` — mark one as read
+
+**Admin (requires JWT + admin role + secret key header):**
+- `GET /admin/stats` — dashboard numbers
+- `GET /admin/users` — list all users
+- `POST /admin/users/:id/ban` — ban a user (temp or permanent)
+- `POST /admin/users/:id/unban` — unban a user
+- `GET /admin/flags` — view all reported content
+- `POST /admin/flags/:id/resolve` — approve or reject a flag
+- `GET /admin/logs` — full audit log of admin actions
+- `POST /admin/scan` — upload image to find duplicates
+- `POST /admin/reset-similarities` — clear image match records
+- `DELETE /admin/delete/:id` — delete a post by ID
+
+---
+
+## 5. Real-time System — Socket.io Events
+
+Socket.io runs alongside the Express server on the same port. When a user logs in, their browser opens a persistent WebSocket connection.
+
+**Events the server listens to:**
+- `register` — user tells server their userId so server maps userId → socketId
+- `sendMessage` — user sends a message, server saves it and forwards to receiver
+- `typing` — user is typing, server tells receiver to show typing indicator
+- `markAsRead` — user opened chat, server marks messages as read and tells sender
+
+**Events the server emits to clients:**
+- `receiveMessage` — new message arrived
+- `messageSent` — confirms your message was saved
+- `userTyping` — someone is typing to you
+- `messagesRead` — your messages were read
+- `userStatusUpdate` — user came online or went offline
+- `notification` — new like/follow/comment notification in real-time
+
+---
+
+## 6. Authentication System — How It Works
+
+1. User registers → password hashed with bcrypt (12 salt rounds) → stored in DB
+2. On login → bcrypt compares entered password with hash → if match, creates JWT token
+3. JWT token contains `{ userId, role }` and expires in 30 days
+4. Every protected API request must send `Authorization: Bearer <token>` header
+5. `checkUserRestriction` middleware verifies the JWT on every protected route
+6. If user is banned → returns 403. If token invalid → returns 401
+
+**Forgot Password flow:**
+1. User enters email → server generates 6-digit OTP
+2. OTP is hashed with bcrypt and stored in DB with 15-minute expiry
+3. OTP is emailed via Resend API
+4. User enters OTP → server compares hash → unlocks if correct
+5. After 5 wrong OTP attempts → account locked for 30 minutes
+6. After OTP verified → user enters new password → bcrypt hashed and saved
+
+---
+
+## 7. Image Detection System — How It Works
+
+This is your most unique feature. When any post is uploaded:
+
+1. Image is saved to Cloudinary first
+2. Background process downloads the image into server memory
+3. Sharp resizes it to exactly 64×64 pixels and converts to PNG
+4. `image-hash` library runs Perceptual Hash (pHash) algorithm → generates a 64-character hex fingerprint
+5. This fingerprint is saved in `Post.phash` column in the database
+6. The system compares this hash against every other post's hash using Hamming Distance
+7. If similarity score is above 80%, an `ImageMatch` record is created
+
+**In the admin panel:** Admin uploads any image → system compares it against all posts in the database → returns matches sorted by similarity percentage. This catches screenshots, crops, and lightly edited reposts.
+
+---
+
+## 8. Security Layers
+
+A professional will definitely ask about security. Your app has:
+
+- **JWT authentication** — stateless tokens, 30-day expiry
+- **bcrypt password hashing** — 12 salt rounds (industry standard)
+- **Helmet.js** — sets 15+ HTTP security headers automatically
+- **CORS whitelist** — only your specific frontend domain can call the API
+- **Rate limiting** — 200 requests/minute general, 10 login attempts/15 mins, 3 OTP emails/hour, 20 uploads/10 mins
+- **Input sanitization** — express-mongo-sanitize strips injection characters
+- **Body size limit** — 20MB maximum per request
+- **Admin double authentication** — needs JWT AND a secret key header
+- **OTP brute force protection** — locks after 5 wrong attempts for 30 minutes
+- **Error message sanitization** — raw error details hidden in production
+
+---
+
+## 9. User Roles and Permissions
+
+```
+USER    → normal student. Can post, like, comment, follow, message, report
+ADMIN   → can ban users, delete posts, view flags, view all logs, scan images
+```
+
+Users can also have status:
+- `ACTIVE` — normal access
+- `BANNED` — temporary ban with expiry date
+- `PERMANENT_BAN` — cannot access app at all
+
+---
+
+## 10. Key Features Summary
+
+| Feature | How it works |
+|---|---|
+| Feed | Cursor-based infinite scroll, shows posts from all users |
+| Multi-image posts | Up to 10 images per post, Facebook-style grid display |
+| Stories | 24-hour expiry, emoji reactions, view tracking, replies |
+| Follow system | Follow/unfollow with optional private account (follow requests) |
+| Direct messages | Real-time via Socket.io, read receipts, typing indicators |
+| Search | Search users by name/uniqueId, search posts by caption |
+| Notifications | Real-time push via socket for likes, comments, follows |
+| Unique user ID | Every user gets a generated `EH-XXXXXX` ID on registration |
+| Image deduplication | pHash comparison catches reposted/screenshotted images |
+| Admin panel | Full moderation dashboard with stats, logs, ban system |
+| Password reset | OTP via email using Resend API, expires in 15 minutes |
+| Private accounts | Posts hidden from non-followers, follow requests required |
+
+---
+
+## 11. Questions a Professional Engineer Will Ask — With Your Answers
+
+**Q: How do you handle scalability for 10k users?**
+A: Cursor-based pagination on feed instead of offset (doesn't slow down with more data). React Virtuoso for virtual scrolling so the browser only renders visible posts. Database indexes on all frequently queried columns. In-memory cache with 30-second TTL for hot endpoints. Rate limiting to prevent server overload.
+
+**Q: How do you store images?**
+A: Multer receives the image buffer in memory, it never touches disk. It is uploaded directly to Cloudinary via their Node.js SDK stream. Cloudinary handles CDN delivery, resizing, and optimisation globally.
+
+**Q: How does real-time messaging work?**
+A: Socket.io maintains a persistent WebSocket connection per user. The server keeps a Map of userId to socketId. When user A sends a message, the server saves it to PostgreSQL then emits it directly to user B's socket. If user B is offline, they get the message via REST API when they reconnect.
+
+**Q: What database and why PostgreSQL?**
+A: PostgreSQL hosted on Supabase. Relational database chosen because all data has clear relationships — users have posts, posts have likes, users follow users. Prisma ORM handles all queries with type safety. Supabase provides connection pooling via the `DIRECT_URL` setting which is critical for serverless/Render deployments.
+
+**Q: How do you prevent abuse?**
+A: Rate limiting per endpoint category, JWT authentication on all write operations, bcrypt for passwords, Helmet for HTTP headers, input sanitization, admin moderation system with audit logs, user ban system with temporary and permanent options.
+
+**Q: What is the unique pHash feature?**
+A: When any image is uploaded, the server generates a perceptual hash fingerprint using the pHash algorithm. This fingerprint stays similar even if the image is cropped, screenshotted, or lightly edited. Admins can upload any image and the system compares it against all posts using Hamming Distance to find duplicates with a confidence percentage score.
+
+**Q: How is the app deployed?**
+A: Backend runs on Render (Node.js server). Frontend is built with Vite and served as static files. Database is on Supabase (PostgreSQL). Images are on Cloudinary. All three services are free tier capable for initial launch.

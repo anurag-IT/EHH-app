@@ -95,9 +95,9 @@ export default function AdminScreen() {
       const match = /\.(\w+)$/.exec(filename || "");
       const type = match ? `image/${match[1]}` : `image`;
 
-      formData.append("image", { uri, name: filename, type } as any);
+      formData.append("images", { uri, name: filename, type } as any);
 
-      const res = await api.post("/admin/find-image", formData, {
+      const res = await api.post("/admin/scan", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -115,7 +115,7 @@ export default function AdminScreen() {
     setDeleting(true);
     try {
       const res = await api.delete(`/admin/delete/${matchData.postId}`);
-      Alert.alert("Purge Complete", res.data.message);
+      Alert.alert("Purge Complete", `Removed ${res.data.count || 0} matching posts.`);
       setImage(null);
       setMatchData(null);
     } catch (e: any) {
