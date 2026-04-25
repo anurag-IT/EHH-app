@@ -1401,14 +1401,21 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
     let imagePaths: string[] = [];
 
     if (parentId) {
+      console.log(`[REPOST] Linking to parent post ${parentId}`);
       const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
+      
       mainImageUrl = parent.imageUrl || "";
-      mainImagePath = parent.imagePath;
+      mainImagePath = parent.imagePath || "";
       mainPhash = parent.phash;
-      imageUrls = parent.imageUrls;
-      imagePaths = parent.imagePaths;
+      imageUrls = parent.imageUrls || [];
+      imagePaths = parent.imagePaths || [];
     } else {
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "At least one image signal is required for new transmission" });
+      }
+
+      console.log(`[CLOUDINARY] Uploading ${files.length} images...`);
       // Parallel upload all images to Cloudinary
       const uploadPromises = files.map(file => uploadImage(file.buffer));
       const results = await Promise.all(uploadPromises);
@@ -1419,22 +1426,28 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
       imageUrls = results.map(r => r.secure_url);
       imagePaths = results.map(r => r.public_id);
 
+      console.log(`[UPLOAD SUCCESS] Uploaded ${imageUrls.length} assets to Cloudinary`);
+
       // Extract features (phash) from the primary image for network indexing
       try {
         const features = await extractFeaturesFromBuffer(files[0].buffer);
         mainPhash = features.phash;
       } catch (err) {
-        console.error("[PHASH ERROR]", err);
+        console.error("[PHASH ERROR] Feature extraction failed:", err);
       }
-
-      console.log(`[SUCCESS] Post contains ${imageUrls.length} assets with phash: ${mainPhash}`);
     }
 
     const post = await prisma.post.create({
       data: {
-        userId, caption, location, parentId: parentId ? parseInt(parentId) : null,
-        imageUrl: mainImageUrl, imagePath: mainImagePath, phash: mainPhash,
-        imageUrls, imagePaths
+        userId, 
+        caption: caption || "", 
+        location: location || "", 
+        parentId: parentId ? parseInt(parentId) : null,
+        imageUrl: mainImageUrl, 
+        imagePath: mainImagePath, 
+        phash: mainPhash,
+        imageUrls: imageUrls, 
+        imagePaths: imagePaths
       },
       include: { 
         user: { select: PUBLIC_USER_SELECT },
