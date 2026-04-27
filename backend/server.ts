@@ -169,6 +169,7 @@ const PUBLIC_USER_SELECT = {
   uniqueId: true,
   bio: true,
   role: true,
+  status: true,
   points: true,
   level: true,
   streak: true,
@@ -617,16 +618,7 @@ app.post("/api/users/login", loginLimiter, async (req: any, res: any) => {
       });
     }
 
-    // Block temporarily banned users at login too
-    if (user.status === "BANNED" && user.banUntil && new Date() < user.banUntil) {
-      return res.status(403).json({
-        error: "TEMP_BAN",
-        message: "Your account is temporarily suspended.",
-        reason: user.banReason || "Violation of community guidelines",
-        banUntil: user.banUntil,
-        strike: user.banStrike
-      });
-    }
+
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -1019,16 +1011,7 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
         });
       }
 
-      // Block temporarily banned users
-      if (user.status === "BANNED" && user.banUntil && new Date() < user.banUntil) {
-        return res.status(403).json({
-          error: "TEMP_BAN",
-          message: "Your account is temporarily suspended.",
-          reason: user.banReason || "Violation of community guidelines",
-          banUntil: user.banUntil,
-          strike: user.banStrike
-        });
-      }
+
     } else {
       console.log(`[GOOGLE AUTH] Registering new user: ${email}`);
       // New user — auto-register with Google info
@@ -1648,6 +1631,11 @@ app.post("/admin/users/:id/ban", checkAdminMode, async (req: any, res: any) => {
     // Get current user to check strike count
     const currentUser = await prisma.user.findUnique({ where: { id } });
     if (!currentUser) return res.status(404).json({ error: "User not found" });
+
+    // Cannot ban an administrator
+    if (currentUser.role === "ADMIN") {
+      return res.status(403).json({ error: "Cannot restrict an administrator." });
+    }
 
     // Cannot ban already permanently banned user
     if (currentUser.status === "PERMANENT_BAN") {

@@ -366,20 +366,22 @@ function UsersManager() {
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suspension Duration</label>
                   <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { v: 1, l: '1 Day', sub: 'Strike 1', color: 'peer-checked:bg-yellow-500' },
-                      { v: 3, l: '3 Days', sub: 'Strike 2', color: 'peer-checked:bg-orange-500' },
-                      { v: 7, l: '7 Days', sub: 'Strike 3', color: 'peer-checked:bg-red-500' },
-                      { v: -1, l: 'Permanent', sub: 'Final', color: 'peer-checked:bg-red-900' }
-                    ].map(opt => (
-                      <label key={opt.v} className="cursor-pointer">
-                        <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
-                        <div className={`p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all ${opt.color} peer-checked:text-white`}>
-                           <div className="text-[10px] font-black uppercase tracking-widest">{opt.l}</div>
-                           <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">{opt.sub}</div>
-                        </div>
-                      </label>
-                    ))}
+                    <label className="cursor-pointer">
+                      <input type="radio" name="duration" value={(banModal.banStrike || 0) === 0 ? 1 : banModal.banStrike === 1 ? 3 : banModal.banStrike === 2 ? 7 : -1} defaultChecked className="peer hidden" />
+                      <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all peer-checked:bg-orange-500 peer-checked:text-white h-full flex flex-col justify-center">
+                         <div className="text-[10px] font-black uppercase tracking-widest">
+                           Next Strike ({(banModal.banStrike || 0) === 0 ? "1 Day" : banModal.banStrike === 1 ? "3 Days" : banModal.banStrike === 2 ? "7 Days" : "Permanent"})
+                         </div>
+                         <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">Automatic Progression</div>
+                      </div>
+                    </label>
+                    <label className="cursor-pointer">
+                      <input type="radio" name="duration" value="-1" className="peer hidden" />
+                      <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all peer-checked:bg-red-900 peer-checked:text-white h-full flex flex-col justify-center">
+                         <div className="text-[10px] font-black uppercase tracking-widest">Permanent Ban</div>
+                         <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">Override & Ban Forever</div>
+                      </div>
+                    </label>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -716,20 +718,22 @@ function FlaggedContent() {
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Suspension Duration</label>
                   <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { v: 1, l: '1 Day', sub: 'Strike 1', color: 'peer-checked:bg-yellow-500' },
-                      { v: 3, l: '3 Days', sub: 'Strike 2', color: 'peer-checked:bg-orange-500' },
-                      { v: 7, l: '7 Days', sub: 'Strike 3', color: 'peer-checked:bg-red-500' },
-                      { v: -1, l: 'Permanent', sub: 'Final', color: 'peer-checked:bg-red-900' }
-                    ].map(opt => (
-                      <label key={opt.v} className="cursor-pointer">
-                        <input type="radio" name="duration" value={opt.v} defaultChecked={opt.v === 1} className="peer hidden" />
-                        <div className={`p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all ${opt.color} peer-checked:text-white`}>
-                           <div className="text-[10px] font-black uppercase tracking-widest">{opt.l}</div>
-                           <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">{opt.sub}</div>
-                        </div>
-                      </label>
-                    ))}
+                    <label className="cursor-pointer">
+                      <input type="radio" name="duration" value={(banModal.banStrike || 0) === 0 ? 1 : banModal.banStrike === 1 ? 3 : banModal.banStrike === 2 ? 7 : -1} defaultChecked className="peer hidden" />
+                      <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all peer-checked:bg-orange-500 peer-checked:text-white h-full flex flex-col justify-center">
+                         <div className="text-[10px] font-black uppercase tracking-widest">
+                           Next Strike ({(banModal.banStrike || 0) === 0 ? "1 Day" : banModal.banStrike === 1 ? "3 Days" : banModal.banStrike === 2 ? "7 Days" : "Permanent"})
+                         </div>
+                         <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">Automatic Progression</div>
+                      </div>
+                    </label>
+                    <label className="cursor-pointer">
+                      <input type="radio" name="duration" value="-1" className="peer hidden" />
+                      <div className="p-5 rounded-2xl bg-slate-950 border border-white/5 text-center transition-all peer-checked:bg-red-900 peer-checked:text-white h-full flex flex-col justify-center">
+                         <div className="text-[10px] font-black uppercase tracking-widest">Permanent Ban</div>
+                         <div className="text-[8px] font-bold opacity-60 uppercase tracking-tighter mt-1">Override & Ban Forever</div>
+                      </div>
+                    </label>
                   </div>
                 </div>
                 <div className="space-y-4">

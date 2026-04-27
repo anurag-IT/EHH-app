@@ -28,6 +28,21 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Show toast for temporary bans on interaction
+    if (error.response?.data?.error === "TEMP_BAN") {
+      // Create a custom event to show toast without importing react-toastify directly
+      window.dispatchEvent(new CustomEvent('ehh-toast', { 
+        detail: { type: 'error', message: 'Action blocked: Your account is temporarily suspended.' } 
+      }));
+    }
+
+    // Force logout for permanently banned users who somehow have a session
+    if (error.response?.data?.error === "PERMANENT_BAN") {
+      localStorage.removeItem("ehh_token");
+      localStorage.removeItem("ehh_user");
+      window.location.href = "/";
+    }
+
     // Only redirect if it's a 401 AND it's NOT a login attempt
     // This allows "Wrong Password" errors (which are 401) to show a toast instead of reloading the page
     if (error.response?.status === 401 && !error.config.url.includes("/api/users/login")) {

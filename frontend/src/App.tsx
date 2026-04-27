@@ -74,7 +74,7 @@ export default function App() {
 
           // Validate token in background — but ONLY log out if token is truly invalid (401)
           // NOT on network errors, timeouts, or server errors (500)
-          api.get(`/api/users/${parsedUser.id}/profile`).then((res) => {
+          api.get(`/api/users/${parsedUser.id}`).then((res) => {
             if (res.data && res.data.id) {
               setUser(res.data);
               localStorage.setItem("ehh_user", JSON.stringify({
@@ -217,8 +217,17 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       setTargetUserId(e.detail);
       setView("userProfile");
     };
+    const handleToast = (e: any) => {
+      if (e.detail.type === 'error') toast.error(e.detail.message);
+      else if (e.detail.type === 'success') toast.success(e.detail.message);
+      else toast.info(e.detail.message);
+    };
     window.addEventListener('open-profile', handleOpenProfile);
-    return () => window.removeEventListener('open-profile', handleOpenProfile);
+    window.addEventListener('ehh-toast', handleToast);
+    return () => {
+      window.removeEventListener('open-profile', handleOpenProfile);
+      window.removeEventListener('ehh-toast', handleToast);
+    };
   }, []);
 
   const refreshHome = () => {
@@ -768,23 +777,23 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       )}
 
       <main className={`${view === "admin" ? "w-full" : "w-full max-w-[1920px] mx-auto px-4 md:px-6 py-4 md:py-6"}`}>
-        {user && user.status !== "ACTIVE" && view !== "admin" && (
+        {user && user.status === "BANNED" && view !== "admin" && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 p-6 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center gap-6 shadow-2xl relative overflow-hidden"
+            className="mb-8 p-6 bg-orange-500/10 border border-orange-500/20 rounded-3xl flex items-center gap-6 shadow-2xl relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-8 opacity-10">
-              <ShieldAlert size={120} className="text-red-500" />
+              <ShieldAlert size={120} className="text-orange-500" />
             </div>
-            <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center shrink-0 border border-red-500/30">
-              <ShieldAlert className="text-red-500" size={32} />
+            <div className="w-16 h-16 bg-orange-500/20 rounded-2xl flex items-center justify-center shrink-0 border border-orange-500/30">
+              <ShieldAlert className="text-orange-500" size={32} />
             </div>
             <div className="relative z-10">
-              <h3 className="text-red-100 font-black text-xl tracking-tight">Account Blocked (Status: {user.status})</h3>
-              <p className="text-red-400/80 text-sm font-medium mt-1">
-                Your account is currently suspended for: <span className="text-red-400 font-bold underline decoration-red-500/50 underline-offset-4">{user.banReason || "Not following our rules"}</span>. 
-                {user.banUntil ? ` You can use the app again on ${new Date(user.banUntil).toLocaleDateString()}.` : " This block is permanent."}
+              <h3 className="text-orange-100 font-black text-xl tracking-tight">Account Temporarily Suspended</h3>
+              <p className="text-orange-400/80 text-sm font-medium mt-1">
+                Your account is currently restricted for: <span className="text-orange-400 font-bold underline decoration-orange-500/50 underline-offset-4">{user.banReason || "Violation of guidelines"}</span>. 
+                <br />You can browse the feed, but interactions (liking, commenting, posting) are disabled until {user.banUntil ? new Date(user.banUntil).toLocaleDateString() : 'the restriction expires'}.
               </p>
             </div>
           </motion.div>
