@@ -77,4 +77,7 @@ export const getOptimizedImageUrl = (url: string, width: number | string = "auto
   return url;
 };
 
+export const favouritePost = (id: number) => api.post(`/api/posts/${id}/favourite`);
+export const getFavourites = (userId: number) => api.get(`/api/users/${userId}/favourites`);
+
 export default api;

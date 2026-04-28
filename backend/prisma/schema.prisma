@@ -51,6 +51,7 @@ model User {
   notifications Notification[] @relation("UserNotifications")
   followers    UserFollow[] @relation("FollowedBy")
   following    UserFollow[] @relation("Following")
+  favourites   Favourite[]
   stories      Story[]
   storyReactions StoryReaction[]
   storyViews     StoryView[]
@@ -99,6 +100,7 @@ model Post {
   flags           FlaggedContent[]
   likes           Like[]
   comments        Comment[]
+  favourites      Favourite[]
 
   @@index([userId])
   @@index([createdAt])
@@ -258,5 +260,19 @@ model StoryReply {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   message   String
   createdAt DateTime @default(now())
+}
+
+model Favourite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId])
+  @@index([createdAt])
 }
 

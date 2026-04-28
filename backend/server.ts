@@ -251,6 +251,7 @@ const buildPostSelect = (viewerId: number | null) => {
 
   if (viewerId) {
     select.likes = { where: { userId: viewerId }, select: { id: true } };
+    select.favourites = { where: { userId: viewerId }, select: { id: true } };
   }
 
   return select;
@@ -263,6 +264,7 @@ const formatPost = (post: any, followStatusByUserId?: Map<number, string>) => {
     ...post,
     user: formatPublicUser(post.user),
     isLiked: post.likes?.length > 0,
+    isFavourited: post.favourites?.length > 0,
     isFollowing: followStatusByUserId?.get(post.userId) === "ACCEPTED",
     likesCount: post._count?.likes ?? 0,
     commentsCount: post._count?.comments ?? 0,
@@ -1769,6 +1771,59 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
     res.json({ success: true, liked, likesCount });
   } catch (error: any) {
     res.status(500).json({ success: false, error: "Interaction synchronization failure." });
+  }
+});
+
+app.post("/api/posts/:id/favourite", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const postId = parseInt(req.params.id);
+    const userId = req.user.id;
+    let favourited = true;
+
+    try {
+      await prisma.favourite.create({
+        data: { userId, postId }
+      });
+    } catch (createError: any) {
+      if (createError.code === 'P2002') {
+        await prisma.favourite.delete({ where: { userId_postId: { userId, postId } } });
+        favourited = false;
+      } else {
+        throw createError;
+      }
+    }
+
+    res.json({ success: true, favourited });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: "Cloud storage synchronization failure." });
+  }
+});
+
+app.get("/api/users/:id/favourites", checkUserRestriction, async (req: any, res: any) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const viewerId = req.user.id;
+
+    // Only allow users to see their own favourites if they are private? 
+    // For now, let's keep it open or private to the owner.
+    if (userId !== viewerId) {
+      return res.status(403).json({ error: "Access Denied" });
+    }
+
+    const favourites = await prisma.favourite.findMany({
+      where: { userId },
+      include: {
+        post: {
+          select: buildPostSelect(viewerId)
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const posts = favourites.map(f => formatPost(f.post));
+    res.json(posts);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

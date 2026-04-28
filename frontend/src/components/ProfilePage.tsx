@@ -14,7 +14,8 @@ import {
   User as UserIcon,
   Zap,
   Trophy,
-  Award
+  Award,
+  Bookmark as BookmarkIcon
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { User, Post } from "../types";
@@ -37,6 +38,9 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
   
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUserListModal, setShowUserListModal] = useState<{ type: 'followers' | 'following', users: User[] } | null>(null);
+  const [activeTab, setActiveTab] = useState<'posts' | 'saved'>('posts');
+  const [favouritePosts, setFavouritePosts] = useState<Post[]>([]);
+  const [favLoading, setFavLoading] = useState(false);
   
   const [editName, setEditName] = useState("");
   const [editBio, setEditBio] = useState("");
@@ -73,6 +77,25 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
       if (showLoading) setLoading(false);
     }
   };
+
+  const fetchFavourites = async () => {
+    if (!isOwnProfile || !profileUser) return;
+    setFavLoading(true);
+    try {
+      const res = await api.get(`/api/users/${profileUser.id}/favourites`);
+      setFavouritePosts(res.data);
+    } catch (err) {
+      toast.error("Could not fetch saved signals.");
+    } finally {
+      setFavLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'saved') {
+      fetchFavourites();
+    }
+  }, [activeTab, profileUser?.id]);
 
   const fetchUserList = async (type: 'followers' | 'following') => {
     if (!profileUser) return;
@@ -260,7 +283,30 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
       </div>
 
       {/* Profile Content */}
-      <div className="border-t border-slate-800 pt-12">
+      <div className="border-t border-slate-800 pt-8">
+         {!isBlockedByPrivacy && (
+            <div className="flex justify-center gap-12 mb-12 border-b border-slate-800/50 pb-4">
+               <button 
+                  onClick={() => setActiveTab('posts')}
+                  className={`flex items-center gap-2 pb-2 transition-all relative ${activeTab === 'posts' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+               >
+                  <ImageIcon size={18} />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Signals</span>
+                  {activeTab === 'posts' && <motion.div layoutId="profileTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500" />}
+               </button>
+               {isOwnProfile && (
+                  <button 
+                     onClick={() => setActiveTab('saved')}
+                     className={`flex items-center gap-2 pb-2 transition-all relative ${activeTab === 'saved' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                     <BookmarkIcon size={18} />
+                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Saved</span>
+                     {activeTab === 'saved' && <motion.div layoutId="profileTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />}
+                  </button>
+               )}
+            </div>
+         )}
+
          {isBlockedByPrivacy ? (
            <div className="py-24 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in duration-700">
               <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-slate-600 mb-4 shadow-[0_0_50px_rgba(34,197,94,0.05)]">
@@ -271,7 +317,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
            </div>
          ) : (
            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 md:gap-8">
-              {posts.map(post => (
+              {(activeTab === 'posts' ? posts : favouritePosts).map(post => (
                 <motion.div 
                   key={post.id} 
                   whileHover={{ scale: 1.02 }}
@@ -286,10 +332,12 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
                    </div>
                 </motion.div>
               ))}
-              {posts.length === 0 && (
+              {((activeTab === 'posts' ? posts : favouritePosts).length === 0) && (
                  <div className="col-span-full py-24 text-center opacity-20">
-                    <ImageIcon size={64} className="mx-auto mb-4" />
-                    <p className="text-xs font-black uppercase tracking-[0.5em]">No Assets Detected</p>
+                    {activeTab === 'posts' ? <ImageIcon size={64} className="mx-auto mb-4" /> : <BookmarkIcon size={64} className="mx-auto mb-4" />}
+                    <p className="text-xs font-black uppercase tracking-[0.5em]">
+                      {activeTab === 'posts' ? 'No Assets Detected' : 'No Saved Signals'}
+                    </p>
                  </div>
               )}
            </div>

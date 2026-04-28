@@ -122,15 +122,17 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [liked, setLiked] = useState(post.isLiked || false);
+  const [favourited, setFavourited] = useState(post.isFavourited || false);
   const [likeCount, setLikeCount] = useState(post.likesCount || 0);
   const [commentText, setCommentText] = useState("");
   const [postComments, setPostComments] = useState<Comment[]>(post.comments || []);
   const [isLiking, setIsLiking] = useState(false);
+  const [isFavouriting, setIsFavouriting] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [isLikingAnimation, setIsLikingAnimation] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [following, setFollowing] = useState(post.isFollowing || false);
-  const [followStatus, setFollowStatus] = useState<'PENDING' | 'ACCEPTED' | null>(post.followStatus || null);
+  const [followStatus, setFollowStatus] = useState<'PENDING' | 'ACCEPTED' | null>(post.isFollowing ? 'ACCEPTED' : null);
   const isSyncing = useRef(false);
   const [isReposting, setIsReposting] = useState(false);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
@@ -206,6 +208,51 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
       setFollowing(res.data.following);
       setFollowStatus(res.data.status);
     } catch { }
+  };
+  
+  const handleFavourite = async () => {
+    if (isBanned || isFavouriting) return;
+    setIsFavouriting(true);
+    const wasFavourited = favourited;
+    setFavourited(!wasFavourited);
+    try {
+      const res = await api.post(`/api/posts/${post.id}/favourite`);
+      if (res.data.success) {
+        setFavourited(res.data.favourited);
+        toast.success(res.data.favourited ? "Signal saved to cloud" : "Signal removed from cloud", { 
+          icon: <Bookmark size={16} className="text-yellow-500" />,
+          autoClose: 1500
+        });
+      }
+    } catch {
+      setFavourited(wasFavourited);
+      toast.error("Failed to sync bookmark.");
+    } finally {
+      setIsFavouriting(false);
+    }
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/post/${post.id}`;
+    const shareData = {
+      title: 'Earth for Human and Humanity',
+      text: post.caption || 'Check out this network signal on EHH!',
+      url: url,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(url);
+          toast.success("Signal link copied to clipboard!");
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success("Signal link copied to clipboard!");
+    }
   };
 
   const handleReport = async (e: React.FormEvent) => {
@@ -398,23 +445,30 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
             <motion.button 
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => {
-                const url = `${window.location.origin}/post/${post.id}`;
-                navigator.clipboard.writeText(url);
-                toast.success("Signal link copied to clipboard!");
-              }}
+              onClick={handleShare}
               className="text-white hover:text-slate-400"
             >
               <Send size={24} />
+            </motion.button>
+
+            <motion.button 
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowReport(true)}
+              className="text-white hover:text-red-500 transition-colors"
+              title="Report Signal"
+            >
+              <Flag size={24} />
             </motion.button>
           </div>
           
           <motion.button 
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
-            className="text-white hover:text-yellow-500 transition-colors"
+            onClick={handleFavourite}
+            className={`transition-colors ${favourited ? "text-yellow-500" : "text-white hover:text-yellow-500"}`}
           >
-            <Bookmark size={26} />
+            <Bookmark size={26} fill={favourited ? "currentColor" : "none"} />
           </motion.button>
         </div>
 
