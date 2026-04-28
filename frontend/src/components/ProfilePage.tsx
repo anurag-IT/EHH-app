@@ -184,10 +184,10 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
               <div className="flex items-center justify-center md:justify-start gap-2">
                  <h2 className="text-3xl font-black text-white tracking-tight">{profileUser?.name}</h2>
                  {profileUser?.isPrivate && <Lock size={18} className="text-slate-500" />}
-                 {(profileUser as any)?.level && (
+                 {profileUser?.level && (
                     <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
                        <Zap size={10} className="text-green-500 fill-green-500" />
-                       <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">{(profileUser as any).level}</span>
+                       <span className="text-[10px] font-black text-green-500 uppercase tracking-widest">{profileUser.level}</span>
                     </div>
                   )}
               </div>
@@ -245,12 +245,12 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
                <div className="w-full max-w-xs space-y-2">
                   <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
                      <span>Eco Progress</span>
-                     <span className="text-white">{(profileUser as any)?.points || 0} / 2000 EXP</span>
+                     <span className="text-white">{profileUser?.points || 0} / 2000 EXP</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden border border-white/5">
                      <motion.div 
                         initial={{ width: 0 }} 
-                        animate={{ width: `${Math.min((((profileUser as any)?.points || 0) / 2000) * 100, 100)}%` }} 
+                        animate={{ width: `${Math.min(((profileUser?.points || 0) / 2000) * 100, 100)}%` }} 
                         className="h-full bg-gradient-to-r from-green-500 to-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
                      />
                   </div>
@@ -258,9 +258,9 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
 
                <p className="text-sm text-slate-400 font-medium whitespace-pre-wrap leading-relaxed max-w-lg">{profileUser?.bio || "No description broadcasted."}</p>
                
-               {/* Badges Section */}
+                {/* Badges Section */}
                <div className="flex flex-wrap gap-3 pt-4">
-                  {(profileUser as any)?.badges?.map((badge: any) => (
+                  {profileUser?.badges?.map((badge: any) => (
                     <div key={badge.id} className="group relative">
                       <div className="p-2.5 bg-slate-800/50 rounded-xl border border-white/5 hover:border-yellow-500/50 transition-all cursor-help">
                          <Award className="text-yellow-500" size={20} />
@@ -272,7 +272,7 @@ export default function ProfilePage({ userId, user: initialUser, isOwnProfile, o
                       </div>
                     </div>
                   ))}
-                  {((profileUser as any)?.points || 0) > 100 && (
+                  {(profileUser?.points || 0) > 100 && (
                     <div className="p-2.5 bg-slate-800/50 rounded-xl border border-white/5 opacity-50 grayscale hover:grayscale-0 transition-all cursor-help">
                        <Trophy className="text-blue-400" size={20} />
                     </div>

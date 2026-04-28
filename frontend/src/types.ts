@@ -20,6 +20,7 @@ export interface User {
   level?: string;
   streak?: number;
   district?: string | null;
+  badges?: { id: number; name: string; icon: string; createdAt: string }[];
 }
 
 export interface Comment {
@@ -46,6 +47,7 @@ export interface Post {
   imagePaths: string[];
   createdAt: string;
   isLiked?: boolean;
+  isFavourited?: boolean;
   isFollowing?: boolean;
   followStatus?: 'PENDING' | 'ACCEPTED' | null;
   likesCount?: number;

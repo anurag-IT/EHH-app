@@ -1820,7 +1820,7 @@ app.get("/api/users/:id/favourites", checkUserRestriction, async (req: any, res:
       orderBy: { createdAt: 'desc' }
     });
 
-    const posts = favourites.map(f => formatPost(f.post));
+    const posts = favourites.map((f: any) => formatPost(f.post));
     res.json(posts);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
