@@ -58,6 +58,8 @@ export interface Post {
     comments: number;
     reposts: number;
   }
+  isAiGenerated?: boolean;
+  aiConfidence?: number;
 }
 
 export interface Message {

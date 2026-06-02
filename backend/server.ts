@@ -23,6 +23,7 @@ import { PrismaClient } from "@prisma/client";
 import { uploadImage } from "./src/services/uploadService.js";
 import { processImageAsync, extractFeaturesFromBuffer } from "./src/services/imageProcessingService.js";
 import { getSimilarityResults } from "./src/services/imageSimilarityService.js";
+import { detectAiImage } from "./src/services/aiDetectionService.js";
 
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -40,6 +41,7 @@ const configuredOrigins = [process.env.FRONTEND_URL, process.env.ALLOWED_ORIGINS
 
 const ALLOWED_ORIGINS = Array.from(new Set([
   "http://localhost:5173",
+  "http://localhost:5174",
   "http://localhost:3001",
   ...configuredOrigins
 ]));
@@ -48,14 +50,24 @@ const io = new Server(httpServer, {
   cors: {
     origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"]
-  }
+  },
+  transports: ['websocket', 'polling'], // Prefer WebSocket; fall back to polling
+  pingTimeout: 20000,    // Detect dead connections faster (default 20s)
+  pingInterval: 10000,   // Ping every 10s (default 25s)
+  connectTimeout: 10000, // Reject slow handshakes within 10s
+  maxHttpBufferSize: 1e6 // 1 MB max message size
 });
 const PORT = Number(process.env.PORT) || 3001;
 
 // --- Security Middleware ---
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false // disabled — frontend served from same origin
+  contentSecurityPolicy: false, // Frontend uses Vite CDN + Cloudinary — set full CSP in production via reverse proxy
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
 }));
 
 app.use(cors({
@@ -76,16 +88,6 @@ app.use(compression() as any);
 // --- Logging ---
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 
-// Custom logs for Auth and Upload flow
-app.use((req, res, next) => {
-  if (req.path.startsWith("/api/users/login") || req.path.startsWith("/api/users/register")) {
-    console.log(`[AUTH] ${req.method} ${req.path} - ${new Date().toISOString()}`);
-  }
-  if (req.method === "POST" && (req.path.startsWith("/api/posts") || req.path.startsWith("/api/stories"))) {
-    console.log(`[UPLOAD] ${req.method} ${req.path}`);
-  }
-  next();
-});
 
 // --- Rate Limiting ---
 // General API limiter — 200 requests per minute per IP
@@ -119,23 +121,44 @@ const userSockets = new Map<number, string>(); // userId -> socketId
 
 // --- Simple Cache Implementation ---
 const cache = new Map<string, { data: any, timestamp: number }>();
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 60000; // 60 seconds (was 30s — doubled for better hit rate)
 
 // Performance optimization: Throttle lastSeen updates and cache user sessions
 const lastSeenThrottle = new Map<number, number>();
 const userSessionCache = new Map<number, { user: any, cachedAt: number }>();
+const SESSION_CACHE_TTL = 60000; // 60s session cache (was 30s)
 
 const getCachedData = (key: string) => {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
+  cache.delete(key); // Remove stale entry
   return null;
 };
 
 const setCachedData = (key: string, data: any) => {
   cache.set(key, { data, timestamp: Date.now() });
 };
+
+// Periodically evict expired cache entries and clean up expired stories
+setInterval(async () => {
+  const now = Date.now();
+  for (const [key, entry] of cache.entries()) {
+    if (now - entry.timestamp > CACHE_TTL * 2) cache.delete(key);
+  }
+  for (const [id, entry] of userSessionCache.entries()) {
+    if (now - entry.cachedAt > SESSION_CACHE_TTL * 2) userSessionCache.delete(id);
+  }
+
+  // Delete expired stories (runs every 5 minutes)
+  try {
+    const deleted = await prisma.story.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+    if (deleted.count > 0) console.log(`[CLEANUP] Deleted ${deleted.count} expired stories`);
+  } catch (e) {
+    // Non-critical — don't crash the server
+  }
+}, 5 * 60_000); // Every 5 minutes
 
 const ALLOWED_IMAGE_MIMETYPES = [
   'image/jpeg',
@@ -245,6 +268,8 @@ const buildPostSelect = (viewerId: number | null) => {
     phash: true,
     parentId: true,
     createdAt: true,
+    isAiGenerated: true,
+    aiConfidence: true,
     user: { select: PUBLIC_USER_SELECT },
     _count: { select: { likes: true, comments: true, reposts: true } }
   };
@@ -452,9 +477,9 @@ const checkUserRestriction = async (req: express.Request, res: express.Response,
 
     if (isNaN(id)) return res.status(401).json({ error: "Invalid user session" });
     
-    // 1. User Session Cache (30s TTL) to avoid DB hitting on every request
+    // 1. User Session Cache (60s TTL) to avoid DB hit on every request
     let cached = userSessionCache.get(id);
-    let user = cached && (Date.now() - cached.cachedAt < 30000) ? cached.user : null;
+    let user = cached && (Date.now() - cached.cachedAt < SESSION_CACHE_TTL) ? cached.user : null;
 
     if (!user) {
       user = await prisma.user.findUnique({ where: { id } });
@@ -959,9 +984,7 @@ app.post("/api/users/requests/:requestId/reject", checkUserRestriction, async (r
 
 app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
   try {
-    const { credential } = req.body; 
-    console.log("[GOOGLE AUTH] Attempting verification...");
-    
+    const { credential } = req.body;
     if (!credential) return res.status(400).json({ error: "Google credential required" });
 
     if (!process.env.GOOGLE_CLIENT_ID) {
@@ -987,7 +1010,6 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
     }
 
     const { email, name, picture, sub: googleId } = payload;
-    console.log(`[GOOGLE AUTH] Token valid for: ${email}`);
 
     // Check if user exists by googleId first, then by email
     let user = await prisma.user.findFirst({
@@ -995,7 +1017,6 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
     });
 
     if (user) {
-      console.log(`[GOOGLE AUTH] User found: ${user.id}`);
       // Existing user — link googleId if not already linked
       if (!user.googleId) {
         user = await prisma.user.update({
@@ -1015,7 +1036,6 @@ app.post("/api/auth/google", authLimiter, async (req: any, res: any) => {
 
 
     } else {
-      console.log(`[GOOGLE AUTH] Registering new user: ${email}`);
       // New user — auto-register with Google info
       const uniqueId = await generateUniqueId(); 
       user = await prisma.user.create({
@@ -1090,6 +1110,7 @@ app.get("/api/posts", async (req: any, res: any) => {
 
     const selectFields: any = {
       id: true, imageUrl: true, imageUrls: true, caption: true, location: true, createdAt: true, userId: true,
+      isAiGenerated: true, aiConfidence: true,
       user: { select: { name: true, avatar: true, uniqueId: true } },
       _count: { select: { likes: true, comments: true, reposts: true } }
     };
@@ -1137,7 +1158,6 @@ app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res: any) =>
   if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
   const userId = req.user.id;
   const userRole = req.user.role;
-  console.log(`[ADMIN DELETE] Request to delete post ${id} by user ${userId} (Role: ${userRole})`);
   try {
     const post = await prisma.post.findUnique({ where: { id } });
     if (!post) return res.status(404).json({ error: "Post not found" });
@@ -1151,10 +1171,7 @@ app.delete("/api/posts/:id", checkUserRestriction, async (req: any, res: any) =>
     await prisma.imageMatch.deleteMany({ where: { OR: [{ imageId: id }, { matchedImageId: id }] } });
 
     // Use deleteMany even for single ID to be more robust against Prisma relation cache issues
-    const del = await prisma.post.deleteMany({ where: { id } });
-    
-    console.log(`[STATUS] Deleted ${del.count} post and its branches.`);
-    // Important: Clear cache so the feed reflects the deletion immediately
+    await prisma.post.deleteMany({ where: { id } });
     cache.clear();
     res.json({ success: true, message: "Post and branches erased successfully" });
   } catch (error: any) {
@@ -1226,7 +1243,6 @@ app.post("/api/stories", uploadLimiter, checkUserRestriction, upload.array("imag
     let imagePath = "";
 
     if (files && files.length > 0) {
-      console.log(`[STORY UPLOAD] User ${userId} broadcasting visual signal...`);
       const uploadResult = await uploadImage(files[0].buffer);
       imageUrl = uploadResult.secure_url;
       imagePath = uploadResult.public_id;
@@ -1251,7 +1267,6 @@ app.post("/api/stories", uploadLimiter, checkUserRestriction, upload.array("imag
       include: { user: { select: PUBLIC_USER_SELECT } }
     });
 
-    console.log(`[STORY SUCCESS] Story ${story.id} indexed.`);
     res.json(story);
   } catch (error: any) {
     console.error("[STORY ERROR]", error);
@@ -1435,8 +1450,6 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
     const userId = req.user.id;
     const files = req.files as any[];
 
-    console.log(`[POST UPLOAD] Received ${files?.length || 0} images for user ${userId}`);
-
     if ((!files || files.length === 0) && !parentId) {
       return res.status(400).json({ error: "At least one image is required" });
     }
@@ -1447,11 +1460,13 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
     let imageUrls: string[] = [];
     let imagePaths: string[] = [];
 
+    // Copy buffer before async work — multer may release it after response
+    let primaryBuffer: Buffer | null = null;
+    let primaryOriginalname = "";
+
     if (parentId) {
-      console.log(`[REPOST] Linking to parent post ${parentId}`);
       const parent = await prisma.post.findUnique({ where: { id: parseInt(parentId) } });
       if (!parent) return res.status(404).json({ error: "Parent post not found" });
-      
       mainImageUrl = parent.imageUrl || "";
       mainImagePath = parent.imagePath || "";
       mainPhash = parent.phash;
@@ -1462,20 +1477,16 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
         return res.status(400).json({ error: "At least one image signal is required for new transmission" });
       }
 
-      console.log(`[CLOUDINARY] Uploading ${files.length} images...`);
-      // Parallel upload all images to Cloudinary
+      primaryBuffer = Buffer.from(files[0].buffer);
+      primaryOriginalname = files[0].originalname;
+
       const uploadPromises = files.map(file => uploadImage(file.buffer));
       const results = await Promise.all(uploadPromises);
-      
       mainImageUrl = results[0].secure_url;
       mainImagePath = results[0].public_id;
-      
       imageUrls = results.map(r => r.secure_url);
       imagePaths = results.map(r => r.public_id);
 
-      console.log(`[UPLOAD SUCCESS] Uploaded ${imageUrls.length} assets to Cloudinary`);
-
-      // Extract features (phash) from the primary image for network indexing
       try {
         const features = await extractFeaturesFromBuffer(files[0].buffer);
         mainPhash = features.phash;
@@ -1484,36 +1495,63 @@ app.post("/api/posts", uploadLimiter, checkUserRestriction, upload.array("images
       }
     }
 
+    // Save post immediately — AI detection runs in background so user doesn't wait
     const post = await prisma.post.create({
       data: {
-        userId, 
-        caption: caption || "", 
-        location: location || "", 
+        userId,
+        caption: caption || "",
+        location: location || "",
         parentId: parentId ? parseInt(parentId) : null,
-        imageUrl: mainImageUrl, 
-        imagePath: mainImagePath, 
+        imageUrl: mainImageUrl,
+        imagePath: mainImagePath,
         phash: mainPhash,
-        imageUrls: imageUrls, 
-        imagePaths: imagePaths
+        imageUrls,
+        imagePaths,
+        isAiGenerated: false,
+        aiConfidence: 0,
       },
-      include: { 
+      include: {
         user: { select: PUBLIC_USER_SELECT },
         _count: { select: { likes: true, comments: true, reposts: true } }
       }
     });
-    
-    await awardPoints(userId, 10); // +10 for posting
 
     cache.clear();
-    
-    res.json({
-      success: true,
-      post: formatPost(post)
-    });
+    res.json({ success: true, post: formatPost(post) });
+
+    // --- Background: AI detection + point awarding (never blocks the upload response) ---
+    if (!parentId && primaryBuffer) {
+      const captionSnap = caption;
+      const bufSnap = primaryBuffer;
+      const nameSnap = primaryOriginalname;
+      setImmediate(async () => {
+        try {
+          const aiResult = await detectAiImage(bufSnap, captionSnap, nameSnap);
+          if (aiResult.isAiGenerated) {
+            await prisma.post.update({
+              where: { id: post.id },
+              data: { isAiGenerated: true, aiConfidence: aiResult.confidence }
+            });
+            cache.clear();
+            // Push real-time update to the poster's feed
+            const sid = userSockets.get(userId);
+            if (sid) io.to(sid).emit("postUpdated", { postId: post.id, isAiGenerated: true });
+          } else {
+            await awardPoints(userId, 10);
+          }
+        } catch {
+          // Detection failed — award points (give user benefit of doubt)
+          try { await awardPoints(userId, 10); } catch {}
+        }
+      });
+    } else if (parentId) {
+      // Reposts: award points immediately (no image to scan)
+      awardPoints(userId, 10).catch(() => {});
+    }
 
     if (!parentId && mainImageUrl) {
       processImageAsync(post.id, mainImageUrl).catch((err: any) => {
-         console.error(`Failed to trigger async processing for post ${post.id}`, err);
+        console.error(`Failed async processing for post ${post.id}`, err);
       });
     }
   } catch (error: any) {
@@ -1604,7 +1642,8 @@ app.get("/admin/stats", checkAdminMode, async (req: any, res: any) => {
     const bannedUsers = await prisma.user.count({ where: { status: "BANNED" } });
     const totalPosts = await prisma.post.count();
     const flaggedCount = await prisma.flaggedContent.count({ where: { status: "PENDING" } });
-    res.json({ totalUsers, activeUsers, bannedUsers, totalPosts, flaggedCount });
+    const aiGeneratedPosts = await prisma.post.count({ where: { isAiGenerated: true } });
+    res.json({ totalUsers, activeUsers, bannedUsers, totalPosts, flaggedCount, aiGeneratedPosts });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -1756,7 +1795,14 @@ app.post("/api/posts/:id/like", checkUserRestriction, async (req: any, res: any)
           io.to(targetSocketId).emit("notification", { type: "LIKE", senderName: like.user.name, content: "liked your post" });
         }
 
-        await awardPoints(like.post.userId, 2); // +2 for receiver of like
+        // Only award like points if the post is NOT AI generated
+        const likedPost = await prisma.post.findUnique({ 
+          where: { id: postId }, 
+          select: { isAiGenerated: true } 
+        });
+        if (!likedPost?.isAiGenerated) {
+          await awardPoints(like.post.userId, 2); // +2 for receiver of like
+        }
       }
     } catch (createError: any) {
       if (createError.code === 'P2002') {
@@ -2193,16 +2239,15 @@ app.get("/api/messages/conversations/:userId", checkUserRestriction, async (req:
       return res.status(403).json({ error: "Access denied" });
     }
     
-    // Performance optimization: 
-    // 1. Limit message scan to latest 200 (covers most active conversations)
-    // 2. Only select required fields to minimize memory/payload
+    // Scan the latest 100 messages to find unique conversation partners.
+    // 100 is enough for users with up to ~50 active conversations.
     const rawConversations = await prisma.message.findMany({
       where: { OR: [{ senderId: userId }, { receiverId: userId }] },
       orderBy: { createdAt: "desc" },
-      take: 200,
+      take: 100,
       select: {
-        id: true, senderId: true, receiverId: true, content: true, 
-        messageText: true, createdAt: true, isRead: true,
+        id: true, senderId: true, receiverId: true, content: true,
+        createdAt: true, isRead: true,
         sender: { select: { id: true, name: true, avatar: true, uniqueId: true, lastSeen: true } },
         receiver: { select: { id: true, name: true, avatar: true, uniqueId: true, lastSeen: true } }
       }
@@ -2215,7 +2260,7 @@ app.get("/api/messages/conversations/:userId", checkUserRestriction, async (req:
       if (!conversationsMap.has(otherUser.id)) {
         conversationsMap.set(otherUser.id, {
           ...otherUser,
-          lastMessage: m.content || m.messageText,
+          lastMessage: m.content,
           lastTimestamp: m.createdAt,
           unread: !m.isRead && m.receiverId === userId
         });
@@ -2349,11 +2394,7 @@ app.post("/admin/scan", checkAdminMode, upload.array("images", 1), async (req: a
     const files = req.files as any[];
     if (!files || files.length === 0) return res.status(400).json({ error: "No scan source detected" });
     const { phash } = await extractFeaturesFromBuffer(files[0].buffer);
-    
-    console.log(`\n[ADMIN SCAN RECEIVED] Extracted pHash for incoming scan image: ${phash}`);
-
     const matches = await getSimilarityResults({ phash });
-    console.log(`[ADMIN SCAN RESULTS] Found ${matches.length} valid matches above 65% threshold.`);
     
     const formattedMatches = matches.map((m: any) => ({
        postId: m.post.id,
@@ -2682,7 +2723,6 @@ async function startServer() {
   });
 
   io.on("connection", (socket) => {
-    console.log("Socket connected:", socket.id);
     const userId = socket.data.userId as number;
 
     userSockets.set(userId, socket.id);
@@ -2691,7 +2731,6 @@ async function startServer() {
       data: { lastSeen: new Date() }
     }).catch(() => {});
     io.emit("userStatusUpdate", { userId, status: "online" });
-    console.log(`User ${userId} authenticated with socket ${socket.id}`);
 
     socket.on("sendMessage", async (data: { receiverId: number; content: string }) => {
       const senderId = socket.data.userId as number;
@@ -2776,7 +2815,6 @@ async function startServer() {
           data: { lastSeen: new Date() }
         }).catch(() => {});
       }
-      console.log("Socket disconnected:", socket.id);
     });
   });
 

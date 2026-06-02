@@ -29,6 +29,9 @@ import OptimizedImage from "./components/common/OptimizedImage";
 import { SocketProvider, useSocket } from "./context/SocketContext";
 import StoriesRow from "./components/StoriesRow";
 
+// PostSkeleton is shown during initial page load — must NOT be lazy-loaded
+import PostSkeleton from "./components/PostSkeleton";
+
 // --- Modular Components (Lazy Loaded) ---
 const PostCard = lazy(() => import("./components/PostCard"));
 const UploadPage = lazy(() => import("./components/UploadPage"));
@@ -37,7 +40,6 @@ const ProfilePage = lazy(() => import("./components/ProfilePage"));
 const MessagingPage = lazy(() => import("./components/MessagingPage"));
 const NotificationPage = lazy(() => import("./components/NotificationPage"));
 const LostFoundPage = lazy(() => import("./components/LostFoundPage"));
-const PostSkeleton = lazy(() => import("./components/PostSkeleton"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -165,7 +167,6 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     const lastVersion = localStorage.getItem("app_version");
     
     if (lastVersion && lastVersion !== APP_VERSION) {
-       console.log("New version detected. Clearing cache and refreshing...");
        localStorage.setItem("app_version", APP_VERSION);
        window.location.reload();
     } else if (!lastVersion) {
@@ -239,46 +240,49 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
     }
   };
 
-  const fetchPosts = async (reset = false) => {
+  const cursorRef = useRef<number | null>(null);
+  cursorRef.current = cursor;
+
+  const fetchPosts = useCallback(async (reset = false) => {
     if (loading || (loadingMore && !reset)) return;
-    
+
     if (reset) {
       setLoading(true);
       setCursor(null);
+      cursorRef.current = null;
     } else {
       setLoadingMore(true);
     }
 
     try {
-      const currentCursor = reset ? null : cursor;
+      const currentCursor = reset ? null : cursorRef.current;
       const res = await api.get(`/api/posts?limit=10${currentCursor ? `&cursor=${currentCursor}` : ""}`);
-      
+
       const newPosts = res.data.posts;
       setPosts(prev => reset ? newPosts : [...prev, ...newPosts]);
       setCursor(res.data.nextCursor);
       setHasMore(res.data.nextCursor !== null);
-      
-      if (user) fetchUnreadCount(user.id);
     } catch (err) {
       console.error("Failed to fetch posts", err);
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [loading, loadingMore]);
 
-  const fetchUnreadCount = async (uid: number) => {
+  const fetchUnreadCount = useCallback(async (uid: number) => {
     try {
       const res = await api.get(`/api/notifications/${uid}/unread-count`);
       setUnreadNotifications(res.data.count);
     } catch {}
-  };
+  }, []);
 
   const { socket } = useSocket();
 
   useEffect(() => {
+    // Bump unread badge on socket events instead of polling the API each time
     const handleReceiveMessage = () => {
-      if (user) fetchUnreadCount(user.id);
+      setUnreadNotifications(prev => prev + 1);
     };
     const handleNotification = () => {
       if (user) fetchUnreadCount(user.id);
@@ -288,9 +292,16 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       setView("messages");
     };
 
+    const handlePostUpdated = (data: { postId: number; isAiGenerated: boolean }) => {
+      setPosts(prev => prev.map(p =>
+        p.id === data.postId ? { ...p, isAiGenerated: data.isAiGenerated } : p
+      ));
+    };
+
     if (socket) {
       socket.on("receiveMessage", handleReceiveMessage);
       socket.on("notification", handleNotification);
+      socket.on("postUpdated", handlePostUpdated);
     }
 
     window.addEventListener('open-chat', handleOpenChat);
@@ -299,6 +310,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
       if (socket) {
         socket.off("receiveMessage", handleReceiveMessage);
         socket.off("notification", handleNotification);
+        socket.off("postUpdated", handlePostUpdated);
       }
       window.removeEventListener('open-chat', handleOpenChat);
     };
@@ -800,7 +812,7 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
         )}
 
         <Suspense fallback={<PremiumLoader />}>
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             {view === "feed" && (
               <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 <div className="hidden lg:block lg:col-span-3 space-y-6">
@@ -855,11 +867,12 @@ function AppContent({ user, setUser }: { user: User | null; setUser: (u: User | 
                   ) : (
                     <>
                       {posts.map((post) => (
-                        <PostCard 
-                          key={post.id} 
-                          post={post} 
-                          onRepost={(newPost) => setPosts(prev => [newPost, ...prev])} 
-                          onDelete={(ids) => setPosts(prev => prev.filter(p => !ids.includes(p.id)))} 
+                        <PostCard
+                          key={post.id}
+                          post={post}
+                          currentUser={user ? { id: user.id, role: user.role, status: user.status } : null}
+                          onRepost={(newPost) => setPosts(prev => [newPost, ...prev])}
+                          onDelete={(ids) => setPosts(prev => prev.filter(p => !ids.includes(p.id)))}
                         />
                       ))}
                       

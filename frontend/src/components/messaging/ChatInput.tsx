@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Smile, Paperclip } from "lucide-react";
+import { Send } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface ChatInputProps {
@@ -50,12 +50,6 @@ const ChatInput = ({ onSendMessage, onTyping }: ChatInputProps) => {
     <div className="flex items-end w-full relative">
       <div className="flex-1 flex items-center bg-[#151a18] rounded-[2.5rem] border border-slate-700/50 focus-within:border-green-500/30 transition-all duration-300 pr-2 pl-4 py-2 shadow-sm focus-within:shadow-[0_0_15px_rgba(34,197,94,0.1)]">
         
-        <button className="p-2 text-slate-400 hover:text-green-500 transition-all rounded-full flex shrink-0">
-          <div className="w-6 h-6 border-2 border-slate-400 rounded-full flex items-center justify-center">
-            <span className="text-xl font-bold leading-none -mt-0.5">+</span>
-          </div>
-        </button>
-
         <textarea
           ref={textareaRef}
           rows={1}
@@ -67,10 +61,6 @@ const ChatInput = ({ onSendMessage, onTyping }: ChatInputProps) => {
         />
         
         <div className="flex items-center gap-2 shrink-0">
-          <button className="p-3 text-slate-400 hover:text-green-500 transition-colors">
-            <Smile size={20} />
-          </button>
-
           <AnimatePresence mode="popLayout">
             {text.trim() && (
               <motion.button

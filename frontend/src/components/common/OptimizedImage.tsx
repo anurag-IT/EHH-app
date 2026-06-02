@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getOptimizedImageUrl } from "../../lib/api";
 
 interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -8,63 +8,56 @@ interface OptimizedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> 
   fallbackSrc?: string;
 }
 
-const OptimizedImage: React.FC<OptimizedImageProps> = ({ 
-  src, 
-  width = "auto", 
-  className = "", 
+const OptimizedImage: React.FC<OptimizedImageProps> = ({
+  src,
+  width = "auto",
+  className = "",
   fallbackSrc = "https://placehold.co/600x800?text=NA",
   alt = "image",
-  ...props 
+  ...props
 }) => {
   const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
   const [currentSrc, setCurrentSrc] = useState("");
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    setError(false);
     setLoaded(false);
-    
     const safeSrc = src && (src.startsWith('http://') || src.startsWith('https://')) ? src : fallbackSrc;
-    const optimized = getOptimizedImageUrl(safeSrc, width);
-    if (!optimized) {
-      setCurrentSrc(fallbackSrc);
-      setLoaded(true);
-      return;
-    }
-
+    const optimized = getOptimizedImageUrl(safeSrc, width) || fallbackSrc;
     setCurrentSrc(optimized);
-
-    // Safety net: force load state after 4 seconds to prevent infinite spinners
-    const timer = setTimeout(() => {
-      setLoaded(true);
-    }, 4000);
-
-    return () => clearTimeout(timer);
   }, [src, width, fallbackSrc]);
+
+  // If image is already cached by browser, onLoad fires before React sees it
+  useEffect(() => {
+    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [currentSrc]);
 
   const objectFitClass = className.includes('object-contain') ? 'object-contain' : 'object-cover';
 
   return (
-    <div className={`relative bg-slate-900/60 rounded-inherit overflow-hidden animate-in fade-in duration-500 ${className}`}>
+    <div className={`relative bg-slate-900/60 rounded-inherit overflow-hidden ${className}`}>
       {currentSrc && (
         <img
+          ref={imgRef}
           src={currentSrc}
           alt={alt}
+          loading="lazy"
+          decoding="async"
           onLoad={() => setLoaded(true)}
-          onError={() => { 
-            console.warn("OptimizedImage Load Fail:", currentSrc);
-            setError(true); 
-            setCurrentSrc(fallbackSrc); 
-            setLoaded(true); 
+          onError={() => {
+            setCurrentSrc(fallbackSrc);
+            setLoaded(true);
           }}
-          className={`w-full h-full ${objectFitClass} transition-all duration-300 ${loaded ? "opacity-100 scale-100" : "opacity-0 scale-110"}`}
+          className={`w-full h-full ${objectFitClass} transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
           {...props}
         />
       )}
-      
+
       {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-800/50 backdrop-blur-sm z-20">
-           <div className="w-5 h-5 border-2 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-800/50 z-20">
+          <div className="w-5 h-5 border-2 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
         </div>
       )}
     </div>

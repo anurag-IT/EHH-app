@@ -18,7 +18,8 @@ export default defineConfig(({mode}) => {
       include: ['react', 'react-dom', '@tanstack/react-query'] 
     },
     build: {
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 800,
+      reportCompressedSize: false, // Faster builds — compressed sizes aren't needed for dev
       rollupOptions: {
         output: {
           manualChunks: {
@@ -28,12 +29,21 @@ export default defineConfig(({mode}) => {
             'vendor-query': ['@tanstack/react-query'],
             'vendor-socket': ['socket.io-client'],
             'vendor-charts': ['recharts'],
-          }
+            'vendor-virtuoso': ['react-virtuoso'],
+          },
+          // Consistent chunk names for long-term caching
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
+        },
+        treeshake: {
+          moduleSideEffects: false,
+          propertyReadSideEffects: false,
         }
       },
       target: 'es2020',
       minify: 'esbuild',
       sourcemap: false,
+      cssCodeSplit: true,
     },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),

@@ -25,6 +25,7 @@ import OptimizedImage from "./common/OptimizedImage";
 
 interface PostCardProps {
   post: Post;
+  currentUser?: { id: number; role: string; status: string } | null;
   onRepost: (newPost: Post) => void;
   onDelete: (deletedIds: number[]) => void;
 }
@@ -116,9 +117,7 @@ const PhotoGrid = ({ images, onPhotoClick }: { images: any[], onPhotoClick: (idx
   );
 };
 
-const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
-  const [showChain, setShowChain] = useState(false);
-  const [chain, setChain] = useState<Post[]>([]);
+const PostCard = memo(({ post, currentUser: currentUserProp, onRepost, onDelete }: PostCardProps) => {
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [liked, setLiked] = useState(post.isLiked || false);
@@ -135,14 +134,18 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const [followStatus, setFollowStatus] = useState<'PENDING' | 'ACCEPTED' | null>(post.isFollowing ? 'ACCEPTED' : null);
   const isSyncing = useRef(false);
   const [isReposting, setIsReposting] = useState(false);
+  const [repostCount, setRepostCount] = useState(post.repostsCount ?? post._count?.reposts ?? 0);
+  const [commentCount, setCommentCount] = useState(post.commentsCount ?? post._count?.comments ?? postComments.length);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
   const [showAdminDelete, setShowAdminDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const postImages = post.imageUrls && post.imageUrls.length > 0 ? post.imageUrls.map(url => ({ url })) : [{ url: post.imageUrl || "" }];
 
-  const currentUserStr = localStorage.getItem("ehh_user");
-  const currentUser: any = currentUserStr ? JSON.parse(currentUserStr) : {};
+  // Use prop if provided, fall back to localStorage (only parse once via prop from App)
+  const currentUser: any = currentUserProp ?? (() => {
+    try { return JSON.parse(localStorage.getItem("ehh_user") || "{}"); } catch { return {}; }
+  })();
   const isBanned = currentUser.status === "BANNED" || currentUser.status === "PERMANENT_BAN";
 
   const handleLike = useCallback(async () => {
@@ -173,14 +176,30 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
   const handleComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim() || isBanned) return;
+    const text = commentText.trim();
+    if (!text || isBanned) return;
+
+    // Optimistic: show comment instantly
+    const tempId = -Date.now();
+    const tempComment: Comment = {
+      id: tempId,
+      text,
+      user: { id: currentUser.id, name: currentUser.name, avatar: currentUser.avatar } as User,
+      createdAt: new Date().toISOString(),
+    };
+    setPostComments(prev => [...prev, tempComment]);
+    setCommentCount(prev => prev + 1);
+    setCommentText("");
+
     try {
-      const res = await api.post(`/api/posts/${post.id}/comment`, { text: commentText });
+      const res = await api.post(`/api/posts/${post.id}/comment`, { text });
       if (res.data.success) {
-        setPostComments(prev => [...prev, res.data.data]);
-        setCommentText("");
+        setPostComments(prev => prev.map(c => c.id === tempId ? res.data.data : c));
       }
     } catch {
+      setPostComments(prev => prev.filter(c => c.id !== tempId));
+      setCommentCount(prev => prev - 1);
+      setCommentText(text);
       toast.error("Comment failed");
     }
   };
@@ -188,14 +207,18 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const handleRepost = useCallback(async () => {
     if (isBanned || isReposting) return;
     setIsReposting(true);
+    setRepostCount(prev => prev + 1); // optimistic
     try {
       const res = await api.post(`/api/posts/${post.id}/repost`, {});
       if (res.data.success) {
-        toast.success("Successfully reposted!");
+        toast.success("Reposted!", { autoClose: 1500 });
         if (onRepost) onRepost(res.data.data);
+      } else {
+        setRepostCount(prev => prev - 1);
       }
     } catch {
-      toast.error("Could not complete repost. Try again.");
+      setRepostCount(prev => prev - 1);
+      toast.error("Repost failed.");
     } finally {
       setIsReposting(false);
     }
@@ -203,11 +226,24 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
   const handleFollow = async () => {
     if (isBanned || currentUser.id === post.userId) return;
+    const prevFollowing = following;
+    const prevStatus = followStatus;
+    // Optimistic toggle
+    if (following) {
+      setFollowing(false);
+      setFollowStatus(null);
+    } else {
+      setFollowing(true);
+      setFollowStatus(post.user.isPrivate ? 'PENDING' : 'ACCEPTED');
+    }
     try {
       const res = await api.post(`/api/users/${post.userId}/follow`);
       setFollowing(res.data.following);
       setFollowStatus(res.data.status);
-    } catch { }
+    } catch {
+      setFollowing(prevFollowing);
+      setFollowStatus(prevStatus);
+    }
   };
   
   const handleFavourite = async () => {
@@ -271,14 +307,11 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   const handleAdminDeleteSingle = async () => {
     if (!confirm("Delete this specific post?")) return;
     setIsDeleting(true);
-    console.log("DEBUG: Admin single delete initiated for post:", post.id);
     try {
-      const res = await api.delete(`/api/posts/${post.id}`);
-      console.log("DEBUG: Delete response:", res.data);
-      toast.success("Network signal erased successfully.");
-      if (onDelete) onDelete([post.id]);
+      await api.delete(`/api/posts/${post.id}`);
+      toast.success("Post deleted.");
+      onDelete([post.id]);
     } catch (err: any) {
-      console.error("[DELETE ERROR]", err);
       toast.error(err.response?.data?.error || "Error deleting post.");
     } finally {
       setIsDeleting(false);
@@ -287,16 +320,13 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
   };
 
   const handleAdminDeleteFamily = async () => {
-    if (!confirm("CRITICAL: Delete ALL similar images across the network? This cannot be undone.")) return;
+    if (!confirm("Delete ALL similar images across the network? This cannot be undone.")) return;
     setIsDeleting(true);
-    console.log("DEBUG: Admin family delete initiated for post:", post.id);
     try {
       const res = await api.delete(`/admin/delete/${post.id}`);
-      console.log("DEBUG: Family delete response:", res.data);
-      toast.success(`Nuked ${res.data.count} similar images from the network.`);
-      if (onDelete) onDelete(res.data.deletedIds || [post.id]);
+      toast.success(`Deleted ${res.data.count} similar images.`);
+      onDelete(res.data.deletedIds || [post.id]);
     } catch (err: any) {
-      console.error("[FAMILY DELETE ERROR]", err);
       toast.error(err.response?.data?.error || "Error during global delete.");
     } finally {
       setIsDeleting(false);
@@ -396,6 +426,15 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
         </div>
       </div>
 
+      {post.isAiGenerated && (
+        <div className="px-4">
+          <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 text-xs font-semibold px-3 py-1.5 rounded-lg mb-2">
+            <span>⚠️</span>
+            <span>AI Generated Image — No points awarded for this post</span>
+          </div>
+        </div>
+      )}
+
       {/* Media Grid Content */}
       <div className="relative bg-black transition-all" onDoubleClick={() => { setShowHeart(true); if (!liked) handleLike(); setTimeout(() => setShowHeart(false), 500); }}>
          <PhotoGrid images={postImages} onPhotoClick={(idx) => setViewingIndex(idx)} />
@@ -423,23 +462,24 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
               <Heart size={26} fill={liked ? "currentColor" : "none"} strokeWidth={2} />
             </motion.button>
 
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setShowComments(true)} 
+              onClick={() => setShowComments(true)}
               className="text-white hover:text-slate-400"
             >
-              <MessageCircle size={window.innerWidth < 768 ? 22 : 26} strokeWidth={2} />
+              <MessageCircle size={24} strokeWidth={2} />
             </motion.button>
 
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              onClick={handleRepost} 
-              disabled={isReposting} 
-              className={`${isReposting ? "opacity-50" : "text-white hover:text-amber-400 transition-colors"} ${post.parentId ? "text-amber-500" : ""}`}
+              onClick={handleRepost}
+              disabled={isReposting}
+              className={`flex items-center gap-1.5 ${isReposting ? "opacity-50" : "text-white hover:text-amber-400 transition-colors"} ${post.parentId ? "text-amber-500" : ""}`}
             >
               <Repeat2 size={26} strokeWidth={2} />
+              {repostCount > 0 && <span className="text-xs font-bold">{repostCount}</span>}
             </motion.button>
 
             <motion.button 
@@ -474,8 +514,8 @@ const PostCard = memo(({ post, onRepost, onDelete }: PostCardProps) => {
 
         <div className="space-y-1">
           <div className="text-sm font-black text-white">{likeCount.toLocaleString()} Likes</div>
-          {postComments.length > 0 && (
-            <button onClick={() => setShowComments(true)} className="text-xs text-slate-500 font-bold uppercase tracking-widest pt-2">View Signals ({postComments.length})</button>
+          {commentCount > 0 && (
+            <button onClick={() => setShowComments(true)} className="text-xs text-slate-500 font-bold uppercase tracking-widest pt-2">View Signals ({commentCount})</button>
           )}
           <div className="text-[10px] text-slate-600 font-black uppercase tracking-widest pt-2">{new Date(post.createdAt).toLocaleDateString()}</div>
         </div>

@@ -32,6 +32,9 @@ export default function MessagingPage({ currentUser, initialUser }: MessagingPag
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [fetchingMore, setFetchingMore] = useState(false);
   const virtuosoRef = useRef<VirtuosoHandle>(null);
+  // Ref so socket handlers always have the current selectedUser without being in the dep array
+  const selectedUserRef = useRef<any | null>(null);
+  useEffect(() => { selectedUserRef.current = selectedUser; }, [selectedUser]);
   
   const { socket, onlineUsers, typingUsers, sendMessage, sendTyping, markAsRead } = useSocket();
 
@@ -89,56 +92,75 @@ export default function MessagingPage({ currentUser, initialUser }: MessagingPag
   useEffect(() => {
     if (!socket) return;
 
-    const handleReceiveMessage = (message: Message) => {
-      // If message is from the currently selected user
-      if (selectedUser && (message.senderId === selectedUser.id || message.receiverId === selectedUser.id)) {
-        setMessages(prev => {
-          // Check for duplicate (if optimistic update already added it)
-          if (prev.find(m => m.id === message.id)) return prev;
-          return [...prev, message];
-        });
-        if (message.senderId === selectedUser.id) {
-          markAsRead(selectedUser.id);
-        }
-      }
-      
-      // Update conversations list to show last message
+    // Updates the conversations sidebar when any message is sent/received
+    const updateConversationList = (message: Message, isFromMe: boolean) => {
+      const otherUserId = isFromMe ? message.receiverId : message.senderId;
       setConversations(prev => {
-        const index = prev.findIndex(c => c.id === (message.senderId === currentUser.id ? message.receiverId : message.senderId));
+        const index = prev.findIndex(c => c.id === otherUserId);
+        const isActive = selectedUserRef.current?.id === otherUserId;
         if (index !== -1) {
           const updated = [...prev];
           updated[index] = {
             ...updated[index],
             lastMessage: message.content,
             lastTimestamp: message.createdAt,
-            unread: message.senderId !== currentUser.id && (!selectedUser || selectedUser.id !== message.senderId)
+            unread: !isFromMe && !isActive,
           };
-          // Move to top
           const [moved] = updated.splice(index, 1);
           return [moved, ...updated];
         } else {
-          fetchConversations(); // New conversation, just refresh
+          // New conversation partner — refresh the list
+          fetchConversations();
           return prev;
         }
       });
     };
 
+    // Handles a message received FROM another user
+    const handleReceiveMessage = (message: Message) => {
+      if (selectedUserRef.current?.id === message.senderId) {
+        setMessages(prev => {
+          if (prev.find(m => m.id === message.id)) return prev;
+          return [...prev, message];
+        });
+        markAsRead(message.senderId);
+      }
+      updateConversationList(message, false);
+    };
+
+    // Handles server confirmation of a message WE sent — replaces the optimistic temp entry
+    const handleMessageSent = (message: Message) => {
+      setMessages(prev => {
+        const tempIdx = prev.findIndex(m => m.id < 0 && m.content === message.content && m.senderId === currentUser.id);
+        if (tempIdx !== -1) {
+          const updated = [...prev];
+          updated[tempIdx] = message;
+          return updated;
+        }
+        if (!prev.find(m => m.id === message.id)) {
+          return [...prev, message];
+        }
+        return prev;
+      });
+      updateConversationList(message, true);
+    };
+
     const handleMessagesRead = ({ readerId }: { readerId: number }) => {
-      if (selectedUser && readerId === selectedUser.id) {
-        setMessages(prev => prev.map(m => m.receiverId === readerId ? { ...m, isRead: true } : m));
+      if (selectedUserRef.current?.id === readerId) {
+        setMessages(prev => prev.map(m => m.senderId === currentUser.id ? { ...m, isRead: true } : m));
       }
     };
 
     socket.on("receiveMessage", handleReceiveMessage);
-    socket.on("messageSent", handleReceiveMessage);
+    socket.on("messageSent", handleMessageSent);
     socket.on("messagesRead", handleMessagesRead);
 
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("messageSent", handleReceiveMessage);
+      socket.off("messageSent", handleMessageSent);
       socket.off("messagesRead", handleMessagesRead);
     };
-  }, [socket, selectedUser, currentUser.id, fetchConversations, markAsRead]);
+  }, [socket, currentUser.id, fetchConversations, markAsRead]);
 
   useEffect(() => {
     if (initialUser) {
@@ -163,10 +185,35 @@ export default function MessagingPage({ currentUser, initialUser }: MessagingPag
     }
   }, [messages.length]);
 
-  const handleSendMessage = async (content: string) => {
-    if (!selectedUser) return;
-    sendMessage(selectedUser.id, content);
+  const handleSendMessage = (content: string) => {
+    if (!selectedUser || !content.trim()) return;
+
+    // Add message to UI immediately (optimistic update) — don't wait for server confirmation
+    const tempId = -Date.now();
+    const optimisticMsg: Message = {
+      id: tempId,
+      senderId: currentUser.id,
+      receiverId: selectedUser.id,
+      content,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    // Update conversation sidebar immediately too
+    setConversations(prev => {
+      const idx = prev.findIndex(c => c.id === selectedUser.id);
+      const updatedConv = { ...(idx !== -1 ? prev[idx] : selectedUser), lastMessage: content, lastTimestamp: optimisticMsg.createdAt, unread: false };
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated.splice(idx, 1);
+        return [updatedConv, ...updated];
+      }
+      return [updatedConv, ...prev];
+    });
+
     sendTyping(selectedUser.id, false);
+    sendMessage(selectedUser.id, content);
   };
 
   const handleTyping = (isTyping: boolean) => {
@@ -174,14 +221,15 @@ export default function MessagingPage({ currentUser, initialUser }: MessagingPag
     sendTyping(selectedUser.id, isTyping);
   };
 
-  const MemoizedMessage = useCallback((index: number, message: Message) => {
+  const MemoizedMessage = useCallback((_index: number, message: Message) => {
     return (
-      <MessageBubble 
+      <MessageBubble
         key={message.id}
         content={message.content}
         isSender={message.senderId === currentUser.id}
         timestamp={message.createdAt}
         isRead={message.isRead}
+        isOptimistic={message.id < 0}
       />
     );
   }, [currentUser.id]);

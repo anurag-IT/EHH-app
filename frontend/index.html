@@ -3,17 +3,32 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="description" content="EHH | Earth for Human and humanity" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+  <meta name="description" content="EHH | Earth for Human and Humanity — Share, connect, and protect our planet." />
   <meta name="theme-color" content="#0f172a" />
   <meta name="application-name" content="EHH" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="EHH | Earth for Human and Humanity" />
+  <meta property="og:description" content="Share, connect, and protect our planet." />
+  <meta property="og:image" content="/logo.png" />
+
   <link rel="icon" type="image/png" href="/logo.png" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="apple-touch-icon" href="/logo.png" />
+
+  <!-- Preconnect to font origins so DNS + TLS is resolved before CSS parses them -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Non-blocking font load (display=swap keeps text visible while fonts load) -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" /></noscript>
+
+  <!-- Google Sign-In — async+defer so it never blocks render -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <title>EHH | Earth for Human and humanity</title>
+
+  <title>EHH | Earth for Human and Humanity</title>
 </head>
 
 <body class="bg-[#0f172a]">

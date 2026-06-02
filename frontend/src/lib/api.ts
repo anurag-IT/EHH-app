@@ -5,11 +5,10 @@ import axios from "axios";
  * Includes a 5000ms timeout to prevent "Handshake Failure" caused by hanging requests.
  */
 const API_URL = import.meta.env.VITE_API_URL || "";
-console.log("DEBUG: Connecting to API at:", API_URL || "CURRENT DOMAIN (RELATIVE)");
 
 const api = axios.create({
-  baseURL: API_URL, 
-  timeout: 60000,
+  baseURL: API_URL,
+  timeout: 15000,
   headers: {
     // Axios will automatically set Content-Type for JSON or FormData
   },
@@ -76,8 +75,5 @@ export const getOptimizedImageUrl = (url: string, width: number | string = "auto
 
   return url;
 };
-
-export const favouritePost = (id: number) => api.post(`/api/posts/${id}/favourite`);
-export const getFavourites = (userId: number) => api.get(`/api/users/${userId}/favourites`);
 
 export default api;

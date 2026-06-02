@@ -6,6 +6,14 @@ import api from "../lib/api";
 import { User, UserStories, Story } from "../types";
 import { toast } from "react-toastify";
 
+// Read once at module load, not on every render
+let _cachedCurrentUser: User | null = null;
+const getCurrentUser = (): User => {
+  if (_cachedCurrentUser) return _cachedCurrentUser;
+  try { _cachedCurrentUser = JSON.parse(localStorage.getItem("ehh_user") || "{}") as User; } catch { _cachedCurrentUser = {} as User; }
+  return _cachedCurrentUser;
+};
+
 export default function StoriesRow() {
   const [groupedStories, setGroupedStories] = useState<UserStories[]>([]);
   const [loading, setLoading] = useState(true);
@@ -14,8 +22,7 @@ export default function StoriesRow() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentUserStr = localStorage.getItem("ehh_user");
-  const currentUser: User = currentUserStr ? JSON.parse(currentUserStr) : ({} as User);
+  const currentUser = getCurrentUser();
 
   const fetchStories = async () => {
     try {

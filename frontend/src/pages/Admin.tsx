@@ -6,15 +6,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { 
-  LayoutDashboard, Users, UserX, Image as ImageIcon, 
+import {
+  LayoutDashboard, Users, UserX, Image as ImageIcon,
   Flag, List, LogOut, Trash2, ShieldAlert,
-  Search, CheckCircle2, AlertTriangle, Fingerprint,
-  Zap, Database, Activity, ChevronRight, Download, Eye,
-  Settings, Bell, Search as SearchIcon
+  Search, AlertTriangle, Zap, Database, ChevronRight, Eye
 } from "lucide-react";
-
-const getHeaders = () => ({});
 
 export default function Admin({ onComplete }: { onComplete: () => void }) {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -24,18 +20,17 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
   
   useEffect(() => {
     if (activeTab === "dashboard") {
-      api.get("/admin/stats", { headers: getHeaders() })
+      api.get("/admin/stats")
         .then(res => {
           setStats(res.data);
           setError(null);
         })
-        .catch(err => { 
+        .catch(err => {
           if(err.response?.status === 403) {
             setError("Access Restricted: Level 5 clearance required.");
           } else {
             setError("Network Failure: Could not establish secure link.");
           }
-          console.error(err); 
         });
     }
   }, [activeTab]);
@@ -67,7 +62,7 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
           <SidebarButton active={activeTab === "posts"} onClick={() => setActiveTab("posts")} icon={<Database size={20}/>} label="Network Signals" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "users"} onClick={() => setActiveTab("users")} icon={<Users size={20}/>} label="User Registry" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "flags"} onClick={() => setActiveTab("flags")} icon={<Flag size={20}/>} label="Incident Reports" collapsed={!sidebarOpen} />
-          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<SearchIcon size={20}/>} label="Signal Trace" collapsed={!sidebarOpen} />
+          <SidebarButton active={activeTab === "images"} onClick={() => setActiveTab("images")} icon={<Search size={20}/>} label="Signal Trace" collapsed={!sidebarOpen} />
           <SidebarButton active={activeTab === "logs"} onClick={() => setActiveTab("logs")} icon={<List size={20}/>} label="Audit Logs" collapsed={!sidebarOpen} />
         </nav>
 
@@ -118,11 +113,12 @@ export default function Admin({ onComplete }: { onComplete: () => void }) {
           <AnimatePresence mode="wait">
             {activeTab === "dashboard" && stats && (
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} key="dashboard" className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
                   <StatCard title="Global Users" value={stats.totalUsers} icon={<Users />} trend="+12%" />
                   <StatCard title="Active Signals" value={stats.totalPosts} icon={<Database />} trend="+8%" />
                   <StatCard title="Security Alerts" value={stats.flaggedCount || 0} icon={<Flag />} color={stats.flaggedCount > 0 ? "text-red-500" : "text-green-500"} />
                   <StatCard title="Eco Points" value={stats.totalPoints || "42.8k"} icon={<Zap />} color="text-yellow-500" trend="+2.4k today" />
+                  <StatCard title="AI Generated Posts Detected" value={stats.aiGeneratedPosts || 0} icon={<AlertTriangle />} color={stats.aiGeneratedPosts > 0 ? "text-amber-500" : "text-green-500"} />
                 </div>
                 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-10">
@@ -239,7 +235,7 @@ function UsersManager() {
   const [banModal, setBanModal] = useState<any>(null);
 
   const fetchUsers = () => {
-    api.get("/admin/users", { headers: getHeaders() })
+    api.get("/admin/users")
       .then(res => setUsers(res.data))
       .catch(() => toast.error("Could not load users."));
   };
@@ -248,10 +244,10 @@ function UsersManager() {
 
   const handleBan = async (id: number, durationDays: number, reason: string) => {
     try {
-      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
+      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason });
       toast.success(res.data.message || "User banned successfully.");
       setBanModal(null);
-      fetchUsers(); // refresh list to show updated strike count
+      fetchUsers();
     } catch {
       toast.error("Process failed.");
     }
@@ -429,7 +425,7 @@ function ImageTrace() {
     formData.append("images", file);
 
     try {
-      const res = await api.post("/admin/scan", formData, { headers: getHeaders() });
+      const res = await api.post("/admin/scan", formData);
       setMatchResult(res.data);
     } catch (err: any) {
       toast.error("Scan Failed");
@@ -494,7 +490,7 @@ function ImageTrace() {
                         onClick={async () => {
                           if(!confirm("CRITICAL: This will permanently delete ALL matching images across the platform. Proceed?")) return;
                           try {
-                            const res = await api.delete(`/admin/delete/${matchResult.allMatches[0].postId}`, { headers: getHeaders() });
+                            const res = await api.delete(`/admin/delete/${matchResult.allMatches[0].postId}`);
                             toast.success(`Nuked ${res.data.count} identical images from the network!`);
                             setMatchResult(null);
                             setPreview(null);
@@ -541,12 +537,11 @@ function ImageTrace() {
 
 function NetworkSignals() {
   const [posts, setPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const fetchPosts = () => {
-    api.get("/admin/posts", { headers: getHeaders() })
-      .then(res => { setPosts(res.data); setLoading(false); })
-      .catch(() => { toast.error("Posts Load Failure"); setLoading(false); });
+    api.get("/admin/posts")
+      .then(res => setPosts(res.data))
+      .catch(() => toast.error("Posts Load Failure"));
   };
 
   useEffect(() => { fetchPosts(); }, []);
@@ -554,7 +549,7 @@ function NetworkSignals() {
   const deletePost = async (id: number) => {
     if (!confirm("Are you sure you want to permanently delete this post?")) return;
     try {
-      await api.delete(`/admin/posts/${id}`, { headers: getHeaders() });
+      await api.delete(`/admin/posts/${id}`);
       toast.success("Post deleted");
       fetchPosts();
     } catch {
@@ -613,20 +608,19 @@ function NetworkSignals() {
 
 function FlaggedContent() {
   const [flags, setFlags] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [banModal, setBanModal] = useState<any>(null);
 
   const fetchFlags = () => {
-    api.get("/admin/flags", { headers: getHeaders() })
-      .then(res => { setFlags(res.data); setLoading(false); })
-      .catch(() => { toast.error("Report Load Failure"); setLoading(false); });
+    api.get("/admin/flags")
+      .then(res => setFlags(res.data))
+      .catch(() => toast.error("Report Load Failure"));
   };
 
   useEffect(() => { fetchFlags(); }, []);
 
   const resolveFlag = async (id: number, action: "KEEP" | "WIPE") => {
     try {
-      await api.post(`/admin/flags/${id}/resolve`, { action }, { headers: getHeaders() });
+      await api.post(`/admin/flags/${id}/resolve`, { action });
       toast.success("Incident Resolved");
       fetchFlags();
     } catch {
@@ -636,7 +630,7 @@ function FlaggedContent() {
 
   const handleBan = async (id: number, durationDays: number, reason: string) => {
     try {
-      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason }, { headers: getHeaders() });
+      const res = await api.post(`/admin/users/${id}/ban`, { durationDays, reason });
       toast.success(res.data.message || "User restricted successfully.");
       setBanModal(null);
       fetchFlags();
@@ -757,7 +751,7 @@ function SystemPulse() {
   const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
-    api.get("/admin/logs", { headers: getHeaders() }).then(res => setLogs(res.data)).catch();
+    api.get("/admin/logs").then(res => setLogs(res.data)).catch(() => {});
   }, []);
 
   return (

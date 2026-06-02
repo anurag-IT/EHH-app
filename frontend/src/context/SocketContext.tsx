@@ -39,9 +39,11 @@ export const SocketProvider: React.FC<{ user: User | null; children: React.React
     const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
     const newSocket = io(socketUrl, {
       path: '/socket.io',
-      transports: ['polling', 'websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      transports: ['websocket', 'polling'], // WebSocket first — much faster than starting with polling
+      reconnectionAttempts: 10,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 3000,
+      timeout: 10000,
       auth: { token }
     });
 

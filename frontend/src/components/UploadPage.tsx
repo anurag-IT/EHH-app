@@ -62,7 +62,6 @@ export default function UploadPage({ onComplete, userId }: UploadPageProps) {
       formData.append("caption", caption);
       formData.append("location", location);
 
-      console.log(`[FRONTEND] Uploading ${files.length} images to server...`);
       const res = await api.post("/api/posts", formData);
       onComplete(res.data.post || res.data);
     } catch (err: any) {

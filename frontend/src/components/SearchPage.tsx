@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import { 
+import {
   Search, 
   Image as ImageIcon, 
   CheckCircle2, 

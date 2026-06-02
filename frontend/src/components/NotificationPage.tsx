@@ -54,9 +54,7 @@ export default function NotificationPage({ user, onRead }: NotificationPageProps
        await api.post(`/api/notifications/${notificationId}/read`);
        fetchNotifications();
        onRead();
-    } catch (err) {
-       console.error("Action failed", err);
-    }
+    } catch {}
   };
 
   const getIcon = (type: string) => {
